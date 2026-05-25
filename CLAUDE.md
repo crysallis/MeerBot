@@ -50,9 +50,18 @@ Defined in `utils/scheduledMessages.js` MESSAGES array. Each entry has:
 - `name` · unique key used for scheduler_log dedup
 - `channelEnv` · env var name holding the channel ID
 - `utcHour/utcMinute` · when to fire
-- `maxLateMinutes` · skip entirely if bot was down longer than this (daily_reset = 120)
+- `maxLateMinutes` · skip entirely if bot was down longer than this
 
 Global thresholds in `config.js`: `lateWarningMinutes = 30` (adds late footer to embed).
+
+### Current messages
+| name | channel env | time UTC | maxLate |
+|---|---|---|---|
+| `daily_reset` | `GENERAL_CHANNEL_ID` | 00:00 | 120 min |
+
+## Environment Notes
+- Node.js v21.7.1 · technically outside better-sqlite3's supported range (20/22/24+) but works fine · don't suggest a Node upgrade just because of the EBADENGINE warning
+- `GENERAL_CHANNEL_ID` env var · general channel for scheduled messages (1229548159081123893)
 
 ## Key Decisions Made
 - `set_by` fields store Discord user ID, displayed as `<@id> / ingame_name`
