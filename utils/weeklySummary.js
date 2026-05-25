@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('./db');
+const { logJobRun } = require('./jobLog');
 
 function fmtPower(val) {
     if (!val) return '—';
@@ -70,6 +71,8 @@ async function postWeeklySummary(client, channelId) {
         await channel.send({ embeds: [embed] });
     } catch (err) {
         console.error('Weekly summary error:', err);
+    } finally {
+        logJobRun('weekly_summary');
     }
 }
 

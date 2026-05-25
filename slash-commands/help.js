@@ -52,6 +52,12 @@ const COMMANDS = {
             { name: '/scan', desc: 'Navigates to the guild member list, scrapes all data, and saves a snapshot. Authorized user only.' },
         ],
     },
+    schedule: {
+        description: 'View all scheduled jobs (daily reset, AFK expiry, birthday check, scan reminder, weekly summary) with last/next run times. Authorized user only.',
+        subcommands: [
+            { name: '/schedule', desc: 'Ephemeral embed showing all 5 jobs, when they last ran, and when they next fire.' },
+        ],
+    },
     rename: {
         description: 'Rename a guild member in the database (admin only).',
         subcommands: [
@@ -86,6 +92,7 @@ function visibleCommands(interaction) {
     return Object.keys(COMMANDS).filter(k => {
         if (ADMIN_COMMANDS.has(k)) return admin;
         if (k === 'scan') return isScanUser || admin;
+        if (k === 'schedule') return isScanUser;
         return true;
     });
 }
@@ -120,6 +127,9 @@ module.exports = {
             if (cmd === 'scan' && !isScanUser && !admin) {
                 return interaction.reply({ content: `You don't have access to \`/scan\`.`, flags: MessageFlags.Ephemeral });
             }
+            if (cmd === 'schedule' && !isScanUser) {
+                return interaction.reply({ content: `You don't have access to \`/schedule\`.`, flags: MessageFlags.Ephemeral });
+            }
             const info = COMMANDS[cmd];
             if (!info) {
                 return interaction.reply({ content: `Unknown command \`/${cmd}\`.`, flags: MessageFlags.Ephemeral });
@@ -142,6 +152,9 @@ module.exports = {
 
         if (isScanUser || admin) {
             fields.push({ name: '/scan', value: 'Trigger a guild scan (authorized user only)' });
+        }
+        if (isScanUser) {
+            fields.push({ name: '/schedule', value: 'View scheduled jobs and last/next runs' });
         }
         if (admin) {
             fields.push(

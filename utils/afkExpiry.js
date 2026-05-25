@@ -1,43 +1,48 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('./db');
+const { logJobRun } = require('./jobLog');
 
 async function checkAfkExpiry(client) {
-    const channelId = process.env.INACTIVITY_ALERT_CHANNEL_ID;
-    if (!channelId) return;
-
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-
-    const expired = db.prepare(`
-        SELECT m.ingame_name, afk.reason, afk.return_date, afk.set_by
-        FROM member_afk afk
-        JOIN members m ON m.id = afk.member_id
-        WHERE afk.return_date IS NOT NULL AND afk.return_date < ?
-    `).all(today);
-
-    if (expired.length === 0) return;
-
-    db.prepare(`
-        DELETE FROM member_afk
-        WHERE return_date IS NOT NULL AND return_date < ?
-    `).run(today);
-
-    const lines = expired.map(r => {
-        let line = `· **${r.ingame_name}** · return date was ${r.return_date}`;
-        if (r.reason) line += ` · ${r.reason}`;
-        return line;
-    });
-
     try {
-        const channel = await client.channels.fetch(channelId);
-        await channel.send({ embeds: [
-            new EmbedBuilder()
-                .setTitle(`✈️ AFK period ended · ${expired.length} member${expired.length === 1 ? '' : 's'} returned`)
-                .setDescription(lines.join('\n'))
-                .setFooter({ text: 'AFK status cleared automatically · use /afk set again if still away' })
-                .setColor(0x2ecc71),
-        ]});
-    } catch (err) {
-        console.error('AFK expiry notification error:', err);
+        const channelId = process.env.INACTIVITY_ALERT_CHANNEL_ID;
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+        const expired = db.prepare(`
+            SELECT m.ingame_name, afk.reason, afk.return_date, afk.set_by
+            FROM member_afk afk
+            JOIN members m ON m.id = afk.member_id
+            WHERE afk.return_date IS NOT NULL AND afk.return_date < ?
+        `).all(today);
+
+        if (expired.length === 0) return;
+
+        db.prepare(`
+            DELETE FROM member_afk
+            WHERE return_date IS NOT NULL AND return_date < ?
+        `).run(today);
+
+        if (!channelId) return;
+
+        const lines = expired.map(r => {
+            let line = `· **${r.ingame_name}** · return date was ${r.return_date}`;
+            if (r.reason) line += ` · ${r.reason}`;
+            return line;
+        });
+
+        try {
+            const channel = await client.channels.fetch(channelId);
+            await channel.send({ embeds: [
+                new EmbedBuilder()
+                    .setTitle(`✈️ AFK period ended · ${expired.length} member${expired.length === 1 ? '' : 's'} returned`)
+                    .setDescription(lines.join('\n'))
+                    .setFooter({ text: 'AFK status cleared automatically · use /afk set again if still away' })
+                    .setColor(0x2ecc71),
+            ]});
+        } catch (err) {
+            console.error('AFK expiry notification error:', err);
+        }
+    } finally {
+        logJobRun('afk_expiry');
     }
 }
 

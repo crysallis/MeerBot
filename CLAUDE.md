@@ -24,6 +24,7 @@ pm2 logs meerbot --lines 20 --nostream
 | `utils/scanReminder.js` | Daily 20:00 UTC · pings authorized user to run /scan |
 | `utils/birthdayCheck.js` | Daily at midnight · checks birthday table, posts embed |
 | `utils/commandLogger.js` | Posts a Dyno-style audit embed for every slash command to `COMMAND_LOG_CHANNEL_ID` |
+| `utils/jobLog.js` | Shared helper · scheduled jobs call `logJobRun(name)` to record runs in `scheduler_log` |
 
 ## Slash Commands
 | Command | Notes |
@@ -37,6 +38,7 @@ pm2 logs meerbot --lines 20 --nostream
 | `/rename` | Corrects an in-game name (updates name_corrections table) |
 | `/note` | Adds/views notes on a member |
 | `/birthday` | Birthday registration + test subcommand |
+| `/schedule` | View scheduled jobs with last/next runs · restricted to SCAN_AUTHORIZED_USER, ephemeral |
 
 ## Database Tables (key ones)
 - `members` · ingame_name, discord_id, first_seen

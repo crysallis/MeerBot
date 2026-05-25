@@ -2,6 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const db = require('./db');
+const { logJobRun } = require('./jobLog');
 
 const WISHES_PATH = path.join(__dirname, '../data/birthday-wishes.json');
 
@@ -108,21 +109,24 @@ async function checkBirthdays(client) {
         const day   = today.getUTCDate();
 
         const birthdays = db.prepare('SELECT * FROM birthdays WHERE month = ? AND day = ?').all(month, day);
-        if (!birthdays.length) return;
 
-        const channelId = process.env.BIRTHDAY_CHANNEL_ID;
-        if (!channelId) return;
-
-        const channel = await client.channels.fetch(channelId).catch(() => null);
-        if (!channel?.isTextBased()) return;
-
-        for (const bday of birthdays) {
-            const { content, embed, displayName } = buildBirthdayEmbed(bday.user_id, bday.username, bday.month, bday.day);
-            await channel.send({ content, embeds: [embed] });
-            console.log(`[Birthday] Sent for ${displayName}`);
+        if (birthdays.length) {
+            const channelId = process.env.BIRTHDAY_CHANNEL_ID;
+            if (channelId) {
+                const channel = await client.channels.fetch(channelId).catch(() => null);
+                if (channel?.isTextBased()) {
+                    for (const bday of birthdays) {
+                        const { content, embed, displayName } = buildBirthdayEmbed(bday.user_id, bday.username, bday.month, bday.day);
+                        await channel.send({ content, embeds: [embed] });
+                        console.log(`[Birthday] Sent for ${displayName}`);
+                    }
+                }
+            }
         }
     } catch (err) {
         console.error('[Birthday Check] Error:', err);
+    } finally {
+        logJobRun('birthday_check');
     }
 }
 

@@ -89,6 +89,7 @@ pm2 restart meerbot --update-env
 | Command | Description |
 |---|---|
 | `/scan` | Trigger a live guild scrape (authorized user only) |
+| `/schedule` | View all scheduled jobs with last/next runs (authorized user only, ephemeral) |
 | `/rename old: new:` | Rename a member, logs history and adds name correction |
 | `/note add name: text:` | Add a note to a member |
 | `/note view name:` | View all notes for a member |
@@ -136,6 +137,7 @@ MeerBot/
         birthday.js             /birthday register/list/remove/test.
         help.js                 /help with permission-aware filtering.
         ping.js                 /ping health check with tiered quips.
+        schedule.js             /schedule view all jobs with last/next runs.
     utils/
         db.js                   SQLite connection, schema creation, idempotent migrations.
         birthdayCheck.js        Birthday embed builder and scheduler.
@@ -143,6 +145,8 @@ MeerBot/
         weeklySummary.js        Monday weekly summary scheduler.
         afkExpiry.js            Daily clearing of expired AFK records.
         scheduledMessages.js    Date-deduped timed auto-posts (e.g. daily reset).
+        commandLogger.js        Audit log for every slash command invocation.
+        jobLog.js               Shared helper for scheduled jobs to record runs.
     scripts/
         sync-join-dates.js      One-time backfill of first_seen from Discord join dates.
     data/
