@@ -7,6 +7,7 @@ const { scheduleScanReminder } = require('./utils/scanReminder');
 const { scheduleWeeklySummary } = require('./utils/weeklySummary');
 const { scheduleAfkExpiry } = require('./utils/afkExpiry');
 const { scheduleMessages } = require('./utils/scheduledMessages');
+const { logCommand } = require('./utils/commandLogger');
 const { rateLimit } = require('./config');
 
 require('./utils/db');
@@ -72,6 +73,8 @@ client.on('interactionCreate', async interaction => {
     console.warn(`[RateLimit] Blocked /${interaction.commandName} from ${interaction.user.tag}`);
     return interaction.reply({ content: 'The bot is receiving too many commands right now... please try again in a moment.', flags: MessageFlags.Ephemeral });
   }
+
+  logCommand(interaction);
 
   try {
     await cmd.execute(interaction);

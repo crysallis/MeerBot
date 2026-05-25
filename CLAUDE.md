@@ -23,6 +23,7 @@ pm2 logs meerbot --lines 20 --nostream
 | `utils/weeklySummary.js` | Monday 09:00 UTC · power growth summary embed |
 | `utils/scanReminder.js` | Daily 20:00 UTC · pings authorized user to run /scan |
 | `utils/birthdayCheck.js` | Daily at midnight · checks birthday table, posts embed |
+| `utils/commandLogger.js` | Posts a Dyno-style audit embed for every slash command to `COMMAND_LOG_CHANNEL_ID` |
 
 ## Slash Commands
 | Command | Notes |
@@ -62,6 +63,7 @@ Global thresholds in `config.js`: `lateWarningMinutes = 30` (adds late footer to
 ## Environment Notes
 - Node.js v21.7.1 · technically outside better-sqlite3's supported range (20/22/24+) but works fine · don't suggest a Node upgrade just because of the EBADENGINE warning
 - `GENERAL_CHANNEL_ID` env var · general channel for scheduled messages (1229548159081123893)
+- `COMMAND_LOG_CHANNEL_ID` env var · bot-chatter channel for command audit log (1343099233045184594)
 
 ## Key Decisions Made
 - `set_by` fields store Discord user ID, displayed as `<@id> / ingame_name`

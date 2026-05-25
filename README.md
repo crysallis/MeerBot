@@ -54,6 +54,7 @@ pm2 restart meerbot --update-env
 | `BIRTHDAY_CHANNEL_ID` | Channel to post birthday messages |
 | `INACTIVITY_ALERT_CHANNEL_ID` | Channel to post post-scan inactivity alerts |
 | `GENERAL_CHANNEL_ID` | Channel for scheduled auto-posts (e.g. daily reset reminder) |
+| `COMMAND_LOG_CHANNEL_ID` | Channel to post a Dyno-style audit log for every slash command run |
 | `SCRAPER_PYTHON` | Full path to the venv Python executable |
 | `SCRAPER_SCRIPT` | Full path to `scraper.py` |
 
