@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 
 const upsertCorrection = db.prepare(`
@@ -69,7 +69,7 @@ module.exports = {
                 if (!member.permissions.has(PermissionFlagsBits.ManageGuild)) {
                     return interaction.reply({
                         content: 'You need **Manage Server** permission to link other members.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -81,8 +81,8 @@ module.exports = {
             const found = knownNames.some(n => n.toLowerCase() === ingameName.toLowerCase());
             if (!found) {
                 await interaction.reply({
-                    content: `⚠️ **${ingameName}** wasn't found in the latest guild snapshot — double-check the spelling. Linked anyway.`,
-                    ephemeral: true
+                    content: `⚠️ **${ingameName}** wasn't found in the latest guild snapshot · double-check the spelling. Linked anyway.`,
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -91,17 +91,17 @@ module.exports = {
             const who = targetUser ? `<@${linkTarget.id}>` : 'You';
             const msg = found
                 ? `✅ ${who} linked to in-game name **${ingameName}**.`
-                : `⚠️ ${who} linked to **${ingameName}** (not in latest snapshot — verify spelling).`;
+                : `⚠️ ${who} linked to **${ingameName}** (not in latest snapshot · verify spelling).`;
 
             if (interaction.replied) {
-                await interaction.followUp({ content: msg, ephemeral: true });
+                await interaction.followUp({ content: msg, flags: MessageFlags.Ephemeral });
             } else {
-                await interaction.reply({ content: msg, ephemeral: true });
+                await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
             }
         } catch (err) {
             console.error('Link command error:', err);
             const msg = 'Failed to link account.';
-            if (!interaction.replied) await interaction.reply({ content: msg, ephemeral: true });
+            if (!interaction.replied) await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
             else await interaction.editReply(msg);
         }
     }

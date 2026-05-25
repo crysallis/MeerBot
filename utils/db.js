@@ -43,6 +43,24 @@ db.exec(`
     correct_name TEXT NOT NULL,
     source       TEXT NOT NULL DEFAULT 'ocr'
   );
+
+  CREATE TABLE IF NOT EXISTS member_notes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id   INTEGER NOT NULL REFERENCES members(id),
+    note        TEXT NOT NULL,
+    created_by  TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_notes_member ON member_notes(member_id);
+
+  CREATE TABLE IF NOT EXISTS member_afk (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id   INTEGER NOT NULL UNIQUE REFERENCES members(id),
+    reason      TEXT,
+    return_date TEXT,
+    set_by      TEXT NOT NULL,
+    set_at      TEXT NOT NULL
+  );
 `);
 
 module.exports = db;

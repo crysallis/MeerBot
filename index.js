@@ -1,72 +1,54 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, MessageFlags } = require('discord.js');
 const { scheduleBirthdayCheck } = require('./utils/birthdayCheck');
+const { scheduleScanReminder } = require('./utils/scanReminder');
+const { scheduleWeeklySummary } = require('./utils/weeklySummary');
 
-// Initialize SQLite (creates tables if needed)
 require('./utils/db');
 
-const prefix = process.env.PREFIX || '!';
 const token = process.env.DISCORD_TOKEN;
 
+// Global sliding window rate limit — max 20 commands per 60 seconds across all users
+const RATE_WINDOW_MS  = 60_000;
+const RATE_MAX        = 20;
+const cmdTimestamps   = [];
+
+function isRateLimited() {
+  const now = Date.now();
+  while (cmdTimestamps.length && cmdTimestamps[0] < now - RATE_WINDOW_MS) {
+    cmdTimestamps.shift();
+  }
+  if (cmdTimestamps.length >= RATE_MAX) return true;
+  cmdTimestamps.push(now);
+  return false;
+}
+
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+  intents: [GatewayIntentBits.Guilds]
 });
 
-client.commands = new Map();
 client.slashCommands = new Map();
 
 const slashPath = path.join(__dirname, 'slash-commands');
-if (fs.existsSync(slashPath)) {
-  for (const file of fs.readdirSync(slashPath).filter(f => f.endsWith('.js'))) {
-    try {
-      const cmd = require(path.join(slashPath, file));
-      if (cmd?.data && typeof cmd.execute === 'function') {
-        client.slashCommands.set(cmd.data.name, cmd);
-        console.log(`Loaded slash command: ${cmd.data.name}`);
-      }
-    } catch (err) {
-      console.error(`Failed to load slash command ${file}:`, err);
+for (const file of fs.readdirSync(slashPath).filter(f => f.endsWith('.js'))) {
+  try {
+    const cmd = require(path.join(slashPath, file));
+    if (cmd?.data && typeof cmd.execute === 'function') {
+      client.slashCommands.set(cmd.data.name, cmd);
+      console.log(`Loaded: ${cmd.data.name}`);
     }
-  }
-}
-
-const commandsPath = path.join(__dirname, 'commands');
-if (fs.existsSync(commandsPath)) {
-  for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'))) {
-    try {
-      const cmd = require(path.join(commandsPath, file));
-      if (cmd?.name && typeof cmd.execute === 'function') {
-        client.commands.set(cmd.name, cmd);
-        console.log(`Loaded command: ${cmd.name}`);
-      }
-    } catch (err) {
-      console.error(`Failed to load command ${file}:`, err);
-    }
+  } catch (err) {
+    console.error(`Failed to load ${file}:`, err);
   }
 }
 
 client.once('clientReady', () => {
   console.log(`Ready. Logged in as ${client.user?.tag}`);
   scheduleBirthdayCheck(client);
-});
-
-client.on('messageCreate', async message => {
-  if (message.author.bot) return;
-  if (!message.content.startsWith(prefix)) return;
-
-  const args = message.content.slice(prefix.length).trim().split(/\s+/);
-  const cmdName = args.shift().toLowerCase();
-  const cmd = client.commands.get(cmdName);
-  if (!cmd) return;
-
-  try {
-    await cmd.execute(message, args);
-  } catch (err) {
-    console.error('Command error:', err);
-    message.reply('There was an error while executing that command.');
-  }
+  scheduleScanReminder(client);
+  scheduleWeeklySummary(client);
 });
 
 client.on('interactionCreate', async interaction => {
@@ -83,6 +65,11 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   const cmd = client.slashCommands.get(interaction.commandName);
   if (!cmd) return;
+
+  if (isRateLimited()) {
+    console.warn(`[RateLimit] Blocked /${interaction.commandName} from ${interaction.user.tag}`);
+    return interaction.reply({ content: 'The bot is receiving too many commands right now... please try again in a moment.', flags: MessageFlags.Ephemeral });
+  }
 
   try {
     await cmd.execute(interaction);
@@ -101,14 +88,10 @@ if (token) {
   (async () => {
     try {
       if (process.env.DEV_REGISTER === 'true') {
-        try {
-          const deploy = require('./deploy-commands');
-          if (typeof deploy.registerCommands === 'function') {
-            console.log('DEV_REGISTER: registering slash commands...');
-            await deploy.registerCommands();
-          }
-        } catch (e) {
-          console.error('Command registration failed:', e);
+        const deploy = require('./deploy-commands');
+        if (typeof deploy.registerCommands === 'function') {
+          console.log('DEV_REGISTER: registering slash commands...');
+          await deploy.registerCommands();
         }
       }
       await client.login(token);
@@ -116,6 +99,4 @@ if (token) {
       console.error('Login failed:', err);
     }
   })();
-} else {
-  console.log('DISCORD_TOKEN not set. Skipping login.');
 }
