@@ -299,7 +299,7 @@ async function handleChart(interaction, snapshot) {
         SELECT ms.member_id, m.ingame_name
         FROM member_snapshots ms
         JOIN members m ON m.id = ms.member_id
-        WHERE ms.snapshot_id = ?
+        WHERE ms.snapshot_id = ? AND m.active = 1
         ORDER BY ms.combat_power_value DESC
         LIMIT ?
     `).all(snapshot.id, n);

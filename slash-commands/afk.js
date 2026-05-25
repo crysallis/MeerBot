@@ -7,8 +7,10 @@ function getMemberByName(name) {
 
 function getLatestNames() {
     return db.prepare(`
-        SELECT DISTINCT name FROM member_snapshots
-        WHERE snapshot_id = (SELECT MAX(id) FROM snapshots)
+        SELECT DISTINCT ms.name FROM member_snapshots ms
+        JOIN members m ON m.id = ms.member_id
+        WHERE ms.snapshot_id = (SELECT MAX(id) FROM snapshots)
+          AND m.active = 1
     `).all().map(r => r.name);
 }
 

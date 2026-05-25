@@ -41,14 +41,17 @@ async function postWeeklySummary(client, channelId) {
                 SELECT ms2.name, ms2.combat_power_value, ms2.activeness,
                        (ms2.combat_power_value - COALESCE(ms1.combat_power_value, 0)) AS growth
                 FROM member_snapshots ms2
+                JOIN members m ON m.id = ms2.member_id AND m.active = 1
                 LEFT JOIN member_snapshots ms1 ON ms1.member_id = ms2.member_id AND ms1.snapshot_id = ?
                 WHERE ms2.snapshot_id = ?
                 ORDER BY growth DESC, ms2.combat_power_value DESC
               `).all(prev.id, latest.id)
             : db.prepare(`
-                SELECT name, combat_power_value, activeness, 0 AS growth
-                FROM member_snapshots WHERE snapshot_id = ?
-                ORDER BY combat_power_value DESC
+                SELECT ms.name, ms.combat_power_value, ms.activeness, 0 AS growth
+                FROM member_snapshots ms
+                JOIN members m ON m.id = ms.member_id AND m.active = 1
+                WHERE ms.snapshot_id = ?
+                ORDER BY ms.combat_power_value DESC
               `).all(latest.id);
 
         const lines = rows.map((r, i) => {

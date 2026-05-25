@@ -72,6 +72,9 @@ db.exec(`
   );
 `);
 
+// Idempotent migrations
+try { db.exec('ALTER TABLE members ADD COLUMN active INTEGER NOT NULL DEFAULT 0'); } catch {}
+
 // Idempotent migrations for scheduler_log
 for (const sql of [
     'ALTER TABLE scheduler_log ADD COLUMN id INTEGER',
