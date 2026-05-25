@@ -53,6 +53,7 @@ pm2 restart meerbot --update-env
 | `WEEKLY_SUMMARY_TIME` | Time to post summary in `HH:MM` UTC (e.g. `09:00`) |
 | `BIRTHDAY_CHANNEL_ID` | Channel to post birthday messages |
 | `INACTIVITY_ALERT_CHANNEL_ID` | Channel to post post-scan inactivity alerts |
+| `GENERAL_CHANNEL_ID` | Channel for scheduled auto-posts (e.g. daily reset reminder) |
 | `SCRAPER_PYTHON` | Full path to the venv Python executable |
 | `SCRAPER_SCRIPT` | Full path to `scraper.py` |
 
@@ -79,6 +80,8 @@ pm2 restart meerbot --update-env
 | `/birthday register` | Register your birthday (month/day) |
 | `/birthday list` | List all registered birthdays |
 | `/birthday remove` | Remove your birthday |
+| `/ping` | Latency check with a tiered fun comment |
+| `/help` | Show all commands (filtered by your permissions) |
 
 ### Admin commands (Manage Server permission required)
 
@@ -109,17 +112,20 @@ List commands show badges inline with member names:
 | Birthday check | Daily at UTC midnight | Posts birthday embed for any member with a birthday today |
 | Scan reminder | Daily at `SCAN_REMINDER_TIME` | Reminds the authorized user to run a scan |
 | Weekly summary | Mondays at `WEEKLY_SUMMARY_TIME` | Posts power/growth summary for the whole guild |
+| AFK expiry | Daily at UTC midnight | Clears AFK records past their return date and notifies the inactivity channel |
+| Scheduled messages | Per entry in `utils/scheduledMessages.js` | Date-deduped auto-posts (e.g. daily reset reminder at 00:00 UTC). Includes startup catch-up and late-footer if fired late |
 
 ---
 
 ## Project structure
 
 ```
-DiscordBotAfkJ/
+MeerBot/
     index.js                    Entry point. Loads commands, handles interactions, rate limiter.
     deploy-commands.js          Registers slash commands with Discord API.
+    config.js                   Central tuneable parameters (rate limit, ping tiers, late warning).
     slash-commands/
-        guild.js                All /guild subcommands.
+        guild.js                All /guild subcommands incl. chart.
         member.js               /member lookup with autocomplete.
         link.js                 /link with autocomplete.
         scan.js                 /scan + post-scan inactivity alert.
@@ -128,12 +134,16 @@ DiscordBotAfkJ/
         afk.js                  /afk set/clear/list.
         birthday.js             /birthday register/list/remove/test.
         help.js                 /help with permission-aware filtering.
-        ping.js                 /ping health check.
+        ping.js                 /ping health check with tiered quips.
     utils/
-        db.js                   SQLite connection, schema creation.
+        db.js                   SQLite connection, schema creation, idempotent migrations.
         birthdayCheck.js        Birthday embed builder and scheduler.
         scanReminder.js         Daily scan reminder scheduler.
         weeklySummary.js        Monday weekly summary scheduler.
+        afkExpiry.js            Daily clearing of expired AFK records.
+        scheduledMessages.js    Date-deduped timed auto-posts (e.g. daily reset).
+    scripts/
+        sync-join-dates.js      One-time backfill of first_seen from Discord join dates.
     data/
         birthday-wishes.json    Rotating birthday wish messages (editable without restart).
     .env                        Environment variables (not committed to git).

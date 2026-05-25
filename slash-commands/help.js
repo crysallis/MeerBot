@@ -23,6 +23,13 @@ const COMMANDS = {
             { name: '/guild nogrowth',     desc: 'Members with zero power growth vs previous snapshot' },
             { name: '/guild status',       desc: 'Guild summary: member count, total power, active counts, last scan time' },
             { name: '/guild newcomers',    desc: 'Members who were not in the previous snapshot' },
+            { name: '/guild chart number:', desc: 'Power growth line chart for current members over the last 10 scans. Optional N to limit to top N by power.' },
+        ],
+    },
+    ping: {
+        description: 'Health check with a fun latency tier comment.',
+        subcommands: [
+            { name: '/ping', desc: 'Replies with Pong and the measured message latency in ms.' },
         ],
     },
     member: {
@@ -127,9 +134,10 @@ module.exports = {
 
         const fields = [
             { name: '/birthday', value: 'Register · list · remove birthdays' },
-            { name: '/guild',    value: 'power · top · inactive · activeness · growth · nogrowth · status · newcomers' },
+            { name: '/guild',    value: 'power · top · inactive · activeness · growth · nogrowth · status · newcomers · chart' },
             { name: '/member',   value: 'Look up a member by name or @mention' },
             { name: '/link',     value: 'Link your Discord to your in-game name' },
+            { name: '/ping',     value: 'Latency check with a quip' },
         ];
 
         if (isScanUser || admin) {
