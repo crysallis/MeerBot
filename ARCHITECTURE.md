@@ -181,7 +181,7 @@ The `execute` handler also checks permissions before showing admin command detai
 
 ### birthday.js
 
-Day validation uses a hardcoded days-per-month array with February set to 29 (allowing leap year birthdays to be registered without requiring a year):
+Day validation uses a hardcoded days-per-month array with February set to 29 so leap-day birthdays (Feb 29) can still be registered:
 
 ```javascript
 const DAYS_IN_MONTH = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];

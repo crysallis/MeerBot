@@ -11,7 +11,7 @@ function validDay(month, day) {
 function dateStr(bday) {
     const month = bday.month.toString().padStart(2, '0');
     const day   = bday.day.toString().padStart(2, '0');
-    return bday.year ? `${bday.year}-${month}-${day}` : `${month}/${day}`;
+    return `${month}/${day}`;
 }
 
 module.exports = {
@@ -23,7 +23,6 @@ module.exports = {
             .setDescription('Register your birthday')
             .addIntegerOption(o => o.setName('month').setDescription('Month (1-12)').setRequired(true).setMinValue(1).setMaxValue(12))
             .addIntegerOption(o => o.setName('day').setDescription('Day (1-31)').setRequired(true).setMinValue(1).setMaxValue(31))
-            .addIntegerOption(o => o.setName('year').setDescription('Birth year (optional, stored privately)').setRequired(false).setMinValue(1900))
         )
         .addSubcommand(s => s
             .setName('list')
@@ -45,22 +44,21 @@ module.exports = {
         if (sub === 'register') {
             const month = interaction.options.getInteger('month');
             const day   = interaction.options.getInteger('day');
-            const year  = interaction.options.getInteger('year') ?? null;
 
             if (!validDay(month, day)) {
                 return interaction.reply({ content: `❌ ${month}/${day} is not a valid date.`, flags: MessageFlags.Ephemeral });
             }
 
             db.prepare(`
-                INSERT INTO birthdays (user_id, username, month, day, year, guild_id, registered_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO birthdays (user_id, username, month, day, guild_id, registered_at)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(user_id, guild_id) DO UPDATE SET
                     username = excluded.username, month = excluded.month,
-                    day = excluded.day, year = excluded.year,
+                    day = excluded.day,
                     registered_at = excluded.registered_at
-            `).run(interaction.user.id, interaction.user.username, month, day, year, interaction.guildId, new Date().toISOString());
+            `).run(interaction.user.id, interaction.user.username, month, day, interaction.guildId, new Date().toISOString());
 
-            return interaction.reply({ content: `🎂 Birthday registered: **${dateStr({ month, day, year })}**`, flags: MessageFlags.Ephemeral });
+            return interaction.reply({ content: `🎂 Birthday registered: **${dateStr({ month, day })}**`, flags: MessageFlags.Ephemeral });
         }
 
         if (sub === 'remove') {
@@ -83,7 +81,7 @@ module.exports = {
 
         if (sub === 'list') {
             const rows = db.prepare(`
-                SELECT b.user_id, b.month, b.day, b.year, m.ingame_name
+                SELECT b.user_id, b.month, b.day, m.ingame_name
                 FROM birthdays b
                 LEFT JOIN members m ON m.discord_id = b.user_id
                 WHERE b.guild_id = ?
@@ -101,8 +99,7 @@ module.exports = {
             const lines = rows.map(r => {
                 const isToday = r.month === tm && r.day === td;
                 const ingame  = r.ingame_name ? ` · *${r.ingame_name}*` : '';
-                const age     = r.year ? ` · ${today.getUTCFullYear() - r.year} this year` : '';
-                return `${isToday ? '🎂 ' : ''}<@${r.user_id}>${ingame} · ${dateStr(r)}${age}`;
+                return `${isToday ? '🎂 ' : ''}<@${r.user_id}>${ingame} · ${dateStr(r)}`;
             });
 
             return interaction.reply({ embeds: [

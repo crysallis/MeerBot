@@ -75,7 +75,7 @@ pm2 restart meerbot --update-env
 | `/member name:` | Stats and up to 8 weeks of history for a member |
 | `/member user:` | Same, but look up by @mention if the user is linked |
 | `/link ingame_name:` | Link your Discord account to your in-game name |
-| `/birthday register` | Register your birthday (month/day, year optional) |
+| `/birthday register` | Register your birthday (month/day) |
 | `/birthday list` | List all registered birthdays |
 | `/birthday remove` | Remove your birthday |
 

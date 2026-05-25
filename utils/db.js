@@ -13,7 +13,6 @@ db.exec(`
     username      TEXT,
     month         INTEGER NOT NULL,
     day           INTEGER NOT NULL,
-    year          INTEGER,
     guild_id      TEXT NOT NULL,
     registered_at TEXT NOT NULL,
     UNIQUE(user_id, guild_id)
@@ -74,6 +73,7 @@ db.exec(`
 
 // Idempotent migrations
 try { db.exec('ALTER TABLE members ADD COLUMN active INTEGER NOT NULL DEFAULT 0'); } catch {}
+try { db.exec('ALTER TABLE birthdays DROP COLUMN year'); } catch {}
 
 // Idempotent migrations for scheduler_log
 for (const sql of [

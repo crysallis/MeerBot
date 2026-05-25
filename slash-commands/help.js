@@ -7,7 +7,7 @@ const COMMANDS = {
     birthday: {
         description: 'Register and celebrate guild member birthdays.',
         subcommands: [
-            { name: '/birthday register month: day: year:', desc: 'Register your birthday. Year is optional. Day is validated against the month.' },
+            { name: '/birthday register month: day:', desc: 'Register your birthday. Day is validated against the month (Feb 29 is allowed for leap-day births).' },
             { name: '/birthday list',                       desc: 'List all registered birthdays, sorted by month/day. Shows in-game name if linked.' },
             { name: '/birthday remove',                     desc: 'Remove your registered birthday.' },
         ],
