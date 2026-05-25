@@ -72,6 +72,7 @@ pm2 restart meerbot --update-env
 | `/guild nogrowth` | Members with zero or negative power growth |
 | `/guild status` | Guild summary: member count, total power, active counts |
 | `/guild newcomers` | Members not present in the previous snapshot |
+| `/guild chart [number]` | Power growth line chart for current members over the last 10 scans |
 | `/member name:` | Stats and up to 8 weeks of history for a member |
 | `/member user:` | Same, but look up by @mention if the user is linked |
 | `/link ingame_name:` | Link your Discord account to your in-game name |
