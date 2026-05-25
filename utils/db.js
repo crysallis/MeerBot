@@ -61,6 +61,24 @@ db.exec(`
     set_by      TEXT NOT NULL,
     set_at      TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS scheduler_log (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    name      TEXT NOT NULL,
+    sent_date TEXT NOT NULL,
+    sent_at   TEXT NOT NULL DEFAULT '',
+    late      INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(name, sent_date)
+  );
 `);
+
+// Idempotent migrations for scheduler_log
+for (const sql of [
+    'ALTER TABLE scheduler_log ADD COLUMN id INTEGER',
+    'ALTER TABLE scheduler_log ADD COLUMN sent_at TEXT NOT NULL DEFAULT \'\'',
+    'ALTER TABLE scheduler_log ADD COLUMN late INTEGER NOT NULL DEFAULT 0',
+]) {
+    try { db.exec(sql); } catch { /* column already exists */ }
+}
 
 module.exports = db;

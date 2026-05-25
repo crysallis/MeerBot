@@ -5,22 +5,22 @@ const { Client, GatewayIntentBits, MessageFlags } = require('discord.js');
 const { scheduleBirthdayCheck } = require('./utils/birthdayCheck');
 const { scheduleScanReminder } = require('./utils/scanReminder');
 const { scheduleWeeklySummary } = require('./utils/weeklySummary');
+const { scheduleAfkExpiry } = require('./utils/afkExpiry');
+const { scheduleMessages } = require('./utils/scheduledMessages');
+const { rateLimit } = require('./config');
 
 require('./utils/db');
 
 const token = process.env.DISCORD_TOKEN;
 
-// Global sliding window rate limit — max 20 commands per 60 seconds across all users
-const RATE_WINDOW_MS  = 60_000;
-const RATE_MAX        = 20;
-const cmdTimestamps   = [];
+const cmdTimestamps = [];
 
 function isRateLimited() {
   const now = Date.now();
-  while (cmdTimestamps.length && cmdTimestamps[0] < now - RATE_WINDOW_MS) {
+  while (cmdTimestamps.length && cmdTimestamps[0] < now - rateLimit.windowMs) {
     cmdTimestamps.shift();
   }
-  if (cmdTimestamps.length >= RATE_MAX) return true;
+  if (cmdTimestamps.length >= rateLimit.maxCommands) return true;
   cmdTimestamps.push(now);
   return false;
 }
@@ -49,6 +49,8 @@ client.once('clientReady', () => {
   scheduleBirthdayCheck(client);
   scheduleScanReminder(client);
   scheduleWeeklySummary(client);
+  scheduleAfkExpiry(client);
+  scheduleMessages(client);
 });
 
 client.on('interactionCreate', async interaction => {

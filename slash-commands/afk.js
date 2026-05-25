@@ -65,7 +65,7 @@ module.exports = {
             db.prepare(`
                 INSERT OR REPLACE INTO member_afk (member_id, reason, return_date, set_by, set_at)
                 VALUES (?, ?, ?, ?, ?)
-            `).run(member.id, reason, returnDate, interaction.user.username, new Date().toISOString());
+            `).run(member.id, reason, returnDate, interaction.user.id, new Date().toISOString());
 
             const parts = [`✈️ **${member.ingame_name}** is now marked AFK.`];
             if (reason) parts.push(`Reason: ${reason}`);
@@ -88,9 +88,11 @@ module.exports = {
 
         if (sub === 'list') {
             const rows = db.prepare(`
-                SELECT m.ingame_name, afk.reason, afk.return_date, afk.set_by, afk.set_at
+                SELECT m.ingame_name, afk.reason, afk.return_date, afk.set_by, afk.set_at,
+                       setter.ingame_name AS setter_ingame
                 FROM member_afk afk
                 JOIN members m ON m.id = afk.member_id
+                LEFT JOIN members setter ON setter.discord_id = afk.set_by
                 ORDER BY afk.set_at DESC
             `).all();
 
@@ -102,7 +104,10 @@ module.exports = {
                 let line = `· **${r.ingame_name}**`;
                 if (r.reason) line += ` · ${r.reason}`;
                 if (r.return_date) line += ` · back ${r.return_date}`;
-                line += ` · set by ${r.set_by}`;
+                const setterStr = r.setter_ingame
+                    ? `<@${r.set_by}> / ${r.setter_ingame}`
+                    : `<@${r.set_by}>`;
+                line += ` · set by ${setterStr}`;
                 return line;
             });
 
