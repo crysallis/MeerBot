@@ -82,6 +82,7 @@ module.exports = {
             LIMIT 8
         `).all(lookupName);
 
+        const chronological = [...history].reverse();
         const histLines = history.map(h =>
             `${h.scraped_at.slice(0, 10)}  ${fmtPower(h.combat_power_value).padStart(7)}  ${String(h.activeness).padStart(4)}  ${h.last_active}`
         );
@@ -89,16 +90,42 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setTitle(`👤 ${current.ingame_name}`)
             .addFields(
-                { name: 'Combat Power',  value: current.combat_power || '·',                          inline: true },
-                { name: 'Activeness',    value: String(current.activeness),                             inline: true },
-                { name: 'Last Active',   value: current.last_active || '·',                            inline: true },
+                { name: 'Combat Power',  value: current.combat_power || '·',                                    inline: true },
+                { name: 'Activeness',    value: String(current.activeness),                                      inline: true },
+                { name: 'Last Active',   value: current.last_active || '·',                                      inline: true },
                 { name: 'Discord',       value: current.discord_id ? `<@${current.discord_id}>` : 'Not linked', inline: true },
-                { name: 'First Seen',    value: current.first_seen?.slice(0, 10) || '·',               inline: true },
+                { name: 'First Seen',    value: current.first_seen?.slice(0, 10) || '·',                        inline: true },
             )
             .setColor(0xe67e22);
 
         if (histLines.length) {
             embed.setDescription('**Snapshot History**\n```\nDate        Power   Act  Last Active\n' + histLines.join('\n') + '\n```');
+        }
+
+        if (chronological.length >= 2) {
+            const chartConfig = {
+                type: 'line',
+                data: {
+                    labels: chronological.map(h => h.scraped_at.slice(0, 10)),
+                    datasets: [{
+                        label: 'Power (M)',
+                        data: chronological.map(h => +((h.combat_power_value || 0) / 1_000_000).toFixed(2)),
+                        borderColor: 'rgba(230, 126, 34, 1)',
+                        backgroundColor: 'rgba(230, 126, 34, 0.15)',
+                        fill: true,
+                        tension: 0.3,
+                    }],
+                },
+                options: {
+                    title: { display: true, text: `${current.ingame_name} · Power Growth` },
+                    legend: { display: false },
+                    scales: {
+                        yAxes: [{ scaleLabel: { display: true, labelString: 'Power (M)' } }],
+                    },
+                },
+            };
+            const chartUrl = `https://quickchart.io/chart?w=700&h=300&bkg=white&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+            embed.setImage(chartUrl);
         }
 
         await interaction.reply({ embeds: [embed] });

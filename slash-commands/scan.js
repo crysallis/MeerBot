@@ -73,7 +73,14 @@ module.exports = {
             const lines = stdout.split('\n');
             const done = lines.find(l => l.includes('Done.'));
             const saved = lines.find(l => l.includes('Saved to DB as snapshot'));
-            await interaction.editReply(`✅ Scan complete!\n${done || saved || 'Snapshot saved.'}`);
+            const reviewLine = lines.find(l => l.startsWith('REVIEW_NAMES:'));
+            const reviewNames = reviewLine ? reviewLine.replace('REVIEW_NAMES:', '').trim() : null;
+
+            let reply = `✅ Scan complete!\n${done || saved || 'Snapshot saved.'}`;
+            if (reviewNames) {
+                reply += `\n\n⚠️ **Name review needed** · these were saved as-is (ambiguous OCR characters, no history match):\n\`${reviewNames}\`\nUse \`/rename\` to correct if any look wrong.`;
+            }
+            await interaction.editReply(reply);
 
             await postInactivityAlert(interaction.client);
         });

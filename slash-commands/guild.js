@@ -66,7 +66,12 @@ module.exports = {
         .addSubcommand(s => s.setName('growth').setDescription('Top 5 power growth since last snapshot'))
         .addSubcommand(s => s.setName('status').setDescription('Guild summary'))
         .addSubcommand(s => s.setName('newcomers').setDescription('Members not in the previous snapshot'))
-        .addSubcommand(s => s.setName('nogrowth').setDescription('Members with no power growth since last snapshot')),
+        .addSubcommand(s => s.setName('nogrowth').setDescription('Members with no power growth since last snapshot'))
+        .addSubcommand(s => s
+            .setName('chart')
+            .setDescription('Power growth over time for current members (last 10 scans)')
+            .addIntegerOption(o => o.setName('number').setDescription('Limit to top N by power (default: all current members)').setMinValue(1).setMaxValue(30).setRequired(false))
+        ),
 
     async execute(interaction) {
         const snapshot = getLatestSnapshot();
@@ -83,6 +88,7 @@ module.exports = {
             case 'status':     return handleStatus(interaction, snapshot);
             case 'newcomers':  return handleNewcomers(interaction, snapshot);
             case 'nogrowth':   return handleNoGrowth(interaction, snapshot);
+            case 'chart':      return handleChart(interaction, snapshot);
         }
     },
 };
@@ -271,6 +277,88 @@ async function handleNoGrowth(interaction, snapshot) {
             .setDescription(lines.join('\n'))
             .setFooter({ text: 'Compared to previous snapshot' })
             .setColor(0xe74c3c),
+    ]});
+}
+
+const CHART_COLORS = [
+    'rgb(255,99,132)',  'rgb(54,162,235)',  'rgb(255,205,86)',  'rgb(75,192,192)',
+    'rgb(153,102,255)', 'rgb(255,159,64)',  'rgb(0,200,100)',   'rgb(255,80,80)',
+    'rgb(0,180,255)',   'rgb(255,140,0)',   'rgb(180,0,255)',   'rgb(0,220,180)',
+    'rgb(200,200,0)',   'rgb(255,60,180)',  'rgb(80,200,80)',   'rgb(100,100,255)',
+    'rgb(255,120,120)', 'rgb(0,160,160)',   'rgb(200,100,0)',   'rgb(120,80,200)',
+    'rgb(255,200,100)', 'rgb(60,200,255)',  'rgb(200,60,60)',   'rgb(0,180,100)',
+    'rgb(200,180,0)',   'rgb(100,200,255)', 'rgb(255,100,200)', 'rgb(60,160,60)',
+    'rgb(255,180,60)',  'rgb(160,60,255)',
+];
+
+async function handleChart(interaction, snapshot) {
+    const n = interaction.options.getInteger('number') ?? 999;
+
+    // Current active members only — whoever is in the latest snapshot
+    const topMembers = db.prepare(`
+        SELECT ms.member_id, m.ingame_name
+        FROM member_snapshots ms
+        JOIN members m ON m.id = ms.member_id
+        WHERE ms.snapshot_id = ?
+        ORDER BY ms.combat_power_value DESC
+        LIMIT ?
+    `).all(snapshot.id, n);
+
+    if (topMembers.length === 0) {
+        return interaction.reply({ content: 'No snapshot data yet · run `/scan` first.', flags: MessageFlags.Ephemeral });
+    }
+
+    // Last 10 scans in chronological order
+    const allSnapshots = db.prepare(
+        'SELECT id, scraped_at FROM snapshots ORDER BY scraped_at DESC LIMIT 10'
+    ).all().reverse();
+    const labels = allSnapshots.map(s => s.scraped_at.slice(0, 10));
+
+    const datasets = topMembers.map((member, i) => {
+        const rows = db.prepare(
+            'SELECT snapshot_id, combat_power_value FROM member_snapshots WHERE member_id = ?'
+        ).all(member.member_id);
+        const bySnapshot = Object.fromEntries(rows.map(r => [r.snapshot_id, r.combat_power_value]));
+
+        return {
+            label: member.ingame_name,
+            data: allSnapshots.map(s => bySnapshot[s.id] != null ? +((bySnapshot[s.id]) / 1_000_000).toFixed(2) : null),
+            borderColor: CHART_COLORS[i % CHART_COLORS.length],
+            backgroundColor: 'rgba(0,0,0,0)',
+            fill: false,
+            spanGaps: true,
+            tension: 0.3,
+            pointRadius: 4,
+        };
+    });
+
+    const config = {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            title: { display: true, text: `Guild Power · Last ${allSnapshots.length} Scans`, fontSize: 15 },
+            scales: {
+                yAxes: [{ scaleLabel: { display: true, labelString: 'Power (M)' } }],
+            },
+            elements: { line: { borderWidth: 2 } },
+        },
+    };
+
+    await interaction.deferReply();
+
+    const res = await fetch('https://quickchart.io/chart/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chart: config, width: 800, height: 450, backgroundColor: 'white' }),
+    });
+    const { url } = await res.json();
+
+    await interaction.editReply({ embeds: [
+        new EmbedBuilder()
+            .setTitle(`📈 Guild Power Growth · Last ${allSnapshots.length} Scans`)
+            .setImage(url)
+            .setFooter({ text: snapshotDate(snapshot) })
+            .setColor(0xf4a400),
     ]});
 }
 
