@@ -94,13 +94,6 @@ module.exports = {
         .setDescription('View scheduled jobs, last runs, and next runs'),
 
     async execute(interaction) {
-        if (interaction.user.id !== process.env.SCAN_AUTHORIZED_USER) {
-            return interaction.reply({
-                content: 'You are not authorized to run this.',
-                flags: MessageFlags.Ephemeral,
-            });
-        }
-
         const embed = new EmbedBuilder()
             .setTitle('📅 Scheduled Jobs')
             .setColor(0x4a90e2)

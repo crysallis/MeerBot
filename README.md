@@ -83,13 +83,13 @@ pm2 restart meerbot --update-env
 | `/birthday remove` | Remove your birthday |
 | `/ping` | Latency check with a tiered fun comment |
 | `/help` | Show all commands (filtered by your permissions) |
+| `/schedule` | View all scheduled jobs with last/next runs (ephemeral, restrict via Discord role permissions if needed) |
 
 ### Admin commands (Manage Server permission required)
 
 | Command | Description |
 |---|---|
 | `/scan` | Trigger a live guild scrape (authorized user only) |
-| `/schedule` | View all scheduled jobs with last/next runs (authorized user only, ephemeral) |
 | `/rename old: new:` | Rename a member, logs history and adds name correction |
 | `/note add name: text:` | Add a note to a member |
 | `/note view name:` | View all notes for a member |

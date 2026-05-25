@@ -38,7 +38,7 @@ pm2 logs meerbot --lines 20 --nostream
 | `/rename` | Corrects an in-game name (updates name_corrections table) |
 | `/note` | Adds/views notes on a member |
 | `/birthday` | Birthday registration + test subcommand |
-| `/schedule` | View scheduled jobs with last/next runs · restricted to SCAN_AUTHORIZED_USER, ephemeral |
+| `/schedule` | View scheduled jobs with last/next runs · ephemeral, no hardcoded restriction (use Discord role permissions if needed) |
 
 ## Database Tables (key ones)
 - `members` · ingame_name, discord_id, first_seen
