@@ -1,0 +1,526 @@
+{
+  "fetched_at": "2026-05-26T00:43:24.038Z",
+  "guild_id": "1229548158611226766",
+  "roles": [
+    {
+      "id": "1229572649651404830",
+      "name": "Riff",
+      "color": "#ff4276",
+      "position": 51,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 1
+    },
+    {
+      "id": "1229554049788018808",
+      "name": "Raff",
+      "color": "#fee75c",
+      "position": 50,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 5
+    },
+    {
+      "id": "1343097889265553533",
+      "name": "Dyno",
+      "color": "#000000",
+      "position": 49,
+      "mentionable": false,
+      "hoist": false,
+      "managed": true,
+      "member_count": 1
+    },
+    {
+      "id": "1508325701785354304",
+      "name": "Meerbot",
+      "color": "#000000",
+      "position": 48,
+      "mentionable": false,
+      "hoist": false,
+      "managed": true,
+      "member_count": 1
+    },
+    {
+      "id": "1502845579661672478",
+      "name": "OG RiffRaff",
+      "color": "#ffff00",
+      "position": 47,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 0
+    },
+    {
+      "id": "1401783863960666143",
+      "name": "RiffRaffians",
+      "color": "#2980b9",
+      "position": 46,
+      "mentionable": false,
+      "hoist": true,
+      "managed": false,
+      "member_count": 30
+    },
+    {
+      "id": "1434417743616147557",
+      "name": "Kingdom",
+      "color": "#d35400",
+      "position": 45,
+      "mentionable": false,
+      "hoist": true,
+      "managed": false,
+      "member_count": 32
+    },
+    {
+      "id": "1482484067965599846",
+      "name": "Penguins",
+      "color": "#6e32c3",
+      "position": 44,
+      "mentionable": false,
+      "hoist": true,
+      "managed": false,
+      "member_count": 15
+    },
+    {
+      "id": "1299596817402695680",
+      "name": "Frog",
+      "color": "#1f8b4c",
+      "position": 43,
+      "mentionable": false,
+      "hoist": true,
+      "managed": false,
+      "member_count": 16
+    },
+    {
+      "id": "1269053193996996709",
+      "name": "Senior",
+      "color": "#00f5ff",
+      "position": 42,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 17
+    },
+    {
+      "id": "1269053550156058634",
+      "name": "Junior",
+      "color": "#88c0d0",
+      "position": 41,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 4
+    },
+    {
+      "id": "1269053789239771187",
+      "name": "Newbie",
+      "color": "#bb77ee",
+      "position": 40,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 6
+    },
+    {
+      "id": "1300151919012089866",
+      "name": "Sister of Chaos",
+      "color": "#ff0000",
+      "position": 39,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 3
+    },
+    {
+      "id": "1269052266682519582",
+      "name": "AFK Forever",
+      "color": "#2c2f33",
+      "position": 38,
+      "mentionable": false,
+      "hoist": true,
+      "managed": false,
+      "member_count": 15
+    },
+    {
+      "id": "1306854601777217586",
+      "name": "RiffRaff's Bard - Master of Poets",
+      "color": "#71368a",
+      "position": 37,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 1
+    },
+    {
+      "id": "1310170398532567123",
+      "name": "Interaction Bot",
+      "color": "#000000",
+      "position": 36,
+      "mentionable": false,
+      "hoist": false,
+      "managed": true,
+      "member_count": 1
+    },
+    {
+      "id": "1312190055476891699",
+      "name": "CHIPPY'S NUMBER ONE HATER",
+      "color": "#673200",
+      "position": 35,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 1
+    },
+    {
+      "id": "1330742760306638889",
+      "name": "Who Dis?",
+      "color": "#ff48c3",
+      "position": 34,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 4
+    },
+    {
+      "id": "1330767779607085067",
+      "name": "Server Booster",
+      "color": "#f47fff",
+      "position": 33,
+      "mentionable": false,
+      "hoist": false,
+      "managed": true,
+      "member_count": 3
+    },
+    {
+      "id": "1303422881002426398",
+      "name": "Queen of the Frogs",
+      "color": "#2ecc71",
+      "position": 32,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 1
+    },
+    {
+      "id": "1434423850858446872",
+      "name": "Kingdom-Emperor",
+      "color": "#e67e22",
+      "position": 31,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 2
+    },
+    {
+      "id": "1482485409765261467",
+      "name": "Penguin-Admiral",
+      "color": "#9b59b6",
+      "position": 30,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 2
+    },
+    {
+      "id": "1338718062316228618",
+      "name": "Lightbearer",
+      "color": "#000000",
+      "position": 29,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 8
+    },
+    {
+      "id": "1338718650995179570",
+      "name": "Wilder",
+      "color": "#000000",
+      "position": 28,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 28
+    },
+    {
+      "id": "1497762132832424007",
+      "name": "Dimensional",
+      "color": "#000000",
+      "position": 27,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 1
+    },
+    {
+      "id": "1338719540959510559",
+      "name": "Mauler",
+      "color": "#000000",
+      "position": 26,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 6
+    },
+    {
+      "id": "1338719373581488159",
+      "name": "Graveborn",
+      "color": "#000000",
+      "position": 25,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 27
+    },
+    {
+      "id": "1338718826925396020",
+      "name": "Celestial",
+      "color": "#000000",
+      "position": 24,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 7
+    },
+    {
+      "id": "1338719310423654420",
+      "name": "Hypogean",
+      "color": "#000000",
+      "position": 23,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 15
+    },
+    {
+      "id": "1343058595411005441",
+      "name": "Mage",
+      "color": "#000000",
+      "position": 22,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 29
+    },
+    {
+      "id": "1343058754106687538",
+      "name": "Marksman",
+      "color": "#99aab5",
+      "position": 21,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 15
+    },
+    {
+      "id": "1343058901389541499",
+      "name": "Rogue",
+      "color": "#000000",
+      "position": 20,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 21
+    },
+    {
+      "id": "1343058959921184859",
+      "name": "Support",
+      "color": "#000000",
+      "position": 19,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 14
+    },
+    {
+      "id": "1343059015059374163",
+      "name": "Tank",
+      "color": "#000000",
+      "position": 18,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 5
+    },
+    {
+      "id": "1343059215354433557",
+      "name": "Warrior",
+      "color": "#000000",
+      "position": 17,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 7
+    },
+    {
+      "id": "1343775934326505553",
+      "name": "Battle Drills",
+      "color": "#000000",
+      "position": 16,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 31
+    },
+    {
+      "id": "1343776068942823485",
+      "name": "Dream Realm",
+      "color": "#000000",
+      "position": 15,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 55
+    },
+    {
+      "id": "1343776102866358322",
+      "name": "Honor Duel",
+      "color": "#000000",
+      "position": 14,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 15
+    },
+    {
+      "id": "1343776133434441768",
+      "name": "Arena",
+      "color": "#000000",
+      "position": 13,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 39
+    },
+    {
+      "id": "1343776184697229382",
+      "name": "Supreme Arena",
+      "color": "#000000",
+      "position": 12,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 29
+    },
+    {
+      "id": "1343776241156751601",
+      "name": "Arcane Labyrinth",
+      "color": "#000000",
+      "position": 11,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 19
+    },
+    {
+      "id": "1343776301005406311",
+      "name": "Legend Trial",
+      "color": "#000000",
+      "position": 10,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 20
+    },
+    {
+      "id": "1343776344999198822",
+      "name": "Primal Lord",
+      "color": "#000000",
+      "position": 9,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 0
+    },
+    {
+      "id": "1343776403526647879",
+      "name": "Clashfronts",
+      "color": "#000000",
+      "position": 8,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 33
+    },
+    {
+      "id": "1343777383433506816",
+      "name": "Guild Supremacy",
+      "color": "#000000",
+      "position": 7,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 32
+    },
+    {
+      "id": "1343777438576021546",
+      "name": "Relentless Rumble",
+      "color": "#000000",
+      "position": 6,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 21
+    },
+    {
+      "id": "1347042415327838299",
+      "name": "Clashfront Mastermind",
+      "color": "#a9c9ff",
+      "position": 5,
+      "mentionable": false,
+      "hoist": true,
+      "managed": false,
+      "member_count": 1
+    },
+    {
+      "id": "1403623545984127036",
+      "name": "Homestead",
+      "color": "#000000",
+      "position": 4,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 34
+    },
+    {
+      "id": "1376291921961418921",
+      "name": "Season 3 MVP",
+      "color": "#a2ff51",
+      "position": 3,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 3
+    },
+    {
+      "id": "1410111391515410602",
+      "name": "RiffRaffle Winner",
+      "color": "#a9c9ff",
+      "position": 2,
+      "mentionable": false,
+      "hoist": true,
+      "managed": false,
+      "member_count": 4
+    },
+    {
+      "id": "1478560351045025967",
+      "name": "IFTTT",
+      "color": "#000000",
+      "position": 1,
+      "mentionable": false,
+      "hoist": false,
+      "managed": true,
+      "member_count": 1
+    },
+    {
+      "id": "1229548158611226766",
+      "name": "@everyone",
+      "color": "#000000",
+      "position": 0,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 115
+    }
+  ]
+}
