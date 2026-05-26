@@ -79,7 +79,7 @@ Channels referenced by env vars (snapshot · check the JSON for everything else)
 
 | Env var | Channel name | ID |
 |---|---|---|
-| `BIRTHDAY_CHANNEL_ID` | (not in fetched list · may be permission-restricted) | 1422053784388898896 |
+| `BIRTHDAY_CHANNEL_ID` | riffraff | 1303421884687192174 |
 | `INACTIVITY_ALERT_CHANNEL_ID` | leader-chat | 1235470919422709831 |
 | `SCAN_REMINDER_CHANNEL_ID` | bot-chatter | 1343099233045184594 |
 | `WEEKLY_SUMMARY_CHANNEL_ID` | bot-chatter | 1343099233045184594 |
