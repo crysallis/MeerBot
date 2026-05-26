@@ -158,8 +158,10 @@ MeerBot/
     scripts/
         sync-join-dates.js      One-time backfill of first_seen from Discord join dates.
         list-channels.js        Fetch all guild channels and dump to data/discord-channels.json.
+        list-roles.js           Fetch all guild roles and dump to data/discord-roles.json.
     data/
         birthday-wishes.json    Rotating birthday wish messages (editable without restart).
         discord-channels.json   Snapshot of all server channels (IDs, names, categories).
+        discord-roles.json      Snapshot of all server roles (IDs, names, member counts).
     .env                        Environment variables (not committed to git).
 ```

@@ -71,6 +71,26 @@ Global thresholds in `config.js`: `lateWarningMinutes = 30` (adds late footer to
 - `ANNIVERSARY_CHANNEL_ID` env var · riffraff guild channel for anniversary posts (1303421884687192174)
 - `ANNIVERSARY_TIME` env var · `HH:MM` UTC for anniversary post time (default `18:00` = 2pm EDT / 1pm EST)
 
+## Discord Roles Reference
+
+Full role list (with IDs, member counts, hoist/managed flags) lives at `data/discord-roles.json`.
+Refresh with `node scripts/list-roles.js` whenever roles change.
+
+Key roles for code references:
+
+| ID | Name | Members | Purpose |
+|---|---|---|---|
+| `1229572649651404830` | Riff | 1 | Top leader |
+| `1229554049788018808` | Raff | 5 | Co-leaders |
+| `1401783863960666143` | RiffRaffians | 30 | Main guild membership |
+| `1434417743616147557` | Kingdom | 32 | Sister guild |
+| `1482484067965599846` | Penguins | 15 | Sister guild |
+| `1299596817402695680` | Frog | 16 | Sister guild |
+| `1269053193996996709` | Senior | 17 | Tenure tier |
+| `1269053550156058634` | Junior | 4 | Tenure tier |
+| `1269053789239771187` | Newbie | 6 | Tenure tier |
+| `1269052266682519582` | AFK Forever | 15 | Inactive members |
+
 ## Discord Channels Reference
 
 Full channel list (with IDs, categories, types) lives at `data/discord-channels.json`.
