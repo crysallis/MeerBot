@@ -55,7 +55,7 @@ module.exports = {
         .setDescription('Trigger a guild member scan (requires game open on BlueStacks)'),
 
     async execute(interaction) {
-        if (!(await enforce(interaction, 'scanOrAdmin'))) return;
+        if (!(await enforce(interaction, 'scanUser'))) return;
         if (!SCRAPER) {
             return interaction.reply({ content: '❌ `SCRAPER_SCRIPT` not set in `.env`.', flags: MessageFlags.Ephemeral });
         }

@@ -1,5 +1,6 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
+const { enforce } = require('../utils/permissions');
 
 function getMemberByName(name) {
     return db.prepare('SELECT id, ingame_name FROM members WHERE ingame_name LIKE ?').get(name);
@@ -23,8 +24,7 @@ module.exports = {
     autocomplete,
     data: new SlashCommandBuilder()
         .setName('note')
-        .setDescription('Guild leader notes on members (admin only)')
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+        .setDescription('Guild leader notes on members (Riff/Raff only)')
         .addSubcommand(s => s
             .setName('add')
             .setDescription('Add a note to a member')
@@ -43,6 +43,7 @@ module.exports = {
         ),
 
     async execute(interaction) {
+        if (!(await enforce(interaction, 'riffOrRaff'))) return;
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'add') {

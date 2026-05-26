@@ -1,5 +1,6 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
+const { enforce } = require('../utils/permissions');
 
 function getMemberByName(name) {
     return db.prepare('SELECT id, ingame_name FROM members WHERE ingame_name LIKE ?').get(name);
@@ -25,8 +26,7 @@ module.exports = {
     autocomplete,
     data: new SlashCommandBuilder()
         .setName('afk')
-        .setDescription('Manage AFK status for guild members (admin only)')
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+        .setDescription('Manage AFK status for guild members (Riff/Raff only)')
         .addSubcommand(s => s
             .setName('set')
             .setDescription('Mark a member as AFK (exempts from inactivity alerts)')
@@ -45,6 +45,7 @@ module.exports = {
         ),
 
     async execute(interaction) {
+        if (!(await enforce(interaction, 'riffOrRaff'))) return;
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'set') {
