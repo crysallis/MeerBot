@@ -144,6 +144,7 @@ MeerBot/
         help.js                 /help with permission-aware filtering.
         ping.js                 /ping health check with tiered quips.
         schedule.js             /schedule view all jobs with last/next runs.
+        anniversary.js          /anniversary list / upcoming / test.
     utils/
         db.js                   SQLite connection, schema creation, idempotent migrations.
         birthdayCheck.js        Birthday embed builder and scheduler.
@@ -156,7 +157,9 @@ MeerBot/
         jobLog.js               Shared helper for scheduled jobs to record runs.
     scripts/
         sync-join-dates.js      One-time backfill of first_seen from Discord join dates.
+        list-channels.js        Fetch all guild channels and dump to data/discord-channels.json.
     data/
         birthday-wishes.json    Rotating birthday wish messages (editable without restart).
+        discord-channels.json   Snapshot of all server channels (IDs, names, categories).
     .env                        Environment variables (not committed to git).
 ```
