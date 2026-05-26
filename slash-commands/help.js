@@ -52,6 +52,14 @@ const COMMANDS = {
             { name: '/scan', desc: 'Navigates to the guild member list, scrapes all data, and saves a snapshot. Authorized user only.' },
         ],
     },
+    anniversary: {
+        description: 'Guild anniversary tools (1mo / 3mo / 6mo / yearly milestones from first_seen).',
+        subcommands: [
+            { name: '/anniversary list count:', desc: 'Show the next N upcoming anniversaries (default 5, max 20). Ephemeral.' },
+            { name: '/anniversary upcoming days:', desc: 'Show all anniversaries in the next N days (default 30, max 365). Ephemeral.' },
+            { name: '/anniversary test date:', desc: 'Preview the anniversary embed for a date in the current channel. Pings suppressed.' },
+        ],
+    },
     schedule: {
         description: 'View all scheduled jobs (daily reset, AFK expiry, birthday check, scan reminder, weekly summary) with last/next run times.',
         subcommands: [
@@ -143,6 +151,7 @@ module.exports = {
             { name: '/guild',    value: 'power · top · inactive · activeness · growth · nogrowth · status · newcomers · chart' },
             { name: '/member',   value: 'Look up a member by name or @mention' },
             { name: '/link',     value: 'Link your Discord to your in-game name' },
+            { name: '/anniversary', value: 'list · upcoming · test' },
             { name: '/ping',     value: 'Latency check with a quip' },
         ];
 

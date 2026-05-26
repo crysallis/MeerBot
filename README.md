@@ -86,6 +86,9 @@ pm2 restart meerbot --update-env
 | `/ping` | Latency check with a tiered fun comment |
 | `/help` | Show all commands (filtered by your permissions) |
 | `/schedule` | View all scheduled jobs with last/next runs (ephemeral, restrict via Discord role permissions if needed) |
+| `/anniversary list count:` | Next N upcoming guild anniversaries (default 5, ephemeral) |
+| `/anniversary upcoming days:` | All anniversaries in the next N days (default 30, ephemeral) |
+| `/anniversary test date:` | Preview the anniversary embed for a date in the current channel |
 
 ### Admin commands (Manage Server permission required)
 
