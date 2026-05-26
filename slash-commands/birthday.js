@@ -71,7 +71,7 @@ module.exports = {
         }
 
         if (sub === 'test') {
-            if (!(await enforce(interaction, 'admin'))) return;
+            if (!(await enforce(interaction, 'riffOrRaff'))) return;
             const target = interaction.options.getUser('user') ?? interaction.user;
             const bday = db.prepare('SELECT month, day FROM birthdays WHERE user_id = ? AND guild_id = ?').get(target.id, interaction.guildId);
             const { content, embed } = buildBirthdayEmbed(target.id, target.username, bday?.month, bday?.day);

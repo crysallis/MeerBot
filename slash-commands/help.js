@@ -8,7 +8,7 @@ const COMMANDS = {
             { name: '/birthday register month: day:', desc: 'Register your birthday. Day is validated against the month (Feb 29 is allowed for leap-day births).' },
             { name: '/birthday list',                       desc: 'List all registered birthdays, sorted by month/day. Shows in-game name if linked.' },
             { name: '/birthday remove',                     desc: 'Remove your registered birthday.' },
-            { name: '/birthday test [user:]',               desc: 'Preview the birthday embed for a user in the current channel.', perm: 'admin' },
+            { name: '/birthday test [user:]',               desc: 'Preview the birthday embed for a user in the current channel.', perm: 'riffOrRaff' },
         ],
     },
     guild: {
@@ -42,12 +42,12 @@ const COMMANDS = {
         description: 'Link a Discord account to an in-game name.',
         subcommands: [
             { name: '/link ingame_name:',       desc: 'Link yourself. Name autocompletes from latest snapshot.' },
-            { name: '/link ingame_name: user:', desc: 'Link a different Discord user.', perm: 'admin' },
+            { name: '/link ingame_name: user:', desc: 'Link a different Discord user.', perm: 'riffOrRaff' },
         ],
     },
     scan: {
         description: 'Trigger a live guild member scan. Requires BlueStacks and the game to be open.',
-        perm: 'scanOrAdmin',
+        perm: 'scanUser',
         subcommands: [
             { name: '/scan', desc: 'Navigates to the guild member list, scrapes all data, and saves a snapshot.' },
         ],
@@ -68,23 +68,23 @@ const COMMANDS = {
     },
     rename: {
         description: 'Rename a guild member in the database.',
-        perm: 'admin',
+        perm: 'riffOrRaff',
         subcommands: [
             { name: '/rename old_name: new_name:', desc: 'Updates the member record, logs the change to history, and adds a name correction so future scans map correctly.' },
         ],
     },
     note: {
         description: 'Guild leader notes on members.',
-        perm: 'admin',
+        perm: 'riffOrRaff',
         subcommands: [
-            { name: '/note add name: text:', desc: 'Add a note to a member. Only visible to admins.' },
+            { name: '/note add name: text:', desc: 'Add a note to a member.' },
             { name: '/note view name:',      desc: 'View all notes for a member, with IDs and timestamps.' },
             { name: '/note delete id:',      desc: 'Delete a specific note by its ID.' },
         ],
     },
     afk: {
         description: 'Mark members as AFK to exempt them from inactivity alerts.',
-        perm: 'admin',
+        perm: 'riffOrRaff',
         subcommands: [
             { name: '/afk set name: reason: return_date:', desc: 'Mark a member AFK. Reason and return date optional. Date format: YYYY-MM-DD.' },
             { name: '/afk clear name:',                    desc: 'Remove AFK status from a member.' },
