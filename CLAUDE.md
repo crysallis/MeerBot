@@ -40,6 +40,7 @@ pm2 logs meerbot --lines 20 --nostream
 | `/note` | Adds/views notes on a member |
 | `/birthday` | Birthday registration + test subcommand |
 | `/schedule` | View scheduled jobs with last/next runs · ephemeral, no hardcoded restriction (use Discord role permissions if needed) |
+| `/anniversary` | list / upcoming / test · ephemeral except `test` which posts the embed in the current channel with pings suppressed |
 
 ## Database Tables (key ones)
 - `members` · ingame_name, discord_id, first_seen
