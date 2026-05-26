@@ -6,6 +6,7 @@ const { scheduleBirthdayCheck } = require('./utils/birthdayCheck');
 const { scheduleScanReminder } = require('./utils/scanReminder');
 const { scheduleWeeklySummary } = require('./utils/weeklySummary');
 const { scheduleAfkExpiry } = require('./utils/afkExpiry');
+const { scheduleAnniversaryCheck } = require('./utils/anniversaryCheck');
 const { scheduleMessages } = require('./utils/scheduledMessages');
 const { logCommand } = require('./utils/commandLogger');
 const { rateLimit } = require('./config');
@@ -51,6 +52,7 @@ client.once('clientReady', () => {
   scheduleScanReminder(client);
   scheduleWeeklySummary(client);
   scheduleAfkExpiry(client);
+  scheduleAnniversaryCheck(client);
   scheduleMessages(client);
 });
 

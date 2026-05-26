@@ -20,6 +20,7 @@ pm2 logs meerbot --lines 20 --nostream
 | `utils/db.js` | DB connection + all table CREATE/migrations |
 | `utils/scheduledMessages.js` | Timed auto-posts · add new messages to MESSAGES array here |
 | `utils/afkExpiry.js` | Daily midnight UTC · clears expired AFK records, posts to inactivity channel |
+| `utils/anniversaryCheck.js` | Daily at `ANNIVERSARY_TIME` UTC · posts guild anniversaries for active members (1/3/6 mo + yearly) |
 | `utils/weeklySummary.js` | Monday 09:00 UTC · power growth summary embed |
 | `utils/scanReminder.js` | Daily 20:00 UTC · pings authorized user to run /scan |
 | `utils/birthdayCheck.js` | Daily at midnight · checks birthday table, posts embed |
@@ -66,6 +67,25 @@ Global thresholds in `config.js`: `lateWarningMinutes = 30` (adds late footer to
 - Node.js v21.7.1 · technically outside better-sqlite3's supported range (20/22/24+) but works fine · don't suggest a Node upgrade just because of the EBADENGINE warning
 - `GENERAL_CHANNEL_ID` env var · general channel for scheduled messages (1229548159081123893)
 - `COMMAND_LOG_CHANNEL_ID` env var · bot-chatter channel for command audit log (1343099233045184594)
+- `ANNIVERSARY_CHANNEL_ID` env var · riffraff guild channel for anniversary posts (1303421884687192174)
+- `ANNIVERSARY_TIME` env var · `HH:MM` UTC for anniversary post time (default `18:00` = 2pm EDT / 1pm EST)
+
+## Discord Channels Reference
+
+Full channel list (with IDs, categories, types) lives at `data/discord-channels.json`.
+Refresh with `node scripts/list-channels.js` whenever the server adds/renames channels.
+
+Channels referenced by env vars (snapshot · check the JSON for everything else):
+
+| Env var | Channel name | ID |
+|---|---|---|
+| `BIRTHDAY_CHANNEL_ID` | (not in fetched list · may be permission-restricted) | 1422053784388898896 |
+| `INACTIVITY_ALERT_CHANNEL_ID` | leader-chat | 1235470919422709831 |
+| `SCAN_REMINDER_CHANNEL_ID` | bot-chatter | 1343099233045184594 |
+| `WEEKLY_SUMMARY_CHANNEL_ID` | bot-chatter | 1343099233045184594 |
+| `COMMAND_LOG_CHANNEL_ID` | bot-chatter | 1343099233045184594 |
+| `GENERAL_CHANNEL_ID` | general | 1229548159081123893 |
+| `ANNIVERSARY_CHANNEL_ID` | riffraff | 1303421884687192174 |
 
 ## Key Decisions Made
 - `set_by` fields store Discord user ID, displayed as `<@id> / ingame_name`
