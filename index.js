@@ -1,7 +1,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { Client, GatewayIntentBits, MessageFlags } = require('discord.js');
+const { Client, GatewayIntentBits, MessageFlags, ActivityType } = require('discord.js');
 const { scheduleBirthdayCheck } = require('./utils/birthdayCheck');
 const { scheduleScanReminder } = require('./utils/scanReminder');
 const { scheduleWeeklySummary } = require('./utils/weeklySummary');
@@ -48,6 +48,7 @@ for (const file of fs.readdirSync(slashPath).filter(f => f.endsWith('.js'))) {
 
 client.once('clientReady', () => {
   console.log(`Ready. Logged in as ${client.user?.tag}`);
+  client.user.setActivity('Meerbot Assistance | /help', { type: ActivityType.Playing });
   scheduleBirthdayCheck(client);
   scheduleScanReminder(client);
   scheduleWeeklySummary(client);

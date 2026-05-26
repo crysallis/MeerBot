@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
-const { execFile } = require('child_process');
+const { execFile, exec } = require('child_process');
 const db = require('../utils/db');
 const { enforce } = require('../utils/permissions');
 
@@ -61,6 +61,13 @@ module.exports = {
         }
 
         await interaction.deferReply();
+
+        await new Promise(resolve => {
+            exec('adb devices', (_err, stdout) => {
+                if (stdout && stdout.includes('127.0.0.1:5555\tdevice')) return resolve();
+                exec('adb connect 127.0.0.1:5555', resolve);
+            });
+        });
 
         execFile(PYTHON, [SCRAPER], { cwd: require('path').dirname(SCRAPER) }, async (error, stdout) => {
             if (error) {
