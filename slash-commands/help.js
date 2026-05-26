@@ -1,7 +1,5 @@
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
-
-const ADMIN_COMMANDS = new Set(['rename', 'note', 'afk']);
-const SCAN_AUTHORIZED = process.env.SCAN_AUTHORIZED_USER;
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { getPerm } = require('../utils/permissions');
 
 const COMMANDS = {
     birthday: {
@@ -10,6 +8,7 @@ const COMMANDS = {
             { name: '/birthday register month: day:', desc: 'Register your birthday. Day is validated against the month (Feb 29 is allowed for leap-day births).' },
             { name: '/birthday list',                       desc: 'List all registered birthdays, sorted by month/day. Shows in-game name if linked.' },
             { name: '/birthday remove',                     desc: 'Remove your registered birthday.' },
+            { name: '/birthday test [user:]',               desc: 'Preview the birthday embed for a user in the current channel.', perm: 'admin' },
         ],
     },
     guild: {
@@ -43,13 +42,14 @@ const COMMANDS = {
         description: 'Link a Discord account to an in-game name.',
         subcommands: [
             { name: '/link ingame_name:',       desc: 'Link yourself. Name autocompletes from latest snapshot.' },
-            { name: '/link ingame_name: user:', desc: '(Admin) Link a different Discord user.' },
+            { name: '/link ingame_name: user:', desc: 'Link a different Discord user.', perm: 'admin' },
         ],
     },
     scan: {
         description: 'Trigger a live guild member scan. Requires BlueStacks and the game to be open.',
+        perm: 'scanOrAdmin',
         subcommands: [
-            { name: '/scan', desc: 'Navigates to the guild member list, scrapes all data, and saves a snapshot. Authorized user only.' },
+            { name: '/scan', desc: 'Navigates to the guild member list, scrapes all data, and saves a snapshot.' },
         ],
     },
     anniversary: {
@@ -61,19 +61,21 @@ const COMMANDS = {
         ],
     },
     schedule: {
-        description: 'View all scheduled jobs (daily reset, AFK expiry, birthday check, scan reminder, weekly summary) with last/next run times.',
+        description: 'View all scheduled jobs (daily reset, AFK expiry, birthday check, scan reminder, weekly summary, anniversary check) with last/next run times.',
         subcommands: [
-            { name: '/schedule', desc: 'Ephemeral embed showing all 5 jobs, when they last ran, and when they next fire.' },
+            { name: '/schedule', desc: 'Ephemeral embed showing all jobs, when they last ran, and when they next fire.' },
         ],
     },
     rename: {
-        description: 'Rename a guild member in the database (admin only).',
+        description: 'Rename a guild member in the database.',
+        perm: 'admin',
         subcommands: [
             { name: '/rename old_name: new_name:', desc: 'Updates the member record, logs the change to history, and adds a name correction so future scans map correctly.' },
         ],
     },
     note: {
-        description: 'Guild leader notes on members (admin only).',
+        description: 'Guild leader notes on members.',
+        perm: 'admin',
         subcommands: [
             { name: '/note add name: text:', desc: 'Add a note to a member. Only visible to admins.' },
             { name: '/note view name:',      desc: 'View all notes for a member, with IDs and timestamps.' },
@@ -81,7 +83,8 @@ const COMMANDS = {
         ],
     },
     afk: {
-        description: 'Mark members as AFK to exempt them from inactivity alerts (admin only).',
+        description: 'Mark members as AFK to exempt them from inactivity alerts.',
+        perm: 'admin',
         subcommands: [
             { name: '/afk set name: reason: return_date:', desc: 'Mark a member AFK. Reason and return date optional. Date format: YYYY-MM-DD.' },
             { name: '/afk clear name:',                    desc: 'Remove AFK status from a member.' },
@@ -90,18 +93,16 @@ const COMMANDS = {
     },
 };
 
-function isAdmin(interaction) {
-    return interaction.member?.permissions?.has(PermissionFlagsBits.ManageGuild) ?? false;
+function visibleCommands(interaction) {
+    return Object.keys(COMMANDS).filter(k => {
+        const perm = getPerm(COMMANDS[k].perm);
+        return perm.check(interaction);
+    });
 }
 
-function visibleCommands(interaction) {
-    const admin = isAdmin(interaction);
-    const isScanUser = interaction.user.id === SCAN_AUTHORIZED;
-    return Object.keys(COMMANDS).filter(k => {
-        if (ADMIN_COMMANDS.has(k)) return admin;
-        if (k === 'scan') return isScanUser || admin;
-        return true;
-    });
+function permTag(permName) {
+    if (!permName || permName === 'everyone') return '';
+    return `\n*Requires: ${getPerm(permName).label}*`;
 }
 
 module.exports = {
@@ -124,49 +125,57 @@ module.exports = {
 
     async execute(interaction) {
         const cmd = interaction.options.getString('command');
-        const admin = isAdmin(interaction);
-        const isScanUser = interaction.user.id === SCAN_AUTHORIZED;
 
         if (cmd) {
-            if (ADMIN_COMMANDS.has(cmd) && !admin) {
-                return interaction.reply({ content: `You don't have access to \`/${cmd}\`.`, flags: MessageFlags.Ephemeral });
-            }
-            if (cmd === 'scan' && !isScanUser && !admin) {
-                return interaction.reply({ content: `You don't have access to \`/scan\`.`, flags: MessageFlags.Ephemeral });
-            }
             const info = COMMANDS[cmd];
             if (!info) {
                 return interaction.reply({ content: `Unknown command \`/${cmd}\`.`, flags: MessageFlags.Ephemeral });
             }
+            // Block detail view for restricted commands the user can't run
+            const cmdPerm = getPerm(info.perm);
+            if (!cmdPerm.check(interaction)) {
+                return interaction.reply({
+                    content: `You don't have access to \`/${cmd}\` · requires **${cmdPerm.label}**.`,
+                    flags: MessageFlags.Ephemeral,
+                });
+            }
+
+            const headerPerm = info.perm && info.perm !== 'everyone'
+                ? `**Requires: ${cmdPerm.label}**\n\n${info.description}`
+                : info.description;
+
             const embed = new EmbedBuilder()
                 .setTitle(`📖 /${cmd}`)
                 .setColor(0x9b59b6)
-                .setDescription(info.description)
-                .addFields(info.subcommands.map(s => ({ name: s.name, value: s.desc })));
+                .setDescription(headerPerm)
+                .addFields(info.subcommands.map(s => ({
+                    name: s.name,
+                    value: s.desc + permTag(s.perm),
+                })));
             return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
-        const fields = [
-            { name: '/birthday', value: 'Register · list · remove birthdays' },
-            { name: '/guild',    value: 'power · top · inactive · activeness · growth · nogrowth · status · newcomers · chart' },
-            { name: '/member',   value: 'Look up a member by name or @mention' },
-            { name: '/link',     value: 'Link your Discord to your in-game name' },
-            { name: '/anniversary', value: 'list · upcoming · test' },
-            { name: '/ping',     value: 'Latency check with a quip' },
-        ];
+        // Top-level list · only commands the caller can run
+        const visible = visibleCommands(interaction);
+        const summaries = {
+            birthday: 'Register · list · remove · test birthdays',
+            guild: 'power · top · inactive · activeness · growth · nogrowth · status · newcomers · chart',
+            member: 'Look up a member by name or @mention',
+            link: 'Link your Discord to your in-game name',
+            anniversary: 'list · upcoming · test',
+            ping: 'Latency check with a quip',
+            scan: 'Trigger a guild scan',
+            schedule: 'View scheduled jobs and last/next runs',
+            rename: 'Rename a member in the database',
+            note: 'Add · view · delete notes on members',
+            afk: 'Set · clear · list AFK status',
+        };
 
-        if (isScanUser || admin) {
-            fields.push({ name: '/scan', value: 'Trigger a guild scan (authorized user only)' });
-        }
-        fields.push({ name: '/schedule', value: 'View scheduled jobs and last/next runs' });
-        if (admin) {
-            fields.push(
-                { name: '/rename', value: 'Rename a member in the database' },
-                { name: '/note',   value: 'Add · view · delete notes on members' },
-                { name: '/afk',    value: 'Set · clear · list AFK status' },
-            );
-        }
-
+        const fields = visible.map(k => {
+            const perm = COMMANDS[k].perm;
+            const tag = (perm && perm !== 'everyone') ? ` · *${getPerm(perm).label}*` : '';
+            return { name: `/${k}`, value: (summaries[k] || '') + tag };
+        });
         fields.push({ name: '/help', value: 'You\'re looking at it. Add `command:name` for details.' });
 
         const embed = new EmbedBuilder()
