@@ -1,8 +1,8 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { execFile } = require('child_process');
 const db = require('../utils/db');
+const { enforce } = require('../utils/permissions');
 
-const AUTHORIZED_USER = process.env.SCAN_AUTHORIZED_USER;
 const PYTHON = process.env.SCRAPER_PYTHON || 'python';
 const SCRAPER = process.env.SCRAPER_SCRIPT;
 const INACTIVITY_CHANNEL = process.env.INACTIVITY_ALERT_CHANNEL_ID;
@@ -55,11 +55,9 @@ module.exports = {
         .setDescription('Trigger a guild member scan (requires game open on BlueStacks)'),
 
     async execute(interaction) {
+        if (!(await enforce(interaction, 'scanOrAdmin'))) return;
         if (!SCRAPER) {
             return interaction.reply({ content: '❌ `SCRAPER_SCRIPT` not set in `.env`.', flags: MessageFlags.Ephemeral });
-        }
-        if (AUTHORIZED_USER && interaction.user.id !== AUTHORIZED_USER) {
-            return interaction.reply({ content: '❌ You are not authorized to run scans.', flags: MessageFlags.Ephemeral });
         }
 
         await interaction.deferReply();

@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
 const db = require('../utils/db');
 const { buildBirthdayEmbed } = require('../utils/birthdayCheck');
+const { enforce } = require('../utils/permissions');
 
 const DAYS_IN_MONTH = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
@@ -70,9 +71,7 @@ module.exports = {
         }
 
         if (sub === 'test') {
-            if (!interaction.member?.permissions?.has(PermissionFlagsBits.ManageGuild)) {
-                return interaction.reply({ content: 'Admin only.', flags: MessageFlags.Ephemeral });
-            }
+            if (!(await enforce(interaction, 'admin'))) return;
             const target = interaction.options.getUser('user') ?? interaction.user;
             const bday = db.prepare('SELECT month, day FROM birthdays WHERE user_id = ? AND guild_id = ?').get(target.id, interaction.guildId);
             const { content, embed } = buildBirthdayEmbed(target.id, target.username, bday?.month, bday?.day);
