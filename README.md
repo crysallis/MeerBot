@@ -52,6 +52,8 @@ pm2 restart meerbot --update-env
 | `WEEKLY_SUMMARY_CHANNEL_ID` | Channel to post Monday weekly summaries |
 | `WEEKLY_SUMMARY_TIME` | Time to post summary in `HH:MM` UTC (e.g. `09:00`) |
 | `BIRTHDAY_CHANNEL_ID` | Channel to post birthday messages |
+| `ANNIVERSARY_CHANNEL_ID` | Channel to post guild anniversary messages (1mo, 3mo, 6mo, 1yr+) |
+| `ANNIVERSARY_TIME` | Time to post anniversaries in `HH:MM` UTC (default `18:00` = 2pm EDT) |
 | `INACTIVITY_ALERT_CHANNEL_ID` | Channel to post post-scan inactivity alerts |
 | `GENERAL_CHANNEL_ID` | Channel for scheduled auto-posts (e.g. daily reset reminder) |
 | `COMMAND_LOG_CHANNEL_ID` | Channel to post a Dyno-style audit log for every slash command run |
@@ -115,6 +117,7 @@ List commands show badges inline with member names:
 | Scan reminder | Daily at `SCAN_REMINDER_TIME` | Reminds the authorized user to run a scan |
 | Weekly summary | Mondays at `WEEKLY_SUMMARY_TIME` | Posts power/growth summary for the whole guild |
 | AFK expiry | Daily at UTC midnight | Clears AFK records past their return date and notifies the inactivity channel |
+| Anniversary check | Daily at `ANNIVERSARY_TIME` UTC | Posts 1mo/3mo/6mo/yearly guild anniversaries for active members |
 | Scheduled messages | Per entry in `utils/scheduledMessages.js` | Date-deduped auto-posts (e.g. daily reset reminder at 00:00 UTC). Includes startup catch-up and late-footer if fired late |
 
 ---
@@ -141,6 +144,7 @@ MeerBot/
     utils/
         db.js                   SQLite connection, schema creation, idempotent migrations.
         birthdayCheck.js        Birthday embed builder and scheduler.
+        anniversaryCheck.js     Guild anniversary scheduler (1mo / 3mo / 6mo / yearly).
         scanReminder.js         Daily scan reminder scheduler.
         weeklySummary.js        Monday weekly summary scheduler.
         afkExpiry.js            Daily clearing of expired AFK records.

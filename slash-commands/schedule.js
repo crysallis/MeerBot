@@ -41,6 +41,13 @@ const JOBS = [
         weekday: 1, // Monday
         ...parseTime(process.env.WEEKLY_SUMMARY_TIME || '09:00'),
     },
+    {
+        name: 'anniversary_check',
+        display: '🎉 Anniversary Check',
+        schedule: `Daily ${process.env.ANNIVERSARY_TIME || '18:00'} UTC`,
+        kind: 'daily',
+        ...parseTime(process.env.ANNIVERSARY_TIME || '18:00'),
+    },
 ];
 
 function parseTime(hhmm) {
@@ -97,7 +104,7 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setTitle('📅 Scheduled Jobs')
             .setColor(0x4a90e2)
-            .setFooter({ text: `${JOBS.length} jobs · times in UTC` })
+            .setFooter({ text: `${JOBS.length} jobs · times in UTC (18:00 = 2pm EDT / 1pm EST)` })
             .setTimestamp();
 
         for (const job of JOBS) {

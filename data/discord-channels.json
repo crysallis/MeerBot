@@ -1,0 +1,372 @@
+{
+  "fetched_at": "2026-05-26T00:15:57.298Z",
+  "guild_id": "1229548158611226766",
+  "categories": [
+    {
+      "name": "📣⋮Ꭺᴨᴨꮻꮜᴨꮯꭼꮇꭼᴨꭲꮪ⋮🔔",
+      "channels": [
+        {
+          "id": "1338724276936773722",
+          "name": "rules",
+          "type": "text"
+        },
+        {
+          "id": "1303788137876684931",
+          "name": "╔⋰ㆍnewsletterㆍ🗞",
+          "type": "text"
+        },
+        {
+          "id": "1229551249209430066",
+          "name": "╚⋱ㆍpromoㆍcodesㆍ💳",
+          "type": "text"
+        },
+        {
+          "id": "1370803792420798494",
+          "name": "guild-voting",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "name": "✨⋮Ꮮꭼꭺꭰꭼꭱ Ꮯꮋꭺꭲꮪ⋮✨",
+      "channels": [
+        {
+          "id": "1235470919422709831",
+          "name": "╔⋰ㆍleaderㆍchatㆍ🔱",
+          "type": "text"
+        },
+        {
+          "id": "1434387291538718760",
+          "name": "╠⋮ㆍthe-not-so-round-table",
+          "type": "text"
+        },
+        {
+          "id": "1343099233045184594",
+          "name": "╚⋱ㆍbotㆍchatterㆍ🤖",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "name": "📡⋮Ꮖᴨꭲꭼꮮ Nꭼꭲꮃꮻꭱꮶꮪ⋮📡",
+      "channels": [
+        {
+          "id": "1331419764219842571",
+          "name": "╔⋰ㆍ𝐀𝐅𝐊ㆍ𝐉𝐨𝐮𝐫𝐧𝐞𝐲",
+          "type": "text"
+        },
+        {
+          "id": "1331415273923940493",
+          "name": "╠⋮ㆍ𝐏𝐮𝐳𝐳𝐥𝐞ㆍ🧩",
+          "type": "text"
+        },
+        {
+          "id": "1478544355198505142",
+          "name": "╠⋮ㆍ𝐘outubeㆍ▶",
+          "type": "text"
+        },
+        {
+          "id": "1349969898604068865",
+          "name": "╚⋱ㆍ𝐘𝐚𝐩𝐡𝐚𝐥𝐥𝐚ㆍ🌕",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "name": "💬⋮ꮯꮋꮖꭲ ꮯꮋꭺꭲ⋮💬",
+      "channels": [
+        {
+          "id": "1229548159081123893",
+          "name": "╔⋰ㆍgeneral",
+          "type": "text"
+        },
+        {
+          "id": "1303421884687192174",
+          "name": "╠⋮ㆍriffraffㆍ✤",
+          "type": "text"
+        },
+        {
+          "id": "1434417270402322444",
+          "name": "╠⋮ㆍkingdomㆍ⚜️",
+          "type": "text"
+        },
+        {
+          "id": "1482485945675550720",
+          "name": "╠⋮ㆍpenguinsㆍ🐧",
+          "type": "text"
+        },
+        {
+          "id": "1303422049011892234",
+          "name": "╠⋮ㆍfrogㆍ🐸",
+          "type": "text"
+        },
+        {
+          "id": "1446983344809054248",
+          "name": "╚⋱🫸pushㆍpull🫷",
+          "type": "forum"
+        }
+      ]
+    },
+    {
+      "name": "🔐⋮Ꮪꭼꭺꮪꮻᴨ Ꮪꭼꮯꭱꭼꭲꮪꮪ⋮🔐",
+      "channels": [
+        {
+          "id": "1376292444211118111",
+          "name": "╔⋰🥚easterㆍeggs",
+          "type": "forum"
+        }
+      ]
+    },
+    {
+      "name": "🎬⋮Ꭼꮩꭼᴨꭲꮪ⋮🎬",
+      "channels": [
+        {
+          "id": "1467206133558022206",
+          "name": "╠⋮🪜stellarㆍascent",
+          "type": "text"
+        },
+        {
+          "id": "1491991281268686908",
+          "name": "╠⋮🪄wandㆍwars",
+          "type": "text"
+        },
+        {
+          "id": "1480360282042929233",
+          "name": "╠⋮🔮pearlㆍtycoon",
+          "type": "text"
+        },
+        {
+          "id": "1500334708779647077",
+          "name": "╠⋮💫starlightㆍmemories",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "name": "💤⋮Ꭰꭱꭼꭺꮇ Ꭱꭼꭺꮮꮇ⋮💤",
+      "channels": [
+        {
+          "id": "1229566680745906186",
+          "name": "﴾ㆍdreamㆍrealm",
+          "type": "text"
+        },
+        {
+          "id": "1344495981894565978",
+          "name": "﴾ㆍdreamㆍrealm𓊆forum𓊇",
+          "type": "forum"
+        }
+      ]
+    },
+    {
+      "name": "🤜⋮Ᏼꭺꭲꭲꮮꭼ Ꮇꮻꭰꭼꮪ⋮🤛",
+      "channels": [
+        {
+          "id": "1231003672817700875",
+          "name": "╔⋰📖guides",
+          "type": "text"
+        },
+        {
+          "id": "1229567988093681735",
+          "name": "╠⋮🧪arcaneㆍlabyrinth",
+          "type": "text"
+        },
+        {
+          "id": "1229566494837575773",
+          "name": "╠⋮🏟arena╱supremeㆍarena",
+          "type": "text"
+        },
+        {
+          "id": "1229548159081123894",
+          "name": "╠⋮🏰battleㆍdrills",
+          "type": "text"
+        },
+        {
+          "id": "1434430086685261824",
+          "name": "╠⋮🏰battleㆍdrillsㆍkingdom",
+          "type": "text"
+        },
+        {
+          "id": "1482485630821732624",
+          "name": "╠⋮🏰battleㆍdrillsㆍpenguins",
+          "type": "text"
+        },
+        {
+          "id": "1331493588982304820",
+          "name": "╠⋮🐦‍🔥guildㆍsupremacy",
+          "type": "text"
+        },
+        {
+          "id": "1345938524993490974",
+          "name": "╠⋮🦾heroicㆍgauntlet",
+          "type": "text"
+        },
+        {
+          "id": "1403623893444329564",
+          "name": "╠⋮🏠homestead",
+          "type": "text"
+        },
+        {
+          "id": "1229566867350491248",
+          "name": "╠⋮🤺honorㆍduel",
+          "type": "text"
+        },
+        {
+          "id": "1229568390138691596",
+          "name": "╠⋮🏆legendㆍtrial",
+          "type": "text"
+        },
+        {
+          "id": "1251378642370564217",
+          "name": "╠⋮👾primalㆍlord",
+          "type": "text"
+        },
+        {
+          "id": "1367349758741446718",
+          "name": "╠⋮🏯ravagedㆍrealm",
+          "type": "text"
+        },
+        {
+          "id": "1343457059462578237",
+          "name": "╚⋱⚡relentlessㆍrumble",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "name": "⚔️⋮Ꮯꮮꭺꮪꮋғꭱꮻᴨꭲꮪ⋮⚔️",
+      "channels": [
+        {
+          "id": "1297357867808194611",
+          "name": "﴾ㆍclashfrontsㆍriffraff",
+          "type": "text"
+        },
+        {
+          "id": "1434428439997452409",
+          "name": "﴾ㆍclashfrontsㆍkingdom",
+          "type": "text"
+        },
+        {
+          "id": "1434428761251778632",
+          "name": "﴾ㆍclashfrontsㆍfrog",
+          "type": "text"
+        },
+        {
+          "id": "1482486776932204698",
+          "name": "﴾ㆍclashfrontsㆍpenguins",
+          "type": "text"
+        },
+        {
+          "id": "1344069133234339902",
+          "name": "﴾ㆍclashfronts𓊆forum𓊇",
+          "type": "forum"
+        }
+      ]
+    },
+    {
+      "name": "Just for Fun",
+      "channels": [
+        {
+          "id": "1319410416098476084",
+          "name": "╔⋰ㆍafk-fashion-show💃🏻🕺🏻",
+          "type": "text"
+        },
+        {
+          "id": "1233617510964924508",
+          "name": "╠⋮ㆍchasing-the-sun-around-the-world🌅",
+          "type": "text"
+        },
+        {
+          "id": "1333487912859472007",
+          "name": "╠⋮ㆍcontest-bardic-proficiency📜",
+          "type": "text"
+        },
+        {
+          "id": "1443889084358725682",
+          "name": "╠⋮ㆍfood-loversㆍlets-cook-🍽️",
+          "type": "text"
+        },
+        {
+          "id": "1233617638366646273",
+          "name": "╠⋮ㆍshow-me-your-creative-side🎨",
+          "type": "text"
+        },
+        {
+          "id": "1495143270630821989",
+          "name": "╠⋮ㆍgamingㆍbeyondㆍafkㆍ🎮",
+          "type": "text"
+        },
+        {
+          "id": "1486395018376777890",
+          "name": "╠⋮ㆍboop-the-snoot🐾",
+          "type": "text"
+        },
+        {
+          "id": "1238318723438481428",
+          "name": "╚⋱ㆍyall-got-any-more-of-those-memes🃏",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "name": "Voice Channels",
+      "channels": [
+        {
+          "id": "1229548159081123896",
+          "name": "Lobby",
+          "type": "voice"
+        },
+        {
+          "id": "1229548159081123897",
+          "name": "Gaming",
+          "type": "voice"
+        }
+      ]
+    },
+    {
+      "name": "Archive",
+      "channels": [
+        {
+          "id": "1443807690777296947",
+          "name": "╠⋮🥪dungeonㆍfeast",
+          "type": "text"
+        },
+        {
+          "id": "1442746053823696986",
+          "name": "╠⋮🦑titan・reaver",
+          "type": "forum"
+        },
+        {
+          "id": "1466624707494285405",
+          "name": "╠⋮🏮emberlightㆍfestival",
+          "type": "text"
+        },
+        {
+          "id": "1449978115249016935",
+          "name": "╠⋮❆winterㆍcarnival",
+          "type": "text"
+        },
+        {
+          "id": "1415528961009647761",
+          "name": "╚⋱ㆍpushㆍpull",
+          "type": "text"
+        },
+        {
+          "id": "1483000672290078831",
+          "name": "╠⋮🌳verdantㆍtreasuresㆍgala",
+          "type": "text"
+        },
+        {
+          "id": "1447434907587575929",
+          "name": "╠⋮ageㆍofㆍcalamity",
+          "type": "text"
+        },
+        {
+          "id": "1271574200892657715",
+          "name": "🌲operation-temperate-forest🌳",
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "uncategorised": []
+}
