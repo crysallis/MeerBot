@@ -2,6 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const db = require('./db');
 const { logJobRun } = require('./jobLog');
 const botConfig = require('./botConfig');
+const { pickColor } = require('./colors');
 
 function fmtPower(val) {
     if (!val) return '—';
@@ -75,7 +76,7 @@ async function postWeeklySummary(client, channelId) {
             .setTitle(`📊 Weekly Guild Summary — ${weekOf}`)
             .setFooter({ text: since ? `Growth since ${since}` : 'No prior week baseline found' })
             .setDescription('```\n #  Name                   Power    Growth   Act\n' + lines.join('\n') + '\n```')
-            .setColor(0x9b59b6);
+            .setColor(pickColor());
 
         const channel = await client.channels.fetch(channelId);
         await channel.send({ embeds: [embed] });

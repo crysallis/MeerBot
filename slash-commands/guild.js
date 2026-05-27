@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
+const { pickColor } = require('../utils/colors');
 
 function fmtPower(val) {
     if (!val) return '0';
@@ -111,7 +112,7 @@ async function handlePower(interaction, snapshot) {
             .setTitle('⚔️ Guild Power Rankings')
             .setDescription(lines.join('\n'))
             .setFooter({ text: snapshotDate(snapshot) })
-            .setColor(0xf4a400),
+            .setColor(pickColor()),
     ]});
 }
 
@@ -135,7 +136,7 @@ async function handleTop(interaction, snapshot) {
             .setTitle(`⚔️ Top ${n} by Power`)
             .setDescription(lines.join('\n'))
             .setFooter({ text: snapshotDate(snapshot) })
-            .setColor(0xf4a400),
+            .setColor(pickColor()),
     ]});
 }
 
@@ -157,7 +158,7 @@ async function handleInactive(interaction, snapshot) {
             .setTitle('💤 Guild Inactivity')
             .setDescription(lines.join('\n'))
             .setFooter({ text: snapshotDate(snapshot) })
-            .setColor(0x888888),
+            .setColor(pickColor()),
     ]});
 }
 
@@ -179,7 +180,7 @@ async function handleActiveness(interaction, snapshot) {
             .setTitle('📊 Guild Activeness')
             .setDescription(lines.join('\n'))
             .setFooter({ text: snapshotDate(snapshot) })
-            .setColor(0x3498db),
+            .setColor(pickColor()),
     ]});
 }
 
@@ -205,7 +206,7 @@ async function handleGrowth(interaction, snapshot) {
     const embed = new EmbedBuilder()
         .setTitle('📈 Top 5 Power Growth')
         .setFooter({ text: 'Compared to previous snapshot' })
-        .setColor(0x2ecc71);
+        .setColor(pickColor());
 
     rows.forEach((r, i) => {
         const g = r.growth || 0;
@@ -239,7 +240,7 @@ async function handleStatus(interaction, snapshot) {
                 { name: 'Active This Week', value: `${s.active_week}`,        inline: true },
                 { name: 'Last Scan',        value: snapshotDate(snapshot),    inline: true },
             )
-            .setColor(0x9b59b6),
+            .setColor(pickColor()),
     ]});
 }
 
@@ -276,7 +277,7 @@ async function handleNoGrowth(interaction, snapshot) {
             .setTitle('📉 No Power Growth')
             .setDescription(lines.join('\n'))
             .setFooter({ text: 'Compared to previous snapshot' })
-            .setColor(0xe74c3c),
+            .setColor(pickColor()),
     ]});
 }
 
@@ -358,7 +359,7 @@ async function handleChart(interaction, snapshot) {
             .setTitle(`📈 Guild Power Growth · Last ${allSnapshots.length} Scans`)
             .setImage(url)
             .setFooter({ text: snapshotDate(snapshot) })
-            .setColor(0xf4a400),
+            .setColor(pickColor()),
     ]});
 }
 
@@ -390,6 +391,6 @@ async function handleNewcomers(interaction, snapshot) {
             .setTitle('🆕 New Members')
             .setDescription(lines.join('\n'))
             .setFooter({ text: snapshotDate(snapshot) })
-            .setColor(0x1abc9c),
+            .setColor(pickColor()),
     ]});
 }

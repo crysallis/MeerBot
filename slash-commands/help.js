@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { getPerm } = require('../utils/permissions');
+const { pickColor } = require('../utils/colors');
 
 const COMMANDS = {
     birthday: {
@@ -146,7 +147,7 @@ module.exports = {
 
             const embed = new EmbedBuilder()
                 .setTitle(`📖 /${cmd}`)
-                .setColor(0x9b59b6)
+                .setColor(pickColor())
                 .setDescription(headerPerm)
                 .addFields(info.subcommands.map(s => ({
                     name: s.name,
@@ -180,7 +181,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('📖 Meerbot Commands')
-            .setColor(0x9b59b6)
+            .setColor(pickColor())
             .setDescription('Use `/help command:name` for details and subcommands.')
             .addFields(fields);
 

@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('./db');
 const botConfig = require('./botConfig');
+const { pickColor } = require('./colors');
 
 // Add new timed messages here — utcHour/utcMinute are when to fire (UTC)
 const MESSAGES = [
@@ -16,7 +17,7 @@ const MESSAGES = [
                 "It's server reset, hop on if you can, let's take down that Supremacy boss... " +
                 "or get the our daily activity in so we can get the next boss!"
             )
-            .setColor(0xf39c12),
+            .setColor(pickColor()),
     },
 ];
 

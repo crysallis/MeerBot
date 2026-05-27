@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
 const db = require('../utils/db');
 const { buildBirthdayEmbed } = require('../utils/birthdayCheck');
+const { pickColor } = require('../utils/colors');
 const { enforce } = require('../utils/permissions');
 
 const DAYS_IN_MONTH = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -105,7 +106,7 @@ module.exports = {
                 new EmbedBuilder()
                     .setTitle('🎂 Guild Birthdays')
                     .setDescription(lines.join('\n'))
-                    .setColor(0xFF69B4)
+                    .setColor(pickColor())
                     .setFooter({ text: `${rows.length} registered` }),
             ], flags: MessageFlags.Ephemeral });
         }

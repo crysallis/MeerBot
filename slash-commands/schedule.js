@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const botConfig = require('../utils/botConfig');
+const { pickColor } = require('../utils/colors');
 
 function getJobs() {
     return [
@@ -66,7 +67,7 @@ module.exports = {
     async execute(interaction) {
         const embed = new EmbedBuilder()
             .setTitle('📅 Scheduled Jobs')
-            .setColor(0x4a90e2)
+            .setColor(pickColor())
             .setFooter({ text: `${getJobs().length} jobs · times in UTC (18:00 = 2pm EDT / 1pm EST)` })
             .setTimestamp();
 

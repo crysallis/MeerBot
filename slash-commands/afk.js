@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { enforce } = require('../utils/permissions');
+const { pickColor } = require('../utils/colors');
 
 function getMemberByName(name) {
     return db.prepare('SELECT id, ingame_name FROM members WHERE ingame_name LIKE ?').get(name);
@@ -118,7 +119,7 @@ module.exports = {
                 new EmbedBuilder()
                     .setTitle('✈️ AFK Members')
                     .setDescription(lines.join('\n'))
-                    .setColor(0x95a5a6),
+                    .setColor(pickColor()),
             ], flags: MessageFlags.Ephemeral });
         }
     },
