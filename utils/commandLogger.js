@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const botConfig = require('./botConfig');
+const { pickColor } = require('./colors');
 
 // Discord option types — 1 = SUB_COMMAND, 2 = SUB_COMMAND_GROUP
 const SUB_COMMAND = 1;
@@ -45,7 +46,7 @@ async function logCommand(interaction) {
                 `Used \`${interaction.commandName}\` command in ${channelMention}\n` +
                 '```\n' + cmdStr + '\n```'
             )
-            .setColor(0x4a90e2)
+            .setColor(pickColor())
             .setTimestamp();
 
         await channel.send({ embeds: [embed] });

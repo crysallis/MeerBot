@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js");
 const { execFile, exec } = require("child_process");
 const db = require("../utils/db");
+const { pickColor } = require("../utils/colors");
 const { enforce } = require("../utils/permissions");
 const botConfig = require("../utils/botConfig");
 
@@ -53,7 +54,7 @@ async function postInactivityAlert(client) {
 			new EmbedBuilder()
 				.setTitle(`⚠️ ${inactive.length} member${inactive.length === 1 ? "" : "s"} inactive ${INACTIVITY_DAYS}+ days`)
 				.setDescription(lines.join("\n"))
-				.setColor(0xe74c3c)
+				.setColor(pickColor())
 				.setFooter({ text: "AF AFK members are excluded · speak to a Riff or Raff /afk set to exempt someone" }),
 		],
 	});

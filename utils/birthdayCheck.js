@@ -2,6 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const db = require('./db');
+const { pickColor } = require('./colors');
 const { logJobRun } = require('./jobLog');
 const botConfig = require('./botConfig');
 
@@ -70,7 +71,7 @@ function buildBirthdayEmbed(userId, username, month, day) {
     const embed = new EmbedBuilder()
         .setTitle(`🎉🎂 Happy Birthday, ${displayName}! 🎂🎉`)
         .setDescription(description)
-        .setColor(0xFFD700)
+        .setColor(pickColor())
         .setFooter({ text: '🎊 From your entire guild · with love 🎊' })
         .setTimestamp();
 

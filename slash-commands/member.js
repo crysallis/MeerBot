@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
+const { pickColor, toRgba } = require('../utils/colors');
 
 function fmtPower(val) {
     if (!val) return '·';
@@ -34,6 +35,7 @@ module.exports = {
     },
 
     async execute(interaction) {
+        const color = pickColor();
         const name = interaction.options.getString('name');
         const mentionedUser = interaction.options.getUser('user');
 
@@ -45,9 +47,11 @@ module.exports = {
         if (mentionedUser) {
             current = db.prepare(`
                 SELECT m.ingame_name, m.discord_id, m.first_seen,
-                       ms.last_active, ms.combat_power, ms.combat_power_value, ms.activeness
+                       ms.last_active, ms.combat_power, ms.combat_power_value,
+                       afk.return_date AS afk_until
                 FROM member_snapshots ms
                 JOIN members m ON m.id = ms.member_id
+                LEFT JOIN member_afk afk ON afk.member_id = m.id
                 WHERE ms.snapshot_id = (SELECT MAX(id) FROM snapshots)
                   AND m.discord_id = ?
                 LIMIT 1
@@ -58,9 +62,11 @@ module.exports = {
         } else {
             current = db.prepare(`
                 SELECT m.ingame_name, m.discord_id, m.first_seen,
-                       ms.last_active, ms.combat_power, ms.combat_power_value, ms.activeness
+                       ms.last_active, ms.combat_power, ms.combat_power_value,
+                       afk.return_date AS afk_until
                 FROM member_snapshots ms
                 JOIN members m ON m.id = ms.member_id
+                LEFT JOIN member_afk afk ON afk.member_id = m.id
                 WHERE ms.snapshot_id = (SELECT MAX(id) FROM snapshots)
                   AND m.ingame_name LIKE ?
                 LIMIT 1
@@ -73,7 +79,7 @@ module.exports = {
         const lookupName = current.ingame_name;
 
         const history = db.prepare(`
-            SELECT s.scraped_at, ms.combat_power_value, ms.activeness, ms.last_active
+            SELECT s.scraped_at, ms.combat_power_value, ms.last_active
             FROM member_snapshots ms
             JOIN snapshots s ON s.id = ms.snapshot_id
             JOIN members m ON m.id = ms.member_id
@@ -84,48 +90,73 @@ module.exports = {
 
         const chronological = [...history].reverse();
         const histLines = history.map(h =>
-            `${h.scraped_at.slice(0, 10)}  ${fmtPower(h.combat_power_value).padStart(7)}  ${String(h.activeness).padStart(4)}  ${h.last_active}`
+            `${h.scraped_at.slice(0, 10)} | ${fmtPower(h.combat_power_value).padStart(6)} | ${h.last_active}`
         );
+
+        let powerGrowth = '·';
+        if (chronological.length >= 2) {
+            const delta = (chronological.at(-1).combat_power_value || 0) - (chronological[0].combat_power_value || 0);
+            if (delta !== 0) powerGrowth = `${delta >= 0 ? '▲' : '▼'} ${fmtPower(Math.abs(delta))}`;
+        }
+
+        const afkValue = current.afk_until ? `AFK until ${current.afk_until}` : '·';
 
         const embed = new EmbedBuilder()
             .setTitle(`👤 ${current.ingame_name}`)
             .addFields(
-                { name: 'Combat Power',  value: current.combat_power || '·',                                    inline: true },
-                { name: 'Activeness',    value: String(current.activeness),                                      inline: true },
-                { name: 'Last Active',   value: current.last_active || '·',                                      inline: true },
-                { name: 'Discord',       value: current.discord_id ? `<@${current.discord_id}>` : 'Not linked', inline: true },
-                { name: 'First Seen',    value: current.first_seen?.slice(0, 10) || '·',                        inline: true },
+                { name: 'Combat Power', value: current.combat_power || '·', inline: true },
+                { name: 'Last Active', value: current.last_active || '·', inline: true },
+                { name: 'Discord', value: current.discord_id ? `<@${current.discord_id}>` : 'Not linked', inline: true },
+                { name: 'First Seen', value: current.first_seen?.slice(0, 10) || '·', inline: true },
+                { name: 'Power Growth', value: powerGrowth, inline: true },
+                { name: 'AF AFK', value: afkValue, inline: true },
             )
-            .setColor(0xe67e22);
+            .setColor(color);
 
         if (histLines.length) {
-            embed.setDescription('**Snapshot History**\n```\nDate        Power   Act  Last Active\n' + histLines.join('\n') + '\n```');
+            const header = `${'Date'.padEnd(10)} | ${'Power'.padStart(6)} | Last Active`;
+            embed.setDescription('**Snapshot History**\n```\n' + header + '\n' + histLines.join('\n') + '\n```');
         }
 
         if (chronological.length >= 2) {
-            const chartConfig = {
+            const config = {
                 type: 'line',
                 data: {
                     labels: chronological.map(h => h.scraped_at.slice(0, 10)),
                     datasets: [{
-                        label: 'Power (M)',
                         data: chronological.map(h => +((h.combat_power_value || 0) / 1_000_000).toFixed(2)),
-                        borderColor: 'rgba(230, 126, 34, 1)',
-                        backgroundColor: 'rgba(230, 126, 34, 0.15)',
+                        borderColor: toRgba(color),
+                        backgroundColor: toRgba(color, 0.15),
                         fill: true,
                         tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: toRgba(color),
                     }],
                 },
                 options: {
-                    title: { display: true, text: `${current.ingame_name} · Power Growth` },
+                    title: { display: true, text: `${current.ingame_name} · Power Growth`, fontColor: '#dbdee1' },
                     legend: { display: false },
                     scales: {
-                        yAxes: [{ scaleLabel: { display: true, labelString: 'Power (M)' } }],
+                        xAxes: [{ ticks: { fontColor: '#b5bac1' }, gridLines: { color: 'rgba(255,255,255,0.06)' } }],
+                        yAxes: [{
+                            ticks: { fontColor: '#b5bac1' },
+                            gridLines: { color: 'rgba(255,255,255,0.06)' },
+                            scaleLabel: { display: true, labelString: 'Power (M)', fontColor: '#b5bac1' },
+                        }],
                     },
                 },
             };
-            const chartUrl = `https://quickchart.io/chart?w=700&h=300&bkg=white&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
-            embed.setImage(chartUrl);
+
+            await interaction.deferReply();
+            const res = await fetch('https://quickchart.io/chart/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chart: config, width: 700, height: 300, backgroundColor: '#1e1f22' }),
+            });
+            const json = await res.json();
+            console.log('[member chart] QuickChart response:', json);
+            embed.setImage(json.url);
+            return interaction.editReply({ embeds: [embed] });
         }
 
         await interaction.reply({ embeds: [embed] });

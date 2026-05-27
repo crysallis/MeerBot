@@ -2,6 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const db = require('./db');
 const { logJobRun } = require('./jobLog');
 const botConfig = require('./botConfig');
+const { pickColor } = require('./colors');
 
 async function checkAfkExpiry(client) {
     try {
@@ -37,7 +38,7 @@ async function checkAfkExpiry(client) {
                     .setTitle(`✈️ AFK period ended · ${expired.length} member${expired.length === 1 ? '' : 's'} returned`)
                     .setDescription(lines.join('\n'))
                     .setFooter({ text: 'AFK status cleared automatically · use /afk set again if still away' })
-                    .setColor(0x2ecc71),
+                    .setColor(pickColor()),
             ]});
         } catch (err) {
             console.error('AFK expiry notification error:', err);

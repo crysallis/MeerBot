@@ -2,6 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const db = require('./db');
 const { logJobRun } = require('./jobLog');
 const botConfig = require('./botConfig');
+const { pickColor } = require('./colors');
 
 /**
  * Returns true if `today` is exactly `n` months after `from`,
@@ -71,7 +72,7 @@ async function checkAnniversaries(client) {
                 new EmbedBuilder()
                     .setTitle(`🎉 Guild Anniversaries · ${today.toISOString().slice(0, 10)}`)
                     .setDescription(lines.join('\n') + '\n\nThanks for being part of the guild! 🦡')
-                    .setColor(0xe91e63),
+                    .setColor(pickColor()),
             ]});
         } catch (err) {
             console.error('Anniversary notification error:', err);

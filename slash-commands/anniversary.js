@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { milestoneFor } = require('../utils/anniversaryCheck');
+const { pickColor } = require('../utils/colors');
 
 /**
  * Returns the next upcoming milestone for a member, or null if first_seen
@@ -57,7 +58,7 @@ function buildEmbed(matches, date, isPreview) {
     return new EmbedBuilder()
         .setTitle(title)
         .setDescription(lines.join('\n') + '\n\nThanks for being part of the guild! 🦡')
-        .setColor(0xe91e63);
+        .setColor(pickColor());
 }
 
 module.exports = {
@@ -154,7 +155,7 @@ module.exports = {
                     new EmbedBuilder()
                         .setTitle(`📆 Next ${top.length} Anniversaries`)
                         .setDescription(lines.join('\n'))
-                        .setColor(0xe91e63),
+                        .setColor(pickColor()),
                 ],
                 flags: MessageFlags.Ephemeral,
             });
@@ -187,7 +188,7 @@ module.exports = {
                     new EmbedBuilder()
                         .setTitle(`📆 Upcoming Anniversaries · next ${days} days`)
                         .setDescription(lines.join('\n'))
-                        .setColor(0xe91e63),
+                        .setColor(pickColor()),
                 ],
                 flags: MessageFlags.Ephemeral,
             });
