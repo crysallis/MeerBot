@@ -6,12 +6,6 @@ module.exports = {
         maxCommands: 20,     // max commands allowed within the window
     },
 
-    // Scheduled auto-messages
-    scheduledMessages: {
-        lateWarningMinutes: 30,  // add a late footer after this many minutes past scheduled time
-        // per-message maxLateMinutes is set on each message entry in utils/scheduledMessages.js
-    },
-
     // /ping latency tier breakpoints (upper bound, exclusive)
     ping: {
         tiers: {

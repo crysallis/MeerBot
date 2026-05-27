@@ -2,17 +2,18 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js"
 const { execFile, exec } = require("child_process");
 const db = require("../utils/db");
 const { enforce } = require("../utils/permissions");
+const botConfig = require("../utils/botConfig");
 
 const PYTHON = process.env.SCRAPER_PYTHON || "python";
 const SCRAPER = process.env.SCRAPER_SCRIPT;
-const INACTIVITY_CHANNEL = process.env.INACTIVITY_ALERT_CHANNEL_ID;
-const INACTIVITY_DAYS = 3;
 
 function getLatestSnapshot() {
 	return db.prepare("SELECT id FROM snapshots ORDER BY id DESC LIMIT 1").get();
 }
 
 async function postInactivityAlert(client) {
+	const INACTIVITY_CHANNEL = botConfig.get('INACTIVITY_ALERT_CHANNEL_ID');
+	const INACTIVITY_DAYS = Number(botConfig.get('INACTIVITY_DAYS', '3'));
 	if (!INACTIVITY_CHANNEL) return;
 
 	const snapshot = getLatestSnapshot();
@@ -50,7 +51,7 @@ async function postInactivityAlert(client) {
 	await channel.send({
 		embeds: [
 			new EmbedBuilder()
-				.setTitle(`⚠️ ${inactive.length} member${inactive.length === 1 ? "" : "s"} inactive 3+ days`)
+				.setTitle(`⚠️ ${inactive.length} member${inactive.length === 1 ? "" : "s"} inactive ${INACTIVITY_DAYS}+ days`)
 				.setDescription(lines.join("\n"))
 				.setColor(0xe74c3c)
 				.setFooter({ text: "AF AFK members are excluded · speak to a Riff or Raff /afk set to exempt someone" }),

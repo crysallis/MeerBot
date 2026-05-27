@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('./db');
 const { logJobRun } = require('./jobLog');
+const botConfig = require('./botConfig');
 
 /**
  * Returns true if `today` is exactly `n` months after `from`,
@@ -41,7 +42,7 @@ function milestoneFor(firstSeenIso, today) {
 
 async function checkAnniversaries(client) {
     try {
-        const channelId = process.env.ANNIVERSARY_CHANNEL_ID;
+        const channelId = botConfig.get('ANNIVERSARY_CHANNEL_ID');
         if (!channelId) return;
 
         const members = db.prepare(`
@@ -81,17 +82,16 @@ async function checkAnniversaries(client) {
 }
 
 function scheduleAnniversaryCheck(client) {
-    const timeStr = process.env.ANNIVERSARY_TIME || '18:00'; // 2pm EDT default
-    const [hours, minutes] = timeStr.split(':').map(Number);
-
     setInterval(async () => {
+        const timeStr = botConfig.get('ANNIVERSARY_TIME', '18:00');
+        const [hours, minutes] = timeStr.split(':').map(Number);
         const now = new Date();
         if (now.getUTCHours() === hours && now.getUTCMinutes() === minutes) {
             await checkAnniversaries(client);
         }
     }, 60_000);
 
-    console.log(`Anniversary check scheduled daily at ${timeStr} UTC`);
+    console.log('Anniversary check initialized (reads time each tick)');
 }
 
 module.exports = { scheduleAnniversaryCheck, checkAnniversaries, milestoneFor };

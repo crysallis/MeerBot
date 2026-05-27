@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
+const botConfig = require('./botConfig');
 
 // Discord option types — 1 = SUB_COMMAND, 2 = SUB_COMMAND_GROUP
 const SUB_COMMAND = 1;
@@ -24,7 +25,7 @@ function buildCommandString(interaction) {
 }
 
 async function logCommand(interaction) {
-    const channelId = process.env.COMMAND_LOG_CHANNEL_ID;
+    const channelId = botConfig.get('COMMAND_LOG_CHANNEL_ID');
     if (!channelId) return;
 
     try {

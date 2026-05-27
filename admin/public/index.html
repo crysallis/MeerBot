@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MeerBot Admin</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #1a1b1e;
+    --surface:  #25262b;
+    --border:   #373a40;
+    --text:     #c1c2c5;
+    --muted:    #5c5f66;
+    --accent:   #4dabf7;
+    --green:    #51cf66;
+    --blue:     #4dabf7;
+    --gray:     #5c5f66;
+    --red:      #ff6b6b;
+  }
+  body { background: var(--bg); color: var(--text); font: 14px/1.5 'Segoe UI', system-ui, sans-serif; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px; background: var(--surface); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { font-size: 18px; color: #fff; font-weight: 600; }
+  header h1 span { color: var(--accent); }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .restart-btn {
+    background: #2f9e44; color: #fff; border: none; padding: 7px 16px;
+    border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
+    transition: background .15s;
+  }
+  .restart-btn:hover { background: #37b24d; }
+  .restart-btn:disabled { background: var(--border); color: var(--muted); cursor: default; }
+  .restart-status { font-size: 12px; color: var(--muted); }
+
+  main { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+
+  .info-bar {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 16px; margin-bottom: 24px; font-size: 12px; color: var(--muted);
+    display: flex; gap: 24px; flex-wrap: wrap;
+  }
+  .info-bar span { display: flex; align-items: center; gap: 6px; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tab {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    transition: all .15s;
+  }
+  .tab:hover { border-color: var(--accent); color: var(--accent); }
+  .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+  .section { display: none; }
+  .section.visible { display: block; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left; padding: 8px 12px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .05em; color: var(--muted); border-bottom: 1px solid var(--border);
+  }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+
+  .label-col { font-weight: 600; color: #fff; min-width: 160px; }
+  .desc-col { color: var(--muted); font-size: 12px; min-width: 200px; }
+  .val-col { min-width: 220px; }
+  .badge-col { min-width: 70px; }
+  .action-col { white-space: nowrap; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  }
+  .badge-db      { background: #1b4332; color: var(--green); }
+  .badge-env     { background: #1c3d5a; color: var(--blue);  }
+  .badge-default { background: #2c2e33; color: var(--muted); }
+
+  input[type=text], input[type=number], input[type=time], select {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 5px 8px; border-radius: 5px; font-size: 13px; width: 100%;
+    outline: none; transition: border-color .15s;
+  }
+  input[type=text]:focus, input[type=number]:focus, input[type=time]:focus, select:focus {
+    border-color: var(--accent);
+  }
+  .channel-filter {
+    margin-bottom: 4px; font-size: 12px;
+  }
+
+  .save-btn {
+    background: #1971c2; color: #fff; border: none; padding: 5px 12px;
+    border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600;
+    white-space: nowrap; transition: background .15s;
+  }
+  .save-btn:hover { background: #1c7ed6; }
+  .save-btn:disabled { background: var(--border); color: var(--muted); cursor: default; }
+
+  .reset-btn {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 11px;
+    margin-left: 6px; transition: all .15s;
+  }
+  .reset-btn:hover { border-color: var(--red); color: var(--red); }
+
+  .saved-flash { color: var(--green); font-size: 11px; margin-left: 8px; opacity: 0; transition: opacity .3s; }
+  .saved-flash.show { opacity: 1; }
+
+  /* Jobs table */
+  .jobs-table { margin-top: 8px; }
+  .jobs-table td { font-size: 12px; font-family: monospace; }
+  .late-yes { color: var(--red); }
+  .late-no  { color: var(--muted); }
+
+  .section-title {
+    font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 16px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden; margin-bottom: 20px;
+  }
+
+  .channels-fetched { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Meer<span>Bot</span> Admin</h1>
+  <div class="header-right">
+    <span class="restart-status" id="restartStatus"></span>
+    <button class="restart-btn" id="restartBtn" onclick="restartBot()">⟳ Restart Bot</button>
+  </div>
+</header>
+
+<main>
+  <div class="info-bar">
+    <span>Changes take effect after bot restart</span>
+    <span id="channelsFetchedAt"></span>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div id="sections"></div>
+
+  <div class="section" id="section-jobs">
+    <div class="section-title">Recent Job Runs</div>
+    <div class="card">
+      <table class="jobs-table">
+        <thead><tr>
+          <th>Job</th><th>Last Run (UTC)</th><th>Late?</th>
+        </tr></thead>
+        <tbody id="jobsBody"><tr><td colspan="3" style="color:var(--muted)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+const CATEGORY_LABELS = {
+  channels:    'Channels',
+  timing:      'Job Timing',
+  thresholds:  'Thresholds',
+  permissions: 'Permissions',
+};
+
+let allConfig = [];
+let channelList = [];
+let activeTab = 'channels';
+
+async function init() {
+  const [configRes, channelsRes, jobsRes] = await Promise.all([
+    fetch('/api/config').then(r => r.json()),
+    fetch('/api/channels').then(r => r.json()),
+    fetch('/api/jobs').then(r => r.json()),
+  ]);
+
+  allConfig = configRes;
+  channelList = channelsRes.channels ?? [];
+
+  if (channelsRes.fetched_at) {
+    document.getElementById('channelsFetchedAt').textContent =
+      'Channel list fetched: ' + channelsRes.fetched_at.slice(0, 10);
+  }
+
+  renderTabs();
+  renderAllSections();
+  renderJobs(jobsRes);
+}
+
+function renderTabs() {
+  const categories = [...new Set(allConfig.map(c => c.category))];
+  const tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = '';
+
+  for (const cat of categories) {
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (cat === activeTab ? ' active' : '');
+    btn.textContent = CATEGORY_LABELS[cat] ?? cat;
+    btn.onclick = () => switchTab(cat);
+    tabsEl.appendChild(btn);
+  }
+
+  // Jobs tab
+  const jobTab = document.createElement('button');
+  jobTab.className = 'tab' + (activeTab === 'jobs' ? ' active' : '');
+  jobTab.textContent = 'Job Runs';
+  jobTab.onclick = () => switchTab('jobs');
+  tabsEl.appendChild(jobTab);
+}
+
+function switchTab(cat) {
+  activeTab = cat;
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const cats = [...new Set(allConfig.map(c => c.category)), 'jobs'];
+    t.classList.toggle('active', cats[i] === cat);
+  });
+  document.querySelectorAll('.section').forEach(s => {
+    s.classList.toggle('visible', s.id === 'section-' + cat);
+  });
+}
+
+function renderAllSections() {
+  const container = document.getElementById('sections');
+  container.innerHTML = '';
+  const categories = [...new Set(allConfig.map(c => c.category))];
+
+  for (const cat of categories) {
+    const entries = allConfig.filter(c => c.category === cat);
+    const section = document.createElement('div');
+    section.className = 'section' + (cat === activeTab ? ' visible' : '');
+    section.id = 'section-' + cat;
+
+    section.innerHTML = `<div class="section-title">${CATEGORY_LABELS[cat] ?? cat}</div>`;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const table = document.createElement('table');
+    table.innerHTML = `<thead><tr>
+      <th>Setting</th><th>Description</th><th>Value</th><th>Source</th><th></th>
+    </tr></thead>`;
+    const tbody = document.createElement('tbody');
+
+    for (const entry of entries) {
+      tbody.appendChild(buildRow(entry, cat));
+    }
+
+    table.appendChild(tbody);
+    card.appendChild(table);
+    section.appendChild(card);
+    container.appendChild(section);
+  }
+}
+
+function buildRow(entry, cat) {
+  const tr = document.createElement('tr');
+  tr.id = 'row-' + entry.key;
+
+  const inputId = 'input-' + entry.key;
+  let inputHtml = '';
+
+  if (cat === 'channels') {
+    // Filter + select combo
+    const filterId = 'filter-' + entry.key;
+    const opts = channelList.map(ch => {
+      const cleanName = ch.name.replace(/[^\w\s#\-]/gu, '').trim();
+      const selected = ch.id === entry.value ? ' selected' : '';
+      return `<option value="${ch.id}"${selected}>${cleanName} (${ch.id})</option>`;
+    }).join('');
+    inputHtml = `
+      <input class="channel-filter" type="text" id="${filterId}" placeholder="Filter channels..."
+        oninput="filterChannel('${entry.key}')" style="margin-bottom:4px">
+      <select id="${inputId}" data-key="${entry.key}">
+        <option value="">— not set —</option>
+        ${opts}
+      </select>`;
+  } else if (cat === 'timing') {
+    inputHtml = `<input type="time" id="${inputId}" value="${entry.value || ''}" data-key="${entry.key}">`;
+  } else if (cat === 'thresholds') {
+    inputHtml = `<input type="number" id="${inputId}" value="${entry.value || ''}" min="1" data-key="${entry.key}" style="width:80px">`;
+  } else {
+    inputHtml = `<input type="text" id="${inputId}" value="${entry.value || ''}" data-key="${entry.key}" placeholder="Discord user ID">`;
+  }
+
+  const badgeClass = { DB: 'badge-db', ENV: 'badge-env', DEFAULT: 'badge-default' }[entry.source] || 'badge-default';
+  const resetBtn = entry.source === 'DB'
+    ? `<button class="reset-btn" onclick="resetKey('${entry.key}')" title="Remove DB override, revert to ENV/DEFAULT">✕</button>`
+    : '';
+
+  tr.innerHTML = `
+    <td class="label-col">${entry.label}</td>
+    <td class="desc-col">${entry.description}</td>
+    <td class="val-col">${inputHtml}</td>
+    <td class="badge-col"><span class="badge ${badgeClass}" id="badge-${entry.key}">${entry.source}</span></td>
+    <td class="action-col">
+      <button class="save-btn" onclick="saveKey('${entry.key}')">Save</button>
+      ${resetBtn}
+      <span class="saved-flash" id="flash-${entry.key}">Saved!</span>
+    </td>`;
+
+  return tr;
+}
+
+function filterChannel(key) {
+  const filter = document.getElementById('filter-' + key).value.toLowerCase();
+  const select = document.getElementById('input-' + key);
+  for (const opt of select.options) {
+    opt.hidden = filter && !opt.text.toLowerCase().includes(filter);
+  }
+}
+
+async function saveKey(key) {
+  const input = document.getElementById('input-' + key);
+  const value = input.value;
+
+  const res = await fetch('/api/config/' + key, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Save failed: ' + data.error); return; }
+
+  updateBadge(key, 'DB');
+  flash(key);
+
+  // Show reset button now that source is DB
+  const tr = document.getElementById('row-' + key);
+  let resetBtn = tr.querySelector('.reset-btn');
+  if (!resetBtn) {
+    resetBtn = document.createElement('button');
+    resetBtn.className = 'reset-btn';
+    resetBtn.title = 'Remove DB override, revert to ENV/DEFAULT';
+    resetBtn.textContent = '✕';
+    resetBtn.onclick = () => resetKey(key);
+    tr.querySelector('.action-col').insertBefore(resetBtn, tr.querySelector('.saved-flash'));
+  }
+}
+
+async function resetKey(key) {
+  const res = await fetch('/api/config/' + key, { method: 'DELETE' });
+  const data = await res.json();
+  if (!data.ok) { alert('Reset failed: ' + data.error); return; }
+
+  // Re-fetch to get new effective value + source
+  const configs = await fetch('/api/config').then(r => r.json());
+  const entry = configs.find(c => c.key === key);
+  if (entry) {
+    const input = document.getElementById('input-' + key);
+    if (input) input.value = entry.value || '';
+    updateBadge(key, entry.source);
+  }
+
+  // Remove reset button
+  const tr = document.getElementById('row-' + key);
+  tr.querySelector('.reset-btn')?.remove();
+  flash(key, 'Reset!');
+}
+
+function updateBadge(key, source) {
+  const badge = document.getElementById('badge-' + key);
+  if (!badge) return;
+  badge.textContent = source;
+  badge.className = 'badge ' + ({ DB: 'badge-db', ENV: 'badge-env', DEFAULT: 'badge-default' }[source] || 'badge-default');
+}
+
+function flash(key, msg = 'Saved!') {
+  const el = document.getElementById('flash-' + key);
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+async function restartBot() {
+  const btn = document.getElementById('restartBtn');
+  const status = document.getElementById('restartStatus');
+  btn.disabled = true;
+  btn.textContent = '⟳ Restarting...';
+  status.textContent = '';
+  try {
+    const res = await fetch('/api/bot/restart', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      status.textContent = 'Restarted!';
+      btn.textContent = '⟳ Restart Bot';
+      setTimeout(() => { status.textContent = ''; }, 5000);
+    } else {
+      status.textContent = 'Failed — check PM2 logs';
+      btn.textContent = '⟳ Restart Bot';
+    }
+  } catch {
+    status.textContent = 'Error — is PM2 running?';
+    btn.textContent = '⟳ Restart Bot';
+  }
+  btn.disabled = false;
+}
+
+function renderJobs(rows) {
+  const tbody = document.getElementById('jobsBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--muted)">No runs recorded yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.name}</td>
+      <td>${r.sent_at ? r.sent_at.slice(0, 19).replace('T', ' ') : r.sent_date}</td>
+      <td class="${r.late ? 'late-yes' : 'late-no'}">${r.late ? 'yes' : '—'}</td>
+    </tr>`).join('');
+}
+
+init();
+</script>
+</body>
+</html>

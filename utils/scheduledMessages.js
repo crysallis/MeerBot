@@ -1,8 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('./db');
-const { scheduledMessages: cfg } = require('../config');
-
-const LATE_THRESHOLD_MS = cfg.lateWarningMinutes * 60_000;
+const botConfig = require('./botConfig');
 
 // Add new timed messages here — utcHour/utcMinute are when to fire (UTC)
 const MESSAGES = [
@@ -38,6 +36,7 @@ async function checkScheduledMessages(client) {
     const now = new Date();
     const utcH = now.getUTCHours();
     const utcM = now.getUTCMinutes();
+    const LATE_THRESHOLD_MS = Number(botConfig.get('LATE_WARNING_MINUTES', '30')) * 60_000;
 
     for (const msg of MESSAGES) {
         // Only fire if we're at or past the scheduled time today (UTC)
@@ -58,7 +57,7 @@ async function checkScheduledMessages(client) {
             continue;
         }
 
-        const channelId = process.env[msg.channelEnv];
+        const channelId = botConfig.get(msg.channelEnv);
         if (!channelId) {
             console.warn(`Scheduled message '${msg.name}': env var ${msg.channelEnv} not set`);
             continue;

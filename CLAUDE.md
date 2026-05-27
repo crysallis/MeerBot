@@ -12,12 +12,20 @@ pm2 logs meerbot --lines 20 --nostream
 ```
 `DEV_REGISTER=true` in .env auto-registers slash commands on every startup.
 
+Start both bot + admin panel (first time or after `ecosystem.config.js` changes):
+```
+pm2 start ecosystem.config.js
+pm2 save
+```
+Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · never needs `--update-env` (reads config from DB)
+
 ## Key Files
 | File | Purpose |
 |---|---|
 | `index.js` | Entry point, command loader, rate limiter |
-| `config.js` | All tuneable parameters (rate limit, ping tiers, late warning threshold) |
+| `config.js` | Rate limit + ping tier constants (static code config only) |
 | `utils/db.js` | DB connection + all table CREATE/migrations |
+| `utils/botConfig.js` | DB-backed config store · `get(key)` reads DB → ENV → default · `set(key,val)` writes DB · `getAll()` for admin UI |
 | `utils/scheduledMessages.js` | Timed auto-posts · add new messages to MESSAGES array here |
 | `utils/afkExpiry.js` | Daily midnight UTC · clears expired AFK records, posts to inactivity channel |
 | `utils/anniversaryCheck.js` | Daily at `ANNIVERSARY_TIME` UTC · posts guild anniversaries for active members (1/3/6 mo + yearly) |
@@ -26,6 +34,9 @@ pm2 logs meerbot --lines 20 --nostream
 | `utils/birthdayCheck.js` | Daily at midnight · checks birthday table, posts embed |
 | `utils/commandLogger.js` | Posts a Dyno-style audit embed for every slash command to `COMMAND_LOG_CHANNEL_ID` |
 | `utils/jobLog.js` | Shared helper · scheduled jobs call `logJobRun(name)` to record runs in `scheduler_log` |
+| `admin/server.js` | Express admin panel server (port 3001, localhost only) · PM2 process `meerbot-admin` |
+| `admin/public/index.html` | Plain HTML admin UI · edit channel IDs, timing, thresholds without code changes |
+| `ecosystem.config.js` | PM2 multi-process config · defines `meerbot` + `meerbot-admin` |
 
 ## Slash Commands
 | Command | Notes |
@@ -49,6 +60,7 @@ pm2 logs meerbot --lines 20 --nostream
 - `member_afk` · active AFK records · return_date is YYYY-MM-DD
 - `scheduler_log` · sent_date dedup + full timestamp + late flag for auto-messages
 - `name_corrections` · OCR correction map
+- `bot_config` · key/value admin overrides · precedence: DB > ENV > hardcoded default
 
 ## Scheduled Messages
 Defined in `utils/scheduledMessages.js` MESSAGES array. Each entry has:
@@ -57,7 +69,7 @@ Defined in `utils/scheduledMessages.js` MESSAGES array. Each entry has:
 - `utcHour/utcMinute` · when to fire
 - `maxLateMinutes` · skip entirely if bot was down longer than this
 
-Global thresholds in `config.js`: `lateWarningMinutes = 30` (adds late footer to embed).
+Global late warning threshold: `LATE_WARNING_MINUTES` in `bot_config` table (default 30 min) · editable via admin panel.
 
 ### Current messages
 | name | channel env | time UTC | maxLate |
@@ -66,6 +78,8 @@ Global thresholds in `config.js`: `lateWarningMinutes = 30` (adds late footer to
 
 ## Environment Notes
 - Node.js v21.7.1 · technically outside better-sqlite3's supported range (20/22/24+) but works fine · don't suggest a Node upgrade just because of the EBADENGINE warning
+- `ADMIN_PORT` env var · port for admin panel server (default `3001`)
+- Channel IDs and timing values are now DB-backed via `bot_config` · env vars still work as fallbacks but prefer editing via admin panel
 - `GENERAL_CHANNEL_ID` env var · general channel for scheduled messages (1229548159081123893)
 - `COMMAND_LOG_CHANNEL_ID` env var · bot-chatter channel for command audit log (1343099233045184594)
 - `ANNIVERSARY_CHANNEL_ID` env var · riffraff guild channel for anniversary posts (1303421884687192174)

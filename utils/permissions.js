@@ -1,4 +1,5 @@
 const { PermissionFlagsBits, MessageFlags } = require('discord.js');
+const botConfig = require('./botConfig');
 
 // Role IDs from data/discord-roles.json · refresh with `node scripts/list-roles.js`
 const ROLES = {
@@ -25,7 +26,7 @@ const PERMS = {
     },
     scanUser: {
         label: 'Authorized scan user',
-        check: i => i.user.id === process.env.SCAN_AUTHORIZED_USER,
+        check: i => i.user.id === botConfig.get('SCAN_AUTHORIZED_USER'),
     },
 };
 

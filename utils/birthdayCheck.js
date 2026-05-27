@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('./db');
 const { logJobRun } = require('./jobLog');
+const botConfig = require('./botConfig');
 
 const WISHES_PATH = path.join(__dirname, '../data/birthday-wishes.json');
 
@@ -111,7 +112,7 @@ async function checkBirthdays(client) {
         const birthdays = db.prepare('SELECT * FROM birthdays WHERE month = ? AND day = ?').all(month, day);
 
         if (birthdays.length) {
-            const channelId = process.env.BIRTHDAY_CHANNEL_ID;
+            const channelId = botConfig.get('BIRTHDAY_CHANNEL_ID');
             if (channelId) {
                 const channel = await client.channels.fetch(channelId).catch(() => null);
                 if (channel?.isTextBased()) {
