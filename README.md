@@ -24,11 +24,13 @@ Copy `.env.example` to `.env` and fill in all values (see Configuration below).
 ### Register slash commands and start
 
 ```powershell
-# Start via PM2 (registers commands automatically on boot when DEV_REGISTER=true)
-pm2 start index.js --name meerbot
+# Start both the bot and admin panel via PM2
+pm2 start ecosystem.config.js
 pm2 save
 pm2 startup
 ```
+
+Admin panel runs at `http://localhost:3001` (localhost only).
 
 ### Updating after code changes
 
@@ -38,7 +40,9 @@ pm2 restart meerbot --update-env
 
 ---
 
-## Configuration (.env)
+## Configuration
+
+### Required .env values (secrets and paths -- must stay in .env)
 
 | Variable | Description |
 |---|---|
@@ -46,19 +50,28 @@ pm2 restart meerbot --update-env
 | `APPLICATION_ID` | Your application/client ID |
 | `GUILD_ID` | Discord server ID to register slash commands to |
 | `DEV_REGISTER` | Set to `true` to auto-register slash commands on startup |
-| `SCAN_AUTHORIZED_USER` | Discord user ID allowed to run `/scan` |
-| `SCAN_REMINDER_CHANNEL_ID` | Channel to post daily scan reminders |
-| `SCAN_REMINDER_TIME` | Time to post reminder in `HH:MM` UTC (e.g. `20:00`) |
-| `WEEKLY_SUMMARY_CHANNEL_ID` | Channel to post Monday weekly summaries |
-| `WEEKLY_SUMMARY_TIME` | Time to post summary in `HH:MM` UTC (e.g. `09:00`) |
-| `BIRTHDAY_CHANNEL_ID` | Channel to post birthday messages |
-| `ANNIVERSARY_CHANNEL_ID` | Channel to post guild anniversary messages (1mo, 3mo, 6mo, 1yr+) |
-| `ANNIVERSARY_TIME` | Time to post anniversaries in `HH:MM` UTC (default `18:00` = 2pm EDT) |
-| `INACTIVITY_ALERT_CHANNEL_ID` | Channel to post post-scan inactivity alerts |
-| `GENERAL_CHANNEL_ID` | Channel for scheduled auto-posts (e.g. daily reset reminder) |
-| `COMMAND_LOG_CHANNEL_ID` | Channel to post a Dyno-style audit log for every slash command run |
 | `SCRAPER_PYTHON` | Full path to the venv Python executable |
 | `SCRAPER_SCRIPT` | Full path to `scraper.py` |
+| `GUILD_DB_PATH` | Full path to `guild.db` (optional, defaults to `../../AFKDataMining/guild.db`) |
+| `ADMIN_PORT` | Port for the admin panel (optional, defaults to `3001`) |
+
+### Configurable via admin panel (or .env as fallback)
+
+Channel IDs, job timing, and thresholds are stored in the `bot_config` DB table and editable at `http://localhost:3001` without restarting or editing files. The .env values below act as fallbacks if no DB override exists.
+
+| Variable | Description | Default |
+|---|---|---|
+| `SCAN_AUTHORIZED_USER` | Discord user ID allowed to run `/scan` | — |
+| `SCAN_REMINDER_CHANNEL_ID` | Channel for daily scan reminders | — |
+| `SCAN_REMINDER_TIME` | Scan reminder time `HH:MM` UTC | `20:00` |
+| `WEEKLY_SUMMARY_CHANNEL_ID` | Channel for Monday weekly summaries | — |
+| `WEEKLY_SUMMARY_TIME` | Weekly summary time `HH:MM` UTC | `09:00` |
+| `BIRTHDAY_CHANNEL_ID` | Channel for birthday messages | — |
+| `ANNIVERSARY_CHANNEL_ID` | Channel for guild anniversary messages | — |
+| `ANNIVERSARY_TIME` | Anniversary check time `HH:MM` UTC | `18:00` |
+| `INACTIVITY_ALERT_CHANNEL_ID` | Channel for post-scan inactivity alerts | — |
+| `GENERAL_CHANNEL_ID` | Channel for scheduled auto-posts | — |
+| `COMMAND_LOG_CHANNEL_ID` | Channel for slash command audit log | — |
 
 ---
 
@@ -118,7 +131,7 @@ List commands show badges inline with member names:
 |---|---|---|
 | Birthday check | Daily at UTC midnight | Posts birthday embed for any member with a birthday today |
 | Scan reminder | Daily at `SCAN_REMINDER_TIME` | Reminds the authorized user to run a scan |
-| Weekly summary | Mondays at `WEEKLY_SUMMARY_TIME` | Posts power/growth summary for the whole guild |
+| Weekly summary | Mondays at `WEEKLY_SUMMARY_TIME` | Posts power/growth summary · compares latest scan to oldest scan from the past 7 days (true weekly delta) |
 | AFK expiry | Daily at UTC midnight | Clears AFK records past their return date and notifies the inactivity channel |
 | Anniversary check | Daily at `ANNIVERSARY_TIME` UTC | Posts 1mo/3mo/6mo/yearly guild anniversaries for active members |
 | Scheduled messages | Per entry in `utils/scheduledMessages.js` | Date-deduped auto-posts (e.g. daily reset reminder at 00:00 UTC). Includes startup catch-up and late-footer if fired late |
@@ -131,7 +144,11 @@ List commands show badges inline with member names:
 MeerBot/
     index.js                    Entry point. Loads commands, handles interactions, rate limiter.
     deploy-commands.js          Registers slash commands with Discord API.
-    config.js                   Central tuneable parameters (rate limit, ping tiers, late warning).
+    config.js                   Static parameters: rate limit, ping tiers.
+    ecosystem.config.js         PM2 multi-process config (meerbot + meerbot-admin).
+    admin/
+        server.js               Express admin panel server (localhost:3001).
+        public/index.html       Plain HTML admin UI — edit config without touching code.
     slash-commands/
         guild.js                All /guild subcommands incl. chart.
         member.js               /member lookup with autocomplete.
@@ -147,6 +164,7 @@ MeerBot/
         anniversary.js          /anniversary list / upcoming / test.
     utils/
         db.js                   SQLite connection, schema creation, idempotent migrations.
+        botConfig.js            DB-backed config store. get(key) reads DB > ENV > default.
         birthdayCheck.js        Birthday embed builder and scheduler.
         anniversaryCheck.js     Guild anniversary scheduler (1mo / 3mo / 6mo / yearly).
         scanReminder.js         Daily scan reminder scheduler.
@@ -155,6 +173,7 @@ MeerBot/
         scheduledMessages.js    Date-deduped timed auto-posts (e.g. daily reset).
         commandLogger.js        Audit log for every slash command invocation.
         jobLog.js               Shared helper for scheduled jobs to record runs.
+        permissions.js          Permission rules + runtime enforcement for slash commands.
     scripts/
         sync-join-dates.js      One-time backfill of first_seen from Discord join dates.
         list-channels.js        Fetch all guild channels and dump to data/discord-channels.json.

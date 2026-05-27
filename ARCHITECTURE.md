@@ -221,9 +221,55 @@ SQLite's `julianday()` converts dates to a continuous float (Julian Day Number),
 
 ---
 
-## utils/scanReminder.js / weeklySummary.js
+## utils/botConfig.js (DB-backed config layer)
 
-Both use `setInterval` with 60-second ticks. Each tick checks the current UTC time against the configured `HH:MM` string. `weeklySummary.js` also checks `getUTCDay() === 1` (Monday).
+All channel IDs, job timing values, and thresholds are read through `botConfig.get(key)` rather than `process.env` directly. The lookup order is:
+
+1. `bot_config` table in SQLite (DB override set via admin panel)
+2. `process.env[key]` (`.env` file value)
+3. Hardcoded default defined in `CONFIG_META` inside `botConfig.js`
+
+```javascript
+function get(key, fallback = '') {
+    const row = db.prepare('SELECT value FROM bot_config WHERE key = ?').get(key);
+    if (row) return row.value;
+    if (process.env[key]) return process.env[key];
+    return CONFIG_META[key]?.default ?? fallback;
+}
+```
+
+`CONFIG_META` is the registry of all known keys -- their human-readable labels, descriptions, categories, and defaults. The admin panel uses `getAll()` to render the UI; `CONFIG_META` membership also serves as an allowlist that prevents arbitrary keys being written to the DB via the API.
+
+Values are always stored and returned as strings. Callers that need a number cast explicitly: `Number(botConfig.get('INACTIVITY_DAYS', '3'))`.
+
+---
+
+## admin/server.js (Admin panel)
+
+An Express server bound to `127.0.0.1` (localhost only, never reachable externally). Runs as a separate PM2 process (`meerbot-admin`) so it never needs a restart when the bot restarts.
+
+REST API:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/config` | Full config snapshot with source badges (DB/ENV/DEFAULT) |
+| `PUT` | `/api/config/:key` | Write a DB override for a key |
+| `DELETE` | `/api/config/:key` | Remove DB override, revert to ENV or DEFAULT |
+| `GET` | `/api/channels` | Flattened channel list from `data/discord-channels.json` |
+| `POST` | `/api/bot/restart` | Runs `pm2 restart meerbot --update-env` |
+| `GET` | `/api/jobs` | Last 50 rows from `scheduler_log` |
+
+The PUT endpoint validates the key against `CONFIG_META` before writing, preventing arbitrary DB writes.
+
+Config changes take effect after `pm2 restart meerbot --update-env`. The admin panel's Restart button does this.
+
+---
+
+## utils/scanReminder.js / weeklySummary.js / anniversaryCheck.js
+
+All three use `setInterval` with 60-second ticks. Each tick reads channel ID and timing values fresh from `botConfig.get()` (not cached at module load), so a config change via the admin panel takes effect on the next bot restart without any code change.
+
+`weeklySummary.js` also checks `getUTCDay() === 1` (Monday). The weekly comparison baseline is the oldest snapshot taken within the past 7 days, falling back to the immediately previous snapshot if only one scan exists in that window. This gives a true weekly delta rather than a scan-to-scan delta.
 
 This approach is simpler than a cron library and sufficient for minute-precision scheduling. The trade-off is that if the bot is restarted at exactly the trigger minute, the check fires on the next tick (up to 60 seconds late).
 
@@ -245,15 +291,21 @@ For production with multiple guilds, this would be replaced with global command 
 
 ## PM2
 
-The bot runs under PM2 in `fork` mode (single process). Cluster mode is not appropriate for Discord bots — it would spawn multiple bot instances all connecting to the Discord gateway simultaneously, causing duplicate responses and gateway conflicts.
+Two processes are defined in `ecosystem.config.js`:
 
-PM2 watches for process exit and restarts automatically. `pm2 startup` + `pm2 save` configures it to survive reboots.
+- `meerbot` -- the Discord bot (`index.js`)
+- `meerbot-admin` -- the admin panel (`admin/server.js`)
+
+Both run in `fork` mode (single process each). Cluster mode is not appropriate for Discord bots -- it would spawn multiple bot instances all connecting to the Discord gateway simultaneously, causing duplicate responses and gateway conflicts.
 
 ```powershell
-pm2 restart meerbot --update-env   # picks up .env changes
-pm2 logs meerbot --lines 50        # recent log output
+pm2 start ecosystem.config.js      # start both processes
+pm2 restart meerbot --update-env   # restart bot, picks up .env changes
+pm2 logs meerbot --lines 50        # recent bot log output
 pm2 monit                          # live CPU/memory dashboard
 ```
+
+The admin process never needs `--update-env` because it reads all config from the DB at request time, not at startup.
 
 ---
 
@@ -268,3 +320,4 @@ pm2 monit                          # live CPU/memory dashboard
 | Token security | `.env` listed in `.gitignore`, never committed |
 | Subprocess | `execFile` with array arguments, no shell interpolation |
 | Ephemeral responses | All admin output uses `MessageFlags.Ephemeral` |
+| Admin panel | Bound to `127.0.0.1` only · not reachable externally · key writes validated against `CONFIG_META` allowlist |
