@@ -7,8 +7,8 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg:       #1a1b1e;
-    --surface:  #25262b;
+    --bg:       #000000;
+    --surface:  #000000;
     --border:   #373a40;
     --text:     #c1c2c5;
     --muted:    #5c5f66;
@@ -36,7 +36,7 @@
   .restart-btn:disabled { background: var(--border); color: var(--muted); cursor: default; }
   .restart-status { font-size: 12px; color: var(--muted); }
 
-  main { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+  main { max-width: 900px; margin: 0 auto; }
 
   .info-bar {
     background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
@@ -127,12 +127,16 @@
   }
 
   .channels-fetched { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+
+  .meerbot_header {padding: 10px; margin: 0 auto;}
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Meer<span>Bot</span> Admin</h1>
+  <div style="display:flex; align-items:center; gap:12px;">
+  <img src="./images/meerbot_logo.jpg" alt="MeerBot Logo" style="width: 50px; height: auto; display: flex;"><h1>Meer<span>Bot</span> Admin</h1>
+  </div>
   <div class="header-right">
     <span class="restart-status" id="restartStatus"></span>
     <button class="restart-btn" id="restartBtn" onclick="restartBot()">⟳ Restart Bot</button>
@@ -140,6 +144,7 @@
 </header>
 
 <main>
+  <div class="meerbot_header"><img src="./images/meerbot_header.jpg" alt="MeerBot Header" style="width: 400px; height: auto; display: block; margin: 0 auto;"></div>
   <div class="info-bar">
     <span>Changes take effect after bot restart</span>
     <span id="channelsFetchedAt"></span>
