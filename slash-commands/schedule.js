@@ -1,54 +1,17 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
+const botConfig = require('../utils/botConfig');
 
-const JOBS = [
-    {
-        name: 'daily_reset',
-        display: '📅 Daily Reset Message',
-        schedule: 'Daily 00:00 UTC',
-        kind: 'daily',
-        hour: 0,
-        minute: 0,
-    },
-    {
-        name: 'birthday_check',
-        display: '🎂 Birthday Check',
-        schedule: 'Daily 00:00 UTC',
-        kind: 'daily',
-        hour: 0,
-        minute: 0,
-    },
-    {
-        name: 'afk_expiry',
-        display: '✈️ AFK Expiry',
-        schedule: 'Daily 00:00 UTC',
-        kind: 'daily',
-        hour: 0,
-        minute: 0,
-    },
-    {
-        name: 'scan_reminder',
-        display: '⏰ Scan Reminder',
-        schedule: `Daily ${process.env.SCAN_REMINDER_TIME || '20:00'} UTC`,
-        kind: 'daily',
-        ...parseTime(process.env.SCAN_REMINDER_TIME || '20:00'),
-    },
-    {
-        name: 'weekly_summary',
-        display: '📊 Weekly Summary',
-        schedule: `Mondays ${process.env.WEEKLY_SUMMARY_TIME || '09:00'} UTC`,
-        kind: 'weekly',
-        weekday: 1, // Monday
-        ...parseTime(process.env.WEEKLY_SUMMARY_TIME || '09:00'),
-    },
-    {
-        name: 'anniversary_check',
-        display: '🎉 Anniversary Check',
-        schedule: `Daily ${process.env.ANNIVERSARY_TIME || '18:00'} UTC`,
-        kind: 'daily',
-        ...parseTime(process.env.ANNIVERSARY_TIME || '18:00'),
-    },
-];
+function getJobs() {
+    return [
+        { name: 'daily_reset',      display: '📅 Daily Reset Message', schedule: 'Daily 00:00 UTC',                                                        kind: 'daily',  hour: 0, minute: 0 },
+        { name: 'birthday_check',   display: '🎂 Birthday Check',       schedule: 'Daily 00:00 UTC',                                                        kind: 'daily',  hour: 0, minute: 0 },
+        { name: 'afk_expiry',       display: '✈️ AFK Expiry',           schedule: 'Daily 00:00 UTC',                                                        kind: 'daily',  hour: 0, minute: 0 },
+        { name: 'scan_reminder',    display: '⏰ Scan Reminder',         schedule: `Daily ${botConfig.get('SCAN_REMINDER_TIME', '20:00')} UTC`,              kind: 'daily',  ...parseTime(botConfig.get('SCAN_REMINDER_TIME', '20:00')) },
+        { name: 'weekly_summary',   display: '📊 Weekly Summary',        schedule: `Mondays ${botConfig.get('WEEKLY_SUMMARY_TIME', '09:00')} UTC`,           kind: 'weekly', weekday: 1, ...parseTime(botConfig.get('WEEKLY_SUMMARY_TIME', '09:00')) },
+        { name: 'anniversary_check', display: '🎉 Anniversary Check',   schedule: `Daily ${botConfig.get('ANNIVERSARY_TIME', '18:00')} UTC`,                kind: 'daily',  ...parseTime(botConfig.get('ANNIVERSARY_TIME', '18:00')) },
+    ];
+}
 
 function parseTime(hhmm) {
     const [hour, minute] = hhmm.split(':').map(Number);
@@ -104,10 +67,10 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setTitle('📅 Scheduled Jobs')
             .setColor(0x4a90e2)
-            .setFooter({ text: `${JOBS.length} jobs · times in UTC (18:00 = 2pm EDT / 1pm EST)` })
+            .setFooter({ text: `${getJobs().length} jobs · times in UTC (18:00 = 2pm EDT / 1pm EST)` })
             .setTimestamp();
 
-        for (const job of JOBS) {
+        for (const job of getJobs()) {
             const last = getLastRun(job.name);
             const next = nextFire(job);
 

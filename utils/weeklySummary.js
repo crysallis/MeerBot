@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('./db');
 const { logJobRun } = require('./jobLog');
+const botConfig = require('./botConfig');
 
 function fmtPower(val) {
     if (!val) return '—';
@@ -9,17 +10,11 @@ function fmtPower(val) {
 }
 
 function scheduleWeeklySummary(client) {
-    const channelId = process.env.WEEKLY_SUMMARY_CHANNEL_ID;
-    const timeStr = process.env.WEEKLY_SUMMARY_TIME || '09:00'; // HH:MM UTC, Monday morning after Sunday reset
-
-    if (!channelId) {
-        console.log('WEEKLY_SUMMARY_CHANNEL_ID not set — weekly summary disabled.');
-        return;
-    }
-
-    const [hours, minutes] = timeStr.split(':').map(Number);
-
     setInterval(async () => {
+        const channelId = botConfig.get('WEEKLY_SUMMARY_CHANNEL_ID');
+        if (!channelId) return;
+        const timeStr = botConfig.get('WEEKLY_SUMMARY_TIME', '09:00');
+        const [hours, minutes] = timeStr.split(':').map(Number);
         const now = new Date();
         // getUTCDay(): 0=Sun, 1=Mon
         if (now.getUTCDay() === 1 && now.getUTCHours() === hours && now.getUTCMinutes() === minutes) {
@@ -27,7 +22,7 @@ function scheduleWeeklySummary(client) {
         }
     }, 60_000);
 
-    console.log(`Weekly summary scheduled every Monday at ${timeStr} UTC`);
+    console.log('Weekly summary initialized (reads channel/time each tick)');
 }
 
 async function postWeeklySummary(client, channelId) {
@@ -35,7 +30,20 @@ async function postWeeklySummary(client, channelId) {
         const latest = db.prepare('SELECT id, scraped_at FROM snapshots ORDER BY id DESC LIMIT 1').get();
         if (!latest) return;
 
-        const prev = db.prepare('SELECT id FROM snapshots WHERE id < ? ORDER BY id DESC LIMIT 1').get(latest.id);
+        const cutoff = new Date(latest.scraped_at);
+        cutoff.setUTCDate(cutoff.getUTCDate() - 7);
+
+        // Oldest scan from this week's window (start-of-week baseline)
+        let prev = db.prepare(
+            'SELECT id, scraped_at FROM snapshots WHERE scraped_at >= ? AND id < ? ORDER BY id ASC LIMIT 1'
+        ).get(cutoff.toISOString(), latest.id);
+
+        // Fallback: if only one scan exists this week, use the scan before the window
+        if (!prev) {
+            prev = db.prepare(
+                'SELECT id, scraped_at FROM snapshots WHERE id < ? ORDER BY id DESC LIMIT 1'
+            ).get(latest.id);
+        }
 
         const rows = prev
             ? db.prepare(`
@@ -62,8 +70,10 @@ async function postWeeklySummary(client, channelId) {
         });
 
         const weekOf = latest.scraped_at.slice(0, 10);
+        const since = prev ? prev.scraped_at.slice(0, 10) : null;
         const embed = new EmbedBuilder()
             .setTitle(`📊 Weekly Guild Summary — ${weekOf}`)
+            .setFooter({ text: since ? `Growth since ${since}` : 'No prior week baseline found' })
             .setDescription('```\n #  Name                   Power    Growth   Act\n' + lines.join('\n') + '\n```')
             .setColor(0x9b59b6);
 

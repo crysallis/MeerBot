@@ -75,6 +75,15 @@ db.exec(`
 try { db.exec('ALTER TABLE members ADD COLUMN active INTEGER NOT NULL DEFAULT 0'); } catch {}
 try { db.exec('ALTER TABLE birthdays DROP COLUMN year'); } catch {}
 
+// bot_config table — admin-panel overrides for env/hardcoded values
+try { db.exec(`
+    CREATE TABLE IF NOT EXISTS bot_config (
+        key        TEXT PRIMARY KEY,
+        value      TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+`); } catch {}
+
 // Idempotent migrations for scheduler_log
 for (const sql of [
     'ALTER TABLE scheduler_log ADD COLUMN id INTEGER',

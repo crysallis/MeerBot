@@ -1,10 +1,11 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('./db');
 const { logJobRun } = require('./jobLog');
+const botConfig = require('./botConfig');
 
 async function checkAfkExpiry(client) {
     try {
-        const channelId = process.env.INACTIVITY_ALERT_CHANNEL_ID;
+        const channelId = botConfig.get('INACTIVITY_ALERT_CHANNEL_ID');
         const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
         const expired = db.prepare(`
