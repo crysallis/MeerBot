@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { pickColor } = require('../utils/colors');
+const { autoDelete } = require('../utils/autoDelete');
 
 function fmtPower(val) {
     if (!val) return '0';
@@ -114,6 +115,7 @@ async function handlePower(interaction, snapshot) {
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
     ]});
+    autoDelete(interaction);
 }
 
 async function handleTop(interaction, snapshot) {
@@ -138,6 +140,7 @@ async function handleTop(interaction, snapshot) {
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
     ]});
+    autoDelete(interaction);
 }
 
 async function handleInactive(interaction, snapshot) {
@@ -160,6 +163,7 @@ async function handleInactive(interaction, snapshot) {
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
     ]});
+    autoDelete(interaction);
 }
 
 async function handleActiveness(interaction, snapshot) {
@@ -182,6 +186,7 @@ async function handleActiveness(interaction, snapshot) {
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
     ]});
+    autoDelete(interaction);
 }
 
 async function handleGrowth(interaction, snapshot) {
@@ -219,6 +224,7 @@ async function handleGrowth(interaction, snapshot) {
     });
 
     await interaction.reply({ embeds: [embed] });
+    autoDelete(interaction);
 }
 
 async function handleStatus(interaction, snapshot) {
@@ -242,6 +248,7 @@ async function handleStatus(interaction, snapshot) {
             )
             .setColor(pickColor()),
     ]});
+    autoDelete(interaction);
 }
 
 async function handleNoGrowth(interaction, snapshot) {
@@ -263,7 +270,9 @@ async function handleNoGrowth(interaction, snapshot) {
     `).all(prevId, snapshot.id);
 
     if (rows.length === 0) {
-        return interaction.reply({ content: '✅ Everyone grew this week!', ephemeral: false });
+        await interaction.reply({ content: '✅ Everyone grew this week!' });
+        autoDelete(interaction);
+        return;
     }
 
     const newIds = newMemberIds(snapshot.id);
@@ -279,6 +288,7 @@ async function handleNoGrowth(interaction, snapshot) {
             .setFooter({ text: 'Compared to previous snapshot' })
             .setColor(pickColor()),
     ]});
+    autoDelete(interaction);
 }
 
 const CHART_COLORS = [
@@ -361,6 +371,7 @@ async function handleChart(interaction, snapshot) {
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
     ]});
+    autoDelete(interaction);
 }
 
 async function handleNewcomers(interaction, snapshot) {
@@ -381,7 +392,9 @@ async function handleNewcomers(interaction, snapshot) {
     `).all(snapshot.id, prevId);
 
     if (rows.length === 0) {
-        return interaction.reply({ content: '✅ No new members since the previous snapshot.', ephemeral: false });
+        await interaction.reply({ content: '✅ No new members since the previous snapshot.' });
+        autoDelete(interaction);
+        return;
     }
 
     const lines = rows.map(r => `• **${r.name}** · ${r.combat_power} | ${r.activeness} act`);
@@ -393,4 +406,5 @@ async function handleNewcomers(interaction, snapshot) {
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
     ]});
+    autoDelete(interaction);
 }
