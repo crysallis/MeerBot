@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
-const { milestoneFor } = require('../utils/anniversaryCheck');
+const { milestoneFor } = require('../utils/handlers/anniversaryCheck');
 const { pickColor } = require('../utils/colors');
 
 /**

@@ -5,6 +5,7 @@ const dbPath = process.env.GUILD_DB_PATH || path.join(__dirname, '../../AFKDataM
 
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS birthdays (
@@ -19,6 +20,32 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_bd_guild     ON birthdays(guild_id);
   CREATE INDEX IF NOT EXISTS idx_bd_month_day ON birthdays(month, day);
+
+  CREATE TABLE IF NOT EXISTS scheduled_jobs (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    type          TEXT NOT NULL,
+    fire_at       TEXT NOT NULL,
+    recurrence    TEXT,
+    created_at    TEXT NOT NULL,
+    last_fired_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_sj_fire_at ON scheduled_jobs(fire_at);
+
+  CREATE TABLE IF NOT EXISTS remindme_jobs (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id     INTEGER NOT NULL REFERENCES scheduled_jobs(id) ON DELETE CASCADE,
+    user_id    TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    guild_id   TEXT NOT NULL,
+    message    TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS script_jobs (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id       INTEGER NOT NULL REFERENCES scheduled_jobs(id) ON DELETE CASCADE,
+    handler_path TEXT NOT NULL,
+    args         TEXT
+  );
 
   CREATE TABLE IF NOT EXISTS members (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,

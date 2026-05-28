@@ -93,6 +93,13 @@ member_name_history Audit log of name changes from /rename.
 name_corrections    OCR correction map. Written by scraper, readable by bot.
 member_notes        Admin notes on members. Multiple notes per member.
 member_afk          AFK status. One row per member (UNIQUE on member_id).
+scheduled_jobs      Unified job queue. One row per pending or recurring job.
+                    type = 'script_job' | 'remindme'. fire_at is next execution time.
+remindme_jobs       Sub-table for type='remindme'. Holds user_id, channel_id, message.
+                    ON DELETE CASCADE from scheduled_jobs.
+script_jobs         Sub-table for type='script_job'. Holds handler_path to module.
+                    ON DELETE CASCADE from scheduled_jobs.
+scheduler_log       Audit log of all job executions. UNIQUE(name, sent_date) for dedup.
 ```
 
 The `members` table is the join hub. It links:
@@ -187,11 +194,11 @@ Day validation uses a hardcoded days-per-month array with February set to 29 so 
 const DAYS_IN_MONTH = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 ```
 
-The `/birthday test` subcommand calls `buildBirthdayEmbed()` directly from `birthdayCheck.js`, which is the same function used by the real daily check. This ensures the preview is pixel-accurate to the real message.
+The `/birthday test` subcommand calls `buildBirthdayEmbed()` from `utils/handlers/birthdayCheck.js`, which is the same function used by the real daily check. This ensures the preview is pixel-accurate to the real message.
 
 ---
 
-## utils/birthdayCheck.js
+## utils/handlers/birthdayCheck.js
 
 ### Embed builder
 
@@ -214,10 +221,6 @@ function lastYearPower(memberId, month, day) {
 ```
 
 SQLite's `julianday()` converts dates to a continuous float (Julian Day Number), allowing `ABS(diff)` to find the closest snapshot to the birthday date last year. The +-14 day window accounts for weeks where no scan was run around that date. If nothing is found within the window, growth is omitted from the embed.
-
-### Scheduler
-
-`scheduleBirthdayCheck()` calculates milliseconds until the next UTC midnight using `Date.UTC()` (avoids local timezone offset), fires once, then sets a 24-hour interval. This means the first check fires precisely at the next midnight even if the bot starts mid-day.
 
 ---
 
@@ -265,13 +268,66 @@ Config changes take effect after `pm2 restart meerbot --update-env`. The admin p
 
 ---
 
-## utils/scanReminder.js / weeklySummary.js / anniversaryCheck.js
+## utils/jobScheduler.js (Unified Job Queue)
 
-All three use `setInterval` with 60-second ticks. Each tick reads channel ID and timing values fresh from `botConfig.get()` (not cached at module load), so a config change via the admin panel takes effect on the next bot restart without any code change.
+All scheduled work -- system recurring jobs and user-created reminders -- flows through a single DB-backed job queue. This replaces the previous model of six independent `setInterval` loops.
 
-`weeklySummary.js` also checks `getUTCDay() === 1` (Monday). The weekly comparison baseline is the oldest snapshot taken within the past 7 days, falling back to the immediately previous snapshot if only one scan exists in that window. This gives a true weekly delta rather than a scan-to-scan delta.
+### Schema (table inheritance pattern)
 
-This approach is simpler than a cron library and sufficient for minute-precision scheduling. The trade-off is that if the bot is restarted at exactly the trigger minute, the check fires on the next tick (up to 60 seconds late).
+```text
+scheduled_jobs          -- queue entry: type, fire_at, recurrence
+    |
+    +-- script_jobs     -- type='script_job': handler_path to require()
+    |
+    +-- remindme_jobs   -- type='remindme': user_id, channel_id, message
+```
+
+Each job type has its own sub-table. The scheduler JOINs both sub-tables on every tick and dispatches by `type`.
+
+### Startup bootstrap
+
+`initJobScheduler(client)` checks whether each system job exists in `scheduled_jobs` (identified by `handler_path`). If a row is missing, it is inserted with the correct first `fire_at` computed from `botConfig`. This means adding a new recurring system job requires only a handler file and a bootstrap entry in `SYSTEM_JOBS` -- no changes to `index.js` or the scheduler core.
+
+### Poll loop
+
+```javascript
+setInterval(() => tick(client), 30_000);
+```
+
+Every 30 seconds, the tick queries:
+
+```sql
+SELECT ... FROM scheduled_jobs WHERE fire_at <= datetime('now')
+```
+
+For each due job:
+
+- **`script_job`**: `require(handler_path)` and call the handler. After firing, update `fire_at` to the next occurrence by calling `jobDef.nextFireAt()` (reads `botConfig` fresh, so config changes take effect on the next cycle after firing).
+- **`remindme`**: deliver via DM (fallback to channel mention), then `DELETE` the row. `ON DELETE CASCADE` cleans the `remindme_jobs` sub-table automatically.
+
+The immediate `tick(client)` call on startup catches any jobs that fired while the bot was offline.
+
+### Handler interface
+
+Each file in `utils/handlers/` exports a single async function:
+
+```javascript
+module.exports = async function handler(client, job) { ... }
+```
+
+The `job` object contains all columns from the JOIN (including `fire_at`, `handler_path`, `recurrence`). Handlers that need to export utilities for slash commands (e.g. `buildBirthdayEmbed`, `milestoneFor`) attach them as named exports on the function:
+
+```javascript
+module.exports.buildBirthdayEmbed = buildBirthdayEmbed;
+```
+
+### weeklySummary handler
+
+The weekly comparison baseline is the oldest snapshot taken within the past 7 days, falling back to the immediately previous snapshot if only one scan exists in that window. This gives a true weekly delta rather than a scan-to-scan delta.
+
+### dailyReset handler
+
+Checks how many minutes late it is (`Date.now() - new Date(job.fire_at)`). If more than 120 minutes, the message is skipped entirely (no longer relevant). If more than `LATE_WARNING_MINUTES` (default 30), a late footer is added to the embed.
 
 ---
 

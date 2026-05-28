@@ -61,10 +61,18 @@ const COMMANDS = {
             { name: '/anniversary test date:', desc: 'Preview the anniversary embed for a date in the current channel. Pings suppressed.' },
         ],
     },
-    schedule: {
-        description: 'View all scheduled jobs (daily reset, AFK expiry, birthday check, scan reminder, weekly summary, anniversary check) with last/next run times.',
+    remindme: {
+        description: 'Set a personal reminder. The bot will DM you (or mention you in this channel if DMs are off) when the time arrives.',
         subcommands: [
-            { name: '/schedule', desc: 'Ephemeral embed showing all jobs, when they last ran, and when they next fire.' },
+            { name: '/remindme set time: message:', desc: 'Set a reminder. Duration format: `2h`, `1d12h`, `45m` (min 1h · max 90d).' },
+            { name: '/remindme list',               desc: 'List your pending reminders with IDs and time remaining.' },
+            { name: '/remindme cancel id:',         desc: 'Cancel a pending reminder by its ID.' },
+        ],
+    },
+    schedule: {
+        description: 'View all scheduled system jobs (daily reset, AFK expiry, birthday check, scan reminder, weekly summary, anniversary check) with last/next run times.',
+        subcommands: [
+            { name: '/schedule', desc: 'Ephemeral embed showing all system jobs, when they last ran, and when they next fire.' },
         ],
     },
     rename: {
@@ -164,9 +172,10 @@ module.exports = {
             member: 'Look up a member by name or @mention',
             link: 'Link your Discord to your in-game name',
             anniversary: 'list · upcoming · test',
+            remindme: 'Set · list · cancel personal reminders',
             ping: 'Latency check with a quip',
             scan: 'Trigger a guild scan',
-            schedule: 'View scheduled jobs and last/next runs',
+            schedule: 'View scheduled system jobs and last/next runs',
             rename: 'Rename a member in the database',
             note: 'Add · view · delete notes on members',
             afk: 'Set · clear · list AFK status',

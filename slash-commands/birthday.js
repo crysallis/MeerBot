@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
 const db = require('../utils/db');
-const { buildBirthdayEmbed } = require('../utils/birthdayCheck');
+const { buildBirthdayEmbed } = require('../utils/handlers/birthdayCheck');
 const { pickColor } = require('../utils/colors');
 const { enforce } = require('../utils/permissions');
 
