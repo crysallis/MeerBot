@@ -74,6 +74,7 @@ db.exec(`
 // Idempotent migrations
 try { db.exec('ALTER TABLE members ADD COLUMN active INTEGER NOT NULL DEFAULT 0'); } catch {}
 try { db.exec('ALTER TABLE birthdays DROP COLUMN year'); } catch {}
+try { db.exec('ALTER TABLE birthdays ADD COLUMN set_by TEXT'); } catch {}
 
 // bot_config table — admin-panel overrides for env/hardcoded values
 try { db.exec(`
