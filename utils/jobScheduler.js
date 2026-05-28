@@ -3,6 +3,7 @@ const { EmbedBuilder } = require('discord.js');
 const db = require('./db');
 const botConfig = require('./botConfig');
 const { pickColor } = require('./colors');
+const { logJobRun } = require('./jobLog');
 
 function nextDaily(timeStr = '00:00') {
     const [h, m] = timeStr.split(':').map(Number);
@@ -104,6 +105,8 @@ async function handleRemindme(client, job) {
         }
     } catch (err) {
         console.error('[Remindme] Error:', err);
+    } finally {
+        logJobRun(`remindme_${job.id}`);
     }
 }
 
