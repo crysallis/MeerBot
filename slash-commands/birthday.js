@@ -52,13 +52,14 @@ module.exports = {
             }
 
             db.prepare(`
-                INSERT INTO birthdays (user_id, username, month, day, guild_id, registered_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO birthdays (user_id, username, month, day, guild_id, registered_at, set_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(user_id, guild_id) DO UPDATE SET
                     username = excluded.username, month = excluded.month,
                     day = excluded.day,
-                    registered_at = excluded.registered_at
-            `).run(interaction.user.id, interaction.user.username, month, day, interaction.guildId, new Date().toISOString());
+                    registered_at = excluded.registered_at,
+                    set_by = excluded.set_by
+            `).run(interaction.user.id, interaction.user.username, month, day, interaction.guildId, new Date().toISOString(), interaction.user.id);
 
             return interaction.reply({ content: `🎂 Birthday registered: **${dateStr({ month, day })}**`, flags: MessageFlags.Ephemeral });
         }
