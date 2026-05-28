@@ -115,6 +115,17 @@
   .jobs-table td { font-size: 12px; font-family: monospace; }
   .late-yes { color: var(--red); }
   .late-no  { color: var(--muted); }
+  .jobs-header-row th { cursor: pointer; user-select: none; white-space: nowrap; }
+  .jobs-header-row th:hover { color: var(--accent); }
+  .sort-arrow { font-size: 10px; margin-left: 4px; color: var(--muted); }
+  .sort-arrow.active { color: var(--accent); }
+  .jobs-filter-row td { padding: 4px 8px; border-bottom: 1px solid var(--border); }
+  .job-filter {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 3px 7px; border-radius: 4px; font-size: 11px; width: 100%;
+    outline: none; transition: border-color .15s; font-family: inherit;
+  }
+  .job-filter:focus { border-color: var(--accent); }
 
   /* Scheduled jobs */
   .sj-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin-bottom: 14px; }
@@ -177,9 +188,18 @@
     <div class="section-title">Recent Job Runs</div>
     <div class="card">
       <table class="jobs-table">
-        <thead><tr>
-          <th>Job</th><th>Last Run (UTC)</th><th>Late?</th>
-        </tr></thead>
+        <thead>
+          <tr class="jobs-header-row">
+            <th onclick="sortJobs('name')">Job <span class="sort-arrow" id="sort-name">↕</span></th>
+            <th onclick="sortJobs('sent_at')">Last Run (UTC) <span class="sort-arrow active" id="sort-sent_at">↓</span></th>
+            <th onclick="sortJobs('late')">Late? <span class="sort-arrow" id="sort-late">↕</span></th>
+          </tr>
+          <tr class="jobs-filter-row">
+            <td><input class="job-filter" placeholder="Filter job name..." oninput="filterJobs('name', this.value)"></td>
+            <td><input class="job-filter" placeholder="Filter date..." oninput="filterJobs('sent_at', this.value)"></td>
+            <td><input class="job-filter" placeholder="yes / —" oninput="filterJobs('late', this.value)"></td>
+          </tr>
+        </thead>
         <tbody id="jobsBody"><tr><td colspan="3" style="color:var(--muted)">Loading...</td></tr></tbody>
       </table>
     </div>
@@ -512,18 +532,78 @@ async function saveScheduledJob(id) {
   if (flashEl) { flashEl.classList.add('show'); setTimeout(() => flashEl.classList.remove('show'), 2000); }
 }
 
+let allJobRows = [];
+let jobSort    = { col: 'sent_at', dir: 'desc' };
+let jobFilters = { name: '', sent_at: '', late: '' };
+
 function renderJobs(rows) {
+  allJobRows = rows;
+  applyJobView();
+}
+
+function filterJobs(col, val) {
+  jobFilters[col] = val.toLowerCase();
+  applyJobView();
+}
+
+function sortJobs(col) {
+  if (jobSort.col === col) {
+    jobSort.dir = jobSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    jobSort.col = col;
+    jobSort.dir = col === 'sent_at' ? 'desc' : 'asc';
+  }
+  updateSortArrows();
+  applyJobView();
+}
+
+function updateSortArrows() {
+  for (const col of ['name', 'sent_at', 'late']) {
+    const el = document.getElementById('sort-' + col);
+    if (!el) continue;
+    if (col === jobSort.col) {
+      el.textContent = jobSort.dir === 'asc' ? '↑' : '↓';
+      el.classList.add('active');
+    } else {
+      el.textContent = '↕';
+      el.classList.remove('active');
+    }
+  }
+}
+
+function applyJobView() {
   const tbody = document.getElementById('jobsBody');
-  if (!rows.length) {
+  if (!allJobRows.length) {
     tbody.innerHTML = '<tr><td colspan="3" style="color:var(--muted)">No runs recorded yet.</td></tr>';
     return;
   }
-  tbody.innerHTML = rows.map(r => `
-    <tr>
-      <td>${r.name}</td>
-      <td>${r.sent_at ? r.sent_at.slice(0, 19).replace('T', ' ') : r.sent_date}</td>
-      <td class="${r.late ? 'late-yes' : 'late-no'}">${r.late ? 'yes' : '—'}</td>
-    </tr>`).join('');
+
+  const mapped = allJobRows.map(r => ({
+    name:      r.name,
+    sent_at:   r.sent_at ? r.sent_at.slice(0, 19).replace('T', ' ') : r.sent_date,
+    late:      r.late ? 'yes' : '—',
+    lateClass: r.late ? 'late-yes' : 'late-no',
+  }));
+
+  const filtered = mapped.filter(r =>
+    r.name.toLowerCase().includes(jobFilters.name) &&
+    r.sent_at.toLowerCase().includes(jobFilters.sent_at) &&
+    r.late.toLowerCase().includes(jobFilters.late)
+  );
+
+  filtered.sort((a, b) => {
+    const cmp = (a[jobSort.col] || '').localeCompare(b[jobSort.col] || '');
+    return jobSort.dir === 'asc' ? cmp : -cmp;
+  });
+
+  tbody.innerHTML = filtered.length
+    ? filtered.map(r => `
+        <tr>
+          <td>${r.name}</td>
+          <td>${r.sent_at}</td>
+          <td class="${r.lateClass}">${r.late}</td>
+        </tr>`).join('')
+    : '<tr><td colspan="3" style="color:var(--muted)">No matches.</td></tr>';
 }
 
 init();
