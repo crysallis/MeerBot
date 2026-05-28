@@ -96,9 +96,12 @@ Channel IDs, job timing, and thresholds are stored in the `bot_config` DB table 
 | `/birthday register` | Register your birthday (month/day) |
 | `/birthday list` | List all registered birthdays |
 | `/birthday remove` | Remove your birthday |
+| `/remindme set time: message:` | Set a personal reminder (min 1h · max 90d). DM delivery, falls back to channel mention. |
+| `/remindme list` | List your pending reminders with IDs and time remaining |
+| `/remindme cancel id:` | Cancel a pending reminder by ID |
 | `/ping` | Latency check with a tiered fun comment |
 | `/help` | Show all commands (filtered by your permissions) |
-| `/schedule` | View all scheduled jobs with last/next runs (ephemeral, restrict via Discord role permissions if needed) |
+| `/schedule` | View all scheduled system jobs with last/next runs (ephemeral) |
 | `/anniversary list count:` | Next N upcoming guild anniversaries (default 5, ephemeral) |
 | `/anniversary upcoming days:` | All anniversaries in the next N days (default 30, ephemeral) |
 | `/anniversary test date:` | Preview the anniversary embed for a date in the current channel |
@@ -134,7 +137,9 @@ List commands show badges inline with member names:
 | Weekly summary | Mondays at `WEEKLY_SUMMARY_TIME` | Posts power/growth summary · compares latest scan to oldest scan from the past 7 days (true weekly delta) |
 | AFK expiry | Daily at UTC midnight | Clears AFK records past their return date and notifies the inactivity channel |
 | Anniversary check | Daily at `ANNIVERSARY_TIME` UTC | Posts 1mo/3mo/6mo/yearly guild anniversaries for active members |
-| Scheduled messages | Per entry in `utils/scheduledMessages.js` | Date-deduped auto-posts (e.g. daily reset reminder at 00:00 UTC). Includes startup catch-up and late-footer if fired late |
+| Daily reset | Daily at UTC midnight | Guild Supremacy/DR reminder. Skipped if bot was offline more than 2h past midnight. Late-footer added if mildly late. |
+
+All automated tasks run through a single unified job scheduler (`utils/jobScheduler.js`) backed by the `scheduled_jobs` DB table. System jobs are bootstrapped on startup; user reminders (`/remindme`) use the same queue as one-shot jobs. The scheduler polls every 30 seconds.
 
 ---
 
@@ -160,20 +165,23 @@ MeerBot/
         birthday.js             /birthday register/list/remove/test.
         help.js                 /help with permission-aware filtering.
         ping.js                 /ping health check with tiered quips.
-        schedule.js             /schedule view all jobs with last/next runs.
+        remindme.js             /remindme set / list / cancel personal reminders.
+        schedule.js             /schedule view all system jobs with last/next runs.
         anniversary.js          /anniversary list / upcoming / test.
     utils/
         db.js                   SQLite connection, schema creation, idempotent migrations.
         botConfig.js            DB-backed config store. get(key) reads DB > ENV > default.
-        birthdayCheck.js        Birthday embed builder and scheduler.
-        anniversaryCheck.js     Guild anniversary scheduler (1mo / 3mo / 6mo / yearly).
-        scanReminder.js         Daily scan reminder scheduler.
-        weeklySummary.js        Monday weekly summary scheduler.
-        afkExpiry.js            Daily clearing of expired AFK records.
-        scheduledMessages.js    Date-deduped timed auto-posts (e.g. daily reset).
+        jobScheduler.js         Unified job queue. Single 30s poller dispatches all job types.
+        jobLog.js               Shared helper for scheduled jobs to record runs to scheduler_log.
         commandLogger.js        Audit log for every slash command invocation.
-        jobLog.js               Shared helper for scheduled jobs to record runs.
         permissions.js          Permission rules + runtime enforcement for slash commands.
+        handlers/
+            scanReminder.js     Daily scan reminder handler.
+            weeklySummary.js    Monday weekly power summary handler.
+            birthdayCheck.js    Daily birthday check handler + buildBirthdayEmbed() export.
+            afkExpiry.js        Daily expired AFK record cleanup handler.
+            anniversaryCheck.js Daily guild anniversary handler + milestoneFor() export.
+            dailyReset.js       Daily reset message handler (max 2h late window).
     scripts/
         sync-join-dates.js      One-time backfill of first_seen from Discord join dates.
         list-channels.js        Fetch all guild channels and dump to data/discord-channels.json.

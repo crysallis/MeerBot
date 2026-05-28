@@ -1,12 +1,12 @@
 const { EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const db = require('./db');
-const { pickColor } = require('./colors');
-const { logJobRun } = require('./jobLog');
-const botConfig = require('./botConfig');
+const db = require('../db');
+const { pickColor } = require('../colors');
+const { logJobRun } = require('../jobLog');
+const botConfig = require('../botConfig');
 
-const WISHES_PATH = path.join(__dirname, '../data/birthday-wishes.json');
+const WISHES_PATH = path.join(__dirname, '../../data/birthday-wishes.json');
 
 function randomWish() {
     try {
@@ -22,7 +22,6 @@ function fmtPower(val) {
     if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
     return `${(val / 1_000).toFixed(0)}K`;
 }
-
 
 function lastYearPower(memberId, month, day) {
     const now = new Date();
@@ -126,23 +125,15 @@ async function checkBirthdays(client) {
             }
         }
     } catch (err) {
-        console.error('[Birthday Check] Error:', err);
+        console.error('[BirthdayCheck] Error:', err);
     } finally {
         logJobRun('birthday_check');
     }
 }
 
-function scheduleBirthdayCheck(client) {
-    const now = new Date();
-    const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
-    const msUntilMidnight = tomorrow - now;
+module.exports = async function handleBirthdayCheck(client, job) {
+    await checkBirthdays(client);
+};
 
-    console.log(`[Birthday Check] Scheduled in ${Math.round(msUntilMidnight / 1000)}s`);
-
-    setTimeout(() => {
-        checkBirthdays(client);
-        setInterval(() => checkBirthdays(client), 24 * 60 * 60 * 1000);
-    }, msUntilMidnight);
-}
-
-module.exports = { checkBirthdays, scheduleBirthdayCheck, buildBirthdayEmbed };
+module.exports.buildBirthdayEmbed = buildBirthdayEmbed;
+module.exports.checkBirthdays = checkBirthdays;

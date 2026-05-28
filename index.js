@@ -2,12 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { Client, GatewayIntentBits, MessageFlags, ActivityType } = require('discord.js');
-const { scheduleBirthdayCheck } = require('./utils/birthdayCheck');
-const { scheduleScanReminder } = require('./utils/scanReminder');
-const { scheduleWeeklySummary } = require('./utils/weeklySummary');
-const { scheduleAfkExpiry } = require('./utils/afkExpiry');
-const { scheduleAnniversaryCheck } = require('./utils/anniversaryCheck');
-const { scheduleMessages } = require('./utils/scheduledMessages');
+const { initJobScheduler } = require('./utils/jobScheduler');
 const { logCommand } = require('./utils/commandLogger');
 const { rateLimit } = require('./config');
 
@@ -49,12 +44,7 @@ for (const file of fs.readdirSync(slashPath).filter(f => f.endsWith('.js'))) {
 client.once('clientReady', () => {
   console.log(`Ready. Logged in as ${client.user?.tag}`);
   client.user.setActivity('Meerbot Assistance | /help', { type: ActivityType.Playing });
-  scheduleBirthdayCheck(client);
-  scheduleScanReminder(client);
-  scheduleWeeklySummary(client);
-  scheduleAfkExpiry(client);
-  scheduleAnniversaryCheck(client);
-  scheduleMessages(client);
+  initJobScheduler(client);
 });
 
 client.on('interactionCreate', async interaction => {

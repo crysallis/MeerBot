@@ -1,29 +1,13 @@
 const { EmbedBuilder } = require('discord.js');
-const db = require('./db');
-const { logJobRun } = require('./jobLog');
-const botConfig = require('./botConfig');
-const { pickColor } = require('./colors');
+const db = require('../db');
+const { logJobRun } = require('../jobLog');
+const botConfig = require('../botConfig');
+const { pickColor } = require('../colors');
 
 function fmtPower(val) {
     if (!val) return '—';
     if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
     return `${(val / 1_000).toFixed(0)}K`;
-}
-
-function scheduleWeeklySummary(client) {
-    setInterval(async () => {
-        const channelId = botConfig.get('WEEKLY_SUMMARY_CHANNEL_ID');
-        if (!channelId) return;
-        const timeStr = botConfig.get('WEEKLY_SUMMARY_TIME', '09:00');
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        const now = new Date();
-        // getUTCDay(): 0=Sun, 1=Mon
-        if (now.getUTCDay() === 1 && now.getUTCHours() === hours && now.getUTCMinutes() === minutes) {
-            await postWeeklySummary(client, channelId);
-        }
-    }, 60_000);
-
-    console.log('Weekly summary initialized (reads channel/time each tick)');
 }
 
 async function postWeeklySummary(client, channelId) {
@@ -34,12 +18,10 @@ async function postWeeklySummary(client, channelId) {
         const cutoff = new Date(latest.scraped_at);
         cutoff.setUTCDate(cutoff.getUTCDate() - 7);
 
-        // Oldest scan from this week's window (start-of-week baseline)
         let prev = db.prepare(
             'SELECT id, scraped_at FROM snapshots WHERE scraped_at >= ? AND id < ? ORDER BY id ASC LIMIT 1'
         ).get(cutoff.toISOString(), latest.id);
 
-        // Fallback: if only one scan exists this week, use the scan before the window
         if (!prev) {
             prev = db.prepare(
                 'SELECT id, scraped_at FROM snapshots WHERE id < ? ORDER BY id DESC LIMIT 1'
@@ -81,10 +63,16 @@ async function postWeeklySummary(client, channelId) {
         const channel = await client.channels.fetch(channelId);
         await channel.send({ embeds: [embed] });
     } catch (err) {
-        console.error('Weekly summary error:', err);
+        console.error('[WeeklySummary] Error:', err);
     } finally {
         logJobRun('weekly_summary');
     }
 }
 
-module.exports = { scheduleWeeklySummary, postWeeklySummary };
+module.exports = async function handleWeeklySummary(client, job) {
+    const channelId = botConfig.get('WEEKLY_SUMMARY_CHANNEL_ID');
+    if (!channelId) return;
+    await postWeeklySummary(client, channelId);
+};
+
+module.exports.postWeeklySummary = postWeeklySummary;

@@ -3,60 +3,35 @@ const db = require('../utils/db');
 const botConfig = require('../utils/botConfig');
 const { pickColor } = require('../utils/colors');
 
-function getJobs() {
-    return [
-        { name: 'daily_reset',      display: '📅 Daily Reset Message', schedule: 'Daily 00:00 UTC',                                                        kind: 'daily',  hour: 0, minute: 0 },
-        { name: 'birthday_check',   display: '🎂 Birthday Check',       schedule: 'Daily 00:00 UTC',                                                        kind: 'daily',  hour: 0, minute: 0 },
-        { name: 'afk_expiry',       display: '✈️ AFK Expiry',           schedule: 'Daily 00:00 UTC',                                                        kind: 'daily',  hour: 0, minute: 0 },
-        { name: 'scan_reminder',    display: '⏰ Scan Reminder',         schedule: `Daily ${botConfig.get('SCAN_REMINDER_TIME', '20:00')} UTC`,              kind: 'daily',  ...parseTime(botConfig.get('SCAN_REMINDER_TIME', '20:00')) },
-        { name: 'weekly_summary',   display: '📊 Weekly Summary',        schedule: `Mondays ${botConfig.get('WEEKLY_SUMMARY_TIME', '09:00')} UTC`,           kind: 'weekly', weekday: 1, ...parseTime(botConfig.get('WEEKLY_SUMMARY_TIME', '09:00')) },
-        { name: 'anniversary_check', display: '🎉 Anniversary Check',   schedule: `Daily ${botConfig.get('ANNIVERSARY_TIME', '18:00')} UTC`,                kind: 'daily',  ...parseTime(botConfig.get('ANNIVERSARY_TIME', '18:00')) },
-    ];
-}
+const JOB_META = {
+    './handlers/dailyReset':       { display: '📅 Daily Reset Message', logName: 'daily_reset',       schedule: 'Daily 00:00 UTC' },
+    './handlers/birthdayCheck':    { display: '🎂 Birthday Check',       logName: 'birthday_check',    schedule: 'Daily 00:00 UTC' },
+    './handlers/afkExpiry':        { display: '✈️ AFK Expiry',           logName: 'afk_expiry',        schedule: 'Daily 00:00 UTC' },
+    './handlers/scanReminder':     { display: '⏰ Scan Reminder',         logName: 'scan_reminder',     schedule: () => `Daily ${botConfig.get('SCAN_REMINDER_TIME', '20:00')} UTC` },
+    './handlers/weeklySummary':    { display: '📊 Weekly Summary',        logName: 'weekly_summary',    schedule: () => `Mondays ${botConfig.get('WEEKLY_SUMMARY_TIME', '09:00')} UTC` },
+    './handlers/anniversaryCheck': { display: '🎉 Anniversary Check',    logName: 'anniversary_check', schedule: () => `Daily ${botConfig.get('ANNIVERSARY_TIME', '18:00')} UTC` },
+};
 
-function parseTime(hhmm) {
-    const [hour, minute] = hhmm.split(':').map(Number);
-    return { hour, minute };
-}
-
-function nextFire(job) {
-    const now = new Date();
-    const next = new Date(Date.UTC(
-        now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
-        job.hour, job.minute, 0
-    ));
-
-    if (job.kind === 'daily') {
-        if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
-    } else if (job.kind === 'weekly') {
-        // Advance to the requested weekday
-        const diff = (job.weekday - next.getUTCDay() + 7) % 7;
-        next.setUTCDate(next.getUTCDate() + diff);
-        if (next <= now) next.setUTCDate(next.getUTCDate() + 7);
-    }
-    return next;
-}
-
-function humanizeUntil(future) {
-    const ms = future - Date.now();
+function humanizeUntil(isoStr) {
+    const ms = new Date(isoStr) - Date.now();
     if (ms < 0) return 'overdue';
     const totalMin = Math.round(ms / 60_000);
-    const days = Math.floor(totalMin / 1440);
+    const days  = Math.floor(totalMin / 1440);
     const hours = Math.floor((totalMin % 1440) / 60);
-    const mins = totalMin % 60;
+    const mins  = totalMin % 60;
     if (days > 0) return `${days}d ${hours}h`;
     if (hours > 0) return `${hours}h ${mins}m`;
     return `${mins}m`;
 }
 
-function fmtIso(date) {
-    return date.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+function fmtIso(isoStr) {
+    return isoStr.slice(0, 16).replace('T', ' ') + ' UTC';
 }
 
-function getLastRun(name) {
+function getLastRun(logName) {
     return db.prepare(
         'SELECT sent_at, late FROM scheduler_log WHERE name = ? ORDER BY sent_at DESC LIMIT 1'
-    ).get(name);
+    ).get(logName);
 }
 
 module.exports = {
@@ -65,24 +40,33 @@ module.exports = {
         .setDescription('View scheduled jobs, last runs, and next runs'),
 
     async execute(interaction) {
+        const systemJobs = db.prepare(`
+            SELECT sj.fire_at, sj.last_fired_at, scj.handler_path
+            FROM scheduled_jobs sj
+            JOIN script_jobs scj ON scj.job_id = sj.id
+            ORDER BY sj.fire_at
+        `).all();
+
         const embed = new EmbedBuilder()
             .setTitle('📅 Scheduled Jobs')
             .setColor(pickColor())
-            .setFooter({ text: `${getJobs().length} jobs · times in UTC (18:00 = 2pm EDT / 1pm EST)` })
+            .setFooter({ text: `${systemJobs.length} system jobs · times in UTC (18:00 = 2pm EDT / 1pm EST)` })
             .setTimestamp();
 
-        for (const job of getJobs()) {
-            const last = getLastRun(job.name);
-            const next = nextFire(job);
+        for (const job of systemJobs) {
+            const meta = JOB_META[job.handler_path];
+            if (!meta) continue;
 
+            const schedule = typeof meta.schedule === 'function' ? meta.schedule() : meta.schedule;
+            const last = getLastRun(meta.logName);
             const lastStr = last
-                ? `${fmtIso(new Date(last.sent_at))}${last.late ? ' *(late)*' : ''}`
+                ? `${fmtIso(last.sent_at)}${last.late ? ' *(late)*' : ''}`
                 : '*never*';
-            const nextStr = `${fmtIso(next)} · in ${humanizeUntil(next)}`;
+            const nextStr = `${fmtIso(job.fire_at)} · in ${humanizeUntil(job.fire_at)}`;
 
             embed.addFields({
-                name: `${job.display}`,
-                value: `\`${job.schedule}\`\n**Last:** ${lastStr}\n**Next:** ${nextStr}`,
+                name: meta.display,
+                value: `\`${schedule}\`\n**Last:** ${lastStr}\n**Next:** ${nextStr}`,
                 inline: false,
             });
         }

@@ -1,13 +1,9 @@
 const { EmbedBuilder } = require('discord.js');
-const db = require('./db');
-const { logJobRun } = require('./jobLog');
-const botConfig = require('./botConfig');
-const { pickColor } = require('./colors');
+const db = require('../db');
+const { logJobRun } = require('../jobLog');
+const botConfig = require('../botConfig');
+const { pickColor } = require('../colors');
 
-/**
- * Returns true if `today` is exactly `n` months after `from`,
- * with last-day-of-month clamping (e.g. Jan 31 + 1 month = Feb 28/29).
- */
 function isNMonthsLater(from, today, n) {
     const targetMonth = (from.getUTCMonth() + n) % 12;
     const targetYear = from.getUTCFullYear() + Math.floor((from.getUTCMonth() + n) / 12);
@@ -19,10 +15,6 @@ function isNMonthsLater(from, today, n) {
         && today.getUTCDate() === targetDay;
 }
 
-/**
- * Returns the milestone label if today is a milestone for this first_seen date,
- * or null otherwise. Checks (in order): 1mo, 3mo, 6mo, yearly.
- */
 function milestoneFor(firstSeenIso, today) {
     const from = new Date(firstSeenIso);
     if (isNaN(from)) return null;
@@ -31,7 +23,6 @@ function milestoneFor(firstSeenIso, today) {
     if (isNMonthsLater(from, today, 3)) return '3 months';
     if (isNMonthsLater(from, today, 6)) return '6 months';
 
-    // Yearly anniversary: same month/day, at least 1 year later
     if (today.getUTCMonth() === from.getUTCMonth()
         && today.getUTCDate() === from.getUTCDate()
         && today.getUTCFullYear() > from.getUTCFullYear()) {
@@ -66,33 +57,23 @@ async function checkAnniversaries(client) {
             return `· ${mention}**${m.ingame_name}** · ${m.label} with the guild`;
         });
 
-        try {
-            const channel = await client.channels.fetch(channelId);
-            await channel.send({ embeds: [
-                new EmbedBuilder()
-                    .setTitle(`🎉 Guild Anniversaries · ${today.toISOString().slice(0, 10)}`)
-                    .setDescription(lines.join('\n') + '\n\nThanks for being part of the guild! 🦡')
-                    .setColor(pickColor()),
-            ]});
-        } catch (err) {
-            console.error('Anniversary notification error:', err);
-        }
+        const channel = await client.channels.fetch(channelId);
+        await channel.send({ embeds: [
+            new EmbedBuilder()
+                .setTitle(`🎉 Guild Anniversaries · ${today.toISOString().slice(0, 10)}`)
+                .setDescription(lines.join('\n') + '\n\nThanks for being part of the guild! 🦡')
+                .setColor(pickColor()),
+        ]});
+    } catch (err) {
+        console.error('[AnniversaryCheck] Error:', err);
     } finally {
         logJobRun('anniversary_check');
     }
 }
 
-function scheduleAnniversaryCheck(client) {
-    setInterval(async () => {
-        const timeStr = botConfig.get('ANNIVERSARY_TIME', '18:00');
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        const now = new Date();
-        if (now.getUTCHours() === hours && now.getUTCMinutes() === minutes) {
-            await checkAnniversaries(client);
-        }
-    }, 60_000);
+module.exports = async function handleAnniversaryCheck(client, job) {
+    await checkAnniversaries(client);
+};
 
-    console.log('Anniversary check initialized (reads time each tick)');
-}
-
-module.exports = { scheduleAnniversaryCheck, checkAnniversaries, milestoneFor };
+module.exports.milestoneFor = milestoneFor;
+module.exports.checkAnniversaries = checkAnniversaries;
