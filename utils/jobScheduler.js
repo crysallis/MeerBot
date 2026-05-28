@@ -64,11 +64,17 @@ function bootstrap() {
 
 async function handleRemindme(client, job) {
     try {
+        const guild     = job.guild_id ? client.guilds.cache.get(job.guild_id) : null;
+        const setOn     = job.created_at ? new Date(job.created_at).toUTCString().replace(' GMT', ' UTC') : null;
+
         const embed = new EmbedBuilder()
             .setTitle('⏰ Reminder')
             .setDescription(job.message)
             .setColor(pickColor())
             .setTimestamp();
+
+        if (setOn)         embed.addFields({ name: 'Set on',   value: setOn,        inline: true });
+        if (guild?.name)   embed.addFields({ name: 'Server',   value: guild.name,   inline: true });
 
         let delivered = false;
         try {
@@ -94,7 +100,7 @@ async function handleRemindme(client, job) {
 
 async function tick(client) {
     const due = db.prepare(`
-        SELECT sj.id, sj.type, sj.recurrence, sj.fire_at,
+        SELECT sj.id, sj.type, sj.recurrence, sj.fire_at, sj.created_at,
                rj.user_id, rj.channel_id, rj.guild_id, rj.message,
                scj.handler_path, scj.args
         FROM scheduled_jobs sj
