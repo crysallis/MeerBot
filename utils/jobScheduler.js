@@ -100,7 +100,7 @@ async function tick(client) {
         FROM scheduled_jobs sj
         LEFT JOIN remindme_jobs rj ON rj.job_id = sj.id
         LEFT JOIN script_jobs scj ON scj.job_id = sj.id
-        WHERE sj.fire_at <= datetime('now')
+        WHERE datetime(sj.fire_at) <= datetime('now')
     `).all();
 
     for (const job of due) {
