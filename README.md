@@ -57,18 +57,17 @@ pm2 restart meerbot --update-env
 
 ### Configurable via admin panel (or .env as fallback)
 
-Channel IDs, job timing, and thresholds are stored in the `bot_config` DB table and editable at `http://localhost:3001` without restarting or editing files. The .env values below act as fallbacks if no DB override exists.
+Channel IDs and thresholds are stored in the `bot_config` DB table and editable at `http://localhost:3001` without restarting. The .env values below act as fallbacks if no DB override exists.
+
+**Job timing is not here** -- next fire time and repeat interval for each scheduled job are set directly in the admin panel's **Scheduled Jobs** tab and stored in the `scheduled_jobs` table.
 
 | Variable | Description | Default |
 |---|---|---|
 | `SCAN_AUTHORIZED_USER` | Discord user ID allowed to run `/scan` | — |
 | `SCAN_REMINDER_CHANNEL_ID` | Channel for daily scan reminders | — |
-| `SCAN_REMINDER_TIME` | Scan reminder time `HH:MM` UTC | `20:00` |
 | `WEEKLY_SUMMARY_CHANNEL_ID` | Channel for Monday weekly summaries | — |
-| `WEEKLY_SUMMARY_TIME` | Weekly summary time `HH:MM` UTC | `09:00` |
 | `BIRTHDAY_CHANNEL_ID` | Channel for birthday messages | — |
 | `ANNIVERSARY_CHANNEL_ID` | Channel for guild anniversary messages | — |
-| `ANNIVERSARY_TIME` | Anniversary check time `HH:MM` UTC | `18:00` |
 | `INACTIVITY_ALERT_CHANNEL_ID` | Channel for post-scan inactivity alerts | — |
 | `GENERAL_CHANNEL_ID` | Channel for scheduled auto-posts | — |
 | `COMMAND_LOG_CHANNEL_ID` | Channel for slash command audit log | — |
@@ -132,14 +131,14 @@ List commands show badges inline with member names:
 
 | Task | Schedule | Description |
 |---|---|---|
-| Birthday check | Daily at UTC midnight | Posts birthday embed for any member with a birthday today |
-| Scan reminder | Daily at `SCAN_REMINDER_TIME` | Reminds the authorized user to run a scan |
-| Weekly summary | Mondays at `WEEKLY_SUMMARY_TIME` | Posts power/growth summary · compares latest scan to oldest scan from the past 7 days (true weekly delta) |
-| AFK expiry | Daily at UTC midnight | Clears AFK records past their return date and notifies the inactivity channel |
-| Anniversary check | Daily at `ANNIVERSARY_TIME` UTC | Posts 1mo/3mo/6mo/yearly guild anniversaries for active members |
-| Daily reset | Daily at UTC midnight | Guild Supremacy/DR reminder. Skipped if bot was offline more than 2h past midnight. Late-footer added if mildly late. |
+| Birthday check | Daily at midnight UTC (default) | Posts birthday embed for any member with a birthday today |
+| Scan reminder | Daily at 20:00 UTC (default) | Reminds the authorized user to run a scan |
+| Weekly summary | Every 7 days from Monday 09:00 UTC (default) | Posts power/growth summary · compares latest scan to oldest scan from the past 7 days |
+| AFK expiry | Daily at midnight UTC (default) | Clears AFK records past their return date and notifies the inactivity channel |
+| Anniversary check | Daily at 18:00 UTC (default) | Posts 1mo/3mo/6mo/yearly guild anniversaries for active members |
+| Daily reset | Daily at midnight UTC (default) | Guild Supremacy/DR reminder. Skipped if bot offline more than 2h past fire time. |
 
-All automated tasks run through a single unified job scheduler (`utils/jobScheduler.js`) backed by the `scheduled_jobs` DB table. System jobs are bootstrapped on startup; user reminders (`/remindme`) use the same queue as one-shot jobs. The scheduler polls every 30 seconds.
+All tasks run through a single unified job scheduler (`utils/jobScheduler.js`) backed by the `scheduled_jobs` DB table. **Next fire time and repeat interval for each job are configurable from the admin panel's Scheduled Jobs tab** -- no restart needed for schedule changes. User reminders (`/remindme`) use the same queue as one-shot jobs. The scheduler polls every 30 seconds.
 
 ---
 

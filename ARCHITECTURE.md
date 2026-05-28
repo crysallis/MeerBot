@@ -226,7 +226,7 @@ SQLite's `julianday()` converts dates to a continuous float (Julian Day Number),
 
 ## utils/botConfig.js (DB-backed config layer)
 
-All channel IDs, job timing values, and thresholds are read through `botConfig.get(key)` rather than `process.env` directly. The lookup order is:
+Channel IDs, thresholds, and permission settings are read through `botConfig.get(key)` rather than `process.env` directly. Job timing is **not** in botConfig -- it lives directly on the `scheduled_jobs` row and is editable from the admin panel's Scheduled Jobs tab. The lookup order is:
 
 1. `bot_config` table in SQLite (DB override set via admin panel)
 2. `process.env[key]` (`.env` file value)
@@ -260,11 +260,13 @@ REST API:
 | `DELETE` | `/api/config/:key` | Remove DB override, revert to ENV or DEFAULT |
 | `GET` | `/api/channels` | Flattened channel list from `data/discord-channels.json` |
 | `POST` | `/api/bot/restart` | Runs `pm2 restart meerbot --update-env` |
-| `GET` | `/api/jobs` | Last 50 rows from `scheduler_log` |
+| `GET` | `/api/scheduled-jobs` | All system jobs with display name, `fire_at`, `recurrence` |
+| `PUT` | `/api/scheduled-jobs/:id` | Update `fire_at` and/or `recurrence` for a job |
+| `GET` | `/api/jobs` | Last 50 rows from `scheduler_log` (filterable/sortable in UI) |
 
-The PUT endpoint validates the key against `CONFIG_META` before writing, preventing arbitrary DB writes.
+The config PUT endpoint validates the key against `CONFIG_META` before writing, preventing arbitrary DB writes. The scheduled-jobs PUT validates that `recurrence` matches `daily:N` or `weekly:N` and that `fire_at` is a valid datetime.
 
-Config changes take effect after `pm2 restart meerbot --update-env`. The admin panel's Restart button does this.
+Channel ID and threshold config changes take effect after bot restart. **Scheduled job timing changes take effect within 30 seconds** -- the scheduler reads `fire_at` from the DB on every tick, no restart required.
 
 ---
 
@@ -284,9 +286,15 @@ scheduled_jobs          -- queue entry: type, fire_at, recurrence
 
 Each job type has its own sub-table. The scheduler JOINs both sub-tables on every tick and dispatches by `type`.
 
+### Recurrence format
+
+Stored in `scheduled_jobs.recurrence` as `daily:N` or `weekly:N` where N is the repeat count. Examples: `daily:1` (every day), `daily:2` (every 2 days), `weekly:1` (every 7 days), `weekly:2` (every 14 days).
+
 ### Startup bootstrap
 
-`initJobScheduler(client)` checks whether each system job exists in `scheduled_jobs` (identified by `handler_path`). If a row is missing, it is inserted with the correct first `fire_at` computed from `botConfig`. This means adding a new recurring system job requires only a handler file and a bootstrap entry in `SYSTEM_JOBS` -- no changes to `index.js` or the scheduler core.
+`initJobScheduler(client)` checks whether each system job exists in `scheduled_jobs` (identified by `handler_path`). If a row is missing, it is inserted with a hardcoded initial `fire_at` (e.g. next 20:00 UTC for scan reminder, next Monday 09:00 UTC for weekly summary). Bootstrap runs once per job lifetime -- after that, `fire_at` is owned by the scheduler and editable via the admin panel.
+
+Adding a new recurring system job requires only a handler file and one entry in the `SYSTEM_JOBS` array in `jobScheduler.js`. No changes to `index.js` or the scheduler core.
 
 ### Poll loop
 
@@ -294,16 +302,19 @@ Each job type has its own sub-table. The scheduler JOINs both sub-tables on ever
 setInterval(() => tick(client), 30_000);
 ```
 
-Every 30 seconds, the tick queries:
+Every 30 seconds, the tick queries `WHERE fire_at <= datetime('now')`. For each due job:
 
-```sql
-SELECT ... FROM scheduled_jobs WHERE fire_at <= datetime('now')
-```
+- **`script_job`**: `require(handler_path)` and call the handler. After firing, advance `fire_at` by the recurrence interval -- anchored to the previous `fire_at`, not wall clock, preventing drift:
 
-For each due job:
+  ```javascript
+  function nextFire(job) {
+      const [unit, n] = job.recurrence.split(':');
+      const days = unit === 'weekly' ? parseInt(n) * 7 : parseInt(n);
+      return new Date(new Date(job.fire_at).getTime() + days * 86_400_000).toISOString();
+  }
+  ```
 
-- **`script_job`**: `require(handler_path)` and call the handler. After firing, update `fire_at` to the next occurrence by calling `jobDef.nextFireAt()` (reads `botConfig` fresh, so config changes take effect on the next cycle after firing).
-- **`remindme`**: deliver via DM (fallback to channel mention), then `DELETE` the row. `ON DELETE CASCADE` cleans the `remindme_jobs` sub-table automatically.
+- **`remindme`**: deliver via DM (fallback to channel mention), then `DELETE` the row. `ON DELETE CASCADE` cleans `remindme_jobs` automatically.
 
 The immediate `tick(client)` call on startup catches any jobs that fired while the bot was offline.
 
