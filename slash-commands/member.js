@@ -102,7 +102,7 @@ module.exports = {
         const afkValue = current.afk_until ? `AFK until ${current.afk_until}` : '·';
 
         const embed = new EmbedBuilder()
-            .setTitle(`👤 ${current.ingame_name}`)
+            .setTitle(`👤 ${current.ingame_name} (in game name)`)
             .addFields(
                 { name: 'Combat Power', value: current.combat_power || '·', inline: true },
                 { name: 'Last Active', value: current.last_active || '·', inline: true },
