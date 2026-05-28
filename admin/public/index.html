@@ -116,6 +116,20 @@
   .late-yes { color: var(--red); }
   .late-no  { color: var(--muted); }
 
+  /* Scheduled jobs */
+  .sj-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin-bottom: 14px; }
+  .sj-name { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 12px; }
+  .sj-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .sj-field { display: flex; flex-direction: column; gap: 4px; }
+  .sj-field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .sj-recur-row { display: flex; gap: 6px; align-items: center; }
+  input[type=datetime-local] {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 5px 8px; border-radius: 5px; font-size: 13px; outline: none;
+    transition: border-color .15s; color-scheme: dark;
+  }
+  input[type=datetime-local]:focus { border-color: var(--accent); }
+
   .section-title {
     font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 16px;
     padding-bottom: 8px; border-bottom: 1px solid var(--border);
@@ -154,6 +168,11 @@
 
   <div id="sections"></div>
 
+  <div class="section" id="section-scheduledjobs">
+    <div class="section-title">Scheduled Jobs</div>
+    <div id="sjContainer"><p style="color:var(--muted)">Loading...</p></div>
+  </div>
+
   <div class="section" id="section-jobs">
     <div class="section-title">Recent Job Runs</div>
     <div class="card">
@@ -180,10 +199,11 @@ let channelList = [];
 let activeTab = 'channels';
 
 async function init() {
-  const [configRes, channelsRes, jobsRes] = await Promise.all([
+  const [configRes, channelsRes, jobsRes, sjRes] = await Promise.all([
     fetch('/api/config').then(r => r.json()),
     fetch('/api/channels').then(r => r.json()),
     fetch('/api/jobs').then(r => r.json()),
+    fetch('/api/scheduled-jobs').then(r => r.json()),
   ]);
 
   allConfig = configRes;
@@ -196,6 +216,7 @@ async function init() {
 
   renderTabs();
   renderAllSections();
+  renderScheduledJobs(sjRes);
   renderJobs(jobsRes);
 }
 
@@ -212,7 +233,14 @@ function renderTabs() {
     tabsEl.appendChild(btn);
   }
 
-  // Jobs tab
+  // Scheduled Jobs tab
+  const sjTab = document.createElement('button');
+  sjTab.className = 'tab' + (activeTab === 'scheduledjobs' ? ' active' : '');
+  sjTab.textContent = 'Scheduled Jobs';
+  sjTab.onclick = () => switchTab('scheduledjobs');
+  tabsEl.appendChild(sjTab);
+
+  // Job Runs tab
   const jobTab = document.createElement('button');
   jobTab.className = 'tab' + (activeTab === 'jobs' ? ' active' : '');
   jobTab.textContent = 'Job Runs';
@@ -223,7 +251,7 @@ function renderTabs() {
 function switchTab(cat) {
   activeTab = cat;
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const cats = [...new Set(allConfig.map(c => c.category)), 'jobs'];
+    const cats = [...new Set(allConfig.map(c => c.category)), 'scheduledjobs', 'jobs'];
     t.classList.toggle('active', cats[i] === cat);
   });
   document.querySelectorAll('.section').forEach(s => {
@@ -406,6 +434,82 @@ async function restartBot() {
     btn.textContent = '⟳ Restart Bot';
   }
   btn.disabled = false;
+}
+
+function utcToLocal(isoStr) {
+  // Convert ISO UTC to datetime-local format (YYYY-MM-DDTHH:MM) in local time
+  const d = new Date(isoStr);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderScheduledJobs(jobs) {
+  const container = document.getElementById('sjContainer');
+  if (!jobs || !jobs.length) {
+    container.innerHTML = '<p style="color:var(--muted)">No system jobs found.</p>';
+    return;
+  }
+
+  container.innerHTML = '';
+  for (const job of jobs) {
+    const [unit, n] = (job.recurrence || 'daily:1').split(':');
+    const count = n || '1';
+
+    const card = document.createElement('div');
+    card.className = 'sj-card';
+    card.innerHTML = `
+      <div class="sj-name">${job.display}</div>
+      <div class="sj-fields">
+        <div class="sj-field">
+          <label>Next Fire (your local time)</label>
+          <input type="datetime-local" id="sj-fire-${job.id}" value="${utcToLocal(job.fire_at)}">
+        </div>
+        <div class="sj-field">
+          <label>Repeat every</label>
+          <div class="sj-recur-row">
+            <input type="number" id="sj-count-${job.id}" value="${count}" min="1" style="width:60px">
+            <select id="sj-unit-${job.id}">
+              <option value="daily"  ${unit === 'daily'  ? 'selected' : ''}>Day(s)</option>
+              <option value="weekly" ${unit === 'weekly' ? 'selected' : ''}>Week(s)</option>
+            </select>
+          </div>
+        </div>
+        <div class="sj-field" style="justify-content:flex-end">
+          <button class="save-btn" onclick="saveScheduledJob(${job.id})">Save</button>
+          <span class="saved-flash" id="sj-flash-${job.id}">Saved!</span>
+        </div>
+      </div>
+      <div style="margin-top:10px; font-size:11px; color:var(--muted)">
+        Current next fire (UTC): ${job.fire_at.slice(0,16).replace('T',' ')}
+      </div>`;
+    container.appendChild(card);
+  }
+}
+
+async function saveScheduledJob(id) {
+  const fireLocal = document.getElementById(`sj-fire-${id}`).value;
+  const count     = document.getElementById(`sj-count-${id}`).value;
+  const unit      = document.getElementById(`sj-unit-${id}`).value;
+
+  if (!fireLocal) { alert('Please set a next fire time.'); return; }
+  const fireAt   = new Date(fireLocal).toISOString(); // local → UTC ISO
+  const recurrence = `${unit}:${count}`;
+
+  const res = await fetch(`/api/scheduled-jobs/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fire_at: fireAt, recurrence }),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Save failed: ' + data.error); return; }
+
+  // Update the UTC display
+  const card = document.getElementById(`sj-fire-${id}`).closest('.sj-card');
+  const utcLine = card.querySelector('div[style*="margin-top"]');
+  if (utcLine) utcLine.textContent = `Current next fire (UTC): ${fireAt.slice(0,16).replace('T',' ')}`;
+
+  const flashEl = document.getElementById(`sj-flash-${id}`);
+  if (flashEl) { flashEl.classList.add('show'); setTimeout(() => flashEl.classList.remove('show'), 2000); }
 }
 
 function renderJobs(rows) {

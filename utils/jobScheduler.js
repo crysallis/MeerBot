@@ -1,61 +1,43 @@
 const path = require('path');
 const { EmbedBuilder } = require('discord.js');
 const db = require('./db');
-const botConfig = require('./botConfig');
 const { pickColor } = require('./colors');
 const { logJobRun } = require('./jobLog');
 
-function nextDaily(timeStr = '00:00') {
-    const [h, m] = timeStr.split(':').map(Number);
+// Compute next fire_at from current fire_at + recurrence interval (prevents clock drift)
+function nextFire(job) {
+    const [unit, n] = (job.recurrence || 'daily:1').split(':');
+    const count = parseInt(n || '1', 10);
+    const base = new Date(job.fire_at).getTime();
+    const days = unit === 'weekly' ? count * 7 : count;
+    return new Date(base + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+// Bootstrap helpers -- used only once on first startup per job
+function nextDailyAt(hh, mm) {
     const now = new Date();
-    const candidate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), h, m, 0, 0));
+    const candidate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hh, mm, 0, 0));
     if (candidate <= now) candidate.setUTCDate(candidate.getUTCDate() + 1);
     return candidate.toISOString();
 }
 
-function nextWeekly(dayOfWeek, timeStr = '09:00') {
-    const [h, m] = timeStr.split(':').map(Number);
+function nextWeeklyAt(dayOfWeek, hh, mm) {
     const now = new Date();
     let daysUntil = (dayOfWeek - now.getUTCDay() + 7) % 7;
     if (daysUntil === 0) {
-        const todayFire = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), h, m));
+        const todayFire = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hh, mm));
         if (todayFire <= now) daysUntil = 7;
     }
-    const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysUntil, h, m, 0, 0));
-    return next.toISOString();
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysUntil, hh, mm, 0, 0)).toISOString();
 }
 
 const SYSTEM_JOBS = [
-    {
-        handler_path: './handlers/scanReminder',
-        recurrence: 'daily',
-        nextFireAt: () => nextDaily(botConfig.get('SCAN_REMINDER_TIME', '20:00')),
-    },
-    {
-        handler_path: './handlers/weeklySummary',
-        recurrence: 'weekly:1',
-        nextFireAt: () => nextWeekly(1, botConfig.get('WEEKLY_SUMMARY_TIME', '09:00')),
-    },
-    {
-        handler_path: './handlers/anniversaryCheck',
-        recurrence: 'daily',
-        nextFireAt: () => nextDaily(botConfig.get('ANNIVERSARY_TIME', '18:00')),
-    },
-    {
-        handler_path: './handlers/afkExpiry',
-        recurrence: 'daily',
-        nextFireAt: () => nextDaily('00:00'),
-    },
-    {
-        handler_path: './handlers/birthdayCheck',
-        recurrence: 'daily',
-        nextFireAt: () => nextDaily('00:00'),
-    },
-    {
-        handler_path: './handlers/dailyReset',
-        recurrence: 'daily',
-        nextFireAt: () => nextDaily('00:00'),
-    },
+    { handler_path: './handlers/scanReminder',    recurrence: 'daily:1',  initialFireAt: () => nextDailyAt(20, 0)       },
+    { handler_path: './handlers/weeklySummary',   recurrence: 'weekly:1', initialFireAt: () => nextWeeklyAt(1, 9, 0)   },
+    { handler_path: './handlers/anniversaryCheck', recurrence: 'daily:1', initialFireAt: () => nextDailyAt(18, 0)       },
+    { handler_path: './handlers/afkExpiry',        recurrence: 'daily:1', initialFireAt: () => nextDailyAt(0, 0)        },
+    { handler_path: './handlers/birthdayCheck',    recurrence: 'daily:1', initialFireAt: () => nextDailyAt(0, 0)        },
+    { handler_path: './handlers/dailyReset',       recurrence: 'daily:1', initialFireAt: () => nextDailyAt(0, 0)        },
 ];
 
 function bootstrap() {
@@ -66,7 +48,7 @@ function bootstrap() {
         ).get(jobDef.handler_path);
 
         if (!exists) {
-            const fireAt = jobDef.nextFireAt();
+            const fireAt = jobDef.initialFireAt();
             const result = db.prepare(
                 'INSERT INTO scheduled_jobs (type, fire_at, recurrence, created_at) VALUES (?, ?, ?, ?)'
             ).run('script_job', fireAt, jobDef.recurrence, now);
@@ -129,11 +111,8 @@ async function tick(client) {
                 const handler = typeof handlerModule === 'function' ? handlerModule : handlerModule.default;
                 await handler(client, job);
 
-                const jobDef = SYSTEM_JOBS.find(j => j.handler_path === job.handler_path);
-                if (jobDef) {
-                    db.prepare('UPDATE scheduled_jobs SET fire_at = ?, last_fired_at = ? WHERE id = ?')
-                        .run(jobDef.nextFireAt(), new Date().toISOString(), job.id);
-                }
+                db.prepare('UPDATE scheduled_jobs SET fire_at = ? WHERE id = ?')
+                    .run(nextFire(job), job.id);
             } else if (job.type === 'remindme') {
                 await handleRemindme(client, job);
                 db.prepare('DELETE FROM scheduled_jobs WHERE id = ?').run(job.id);
@@ -146,7 +125,7 @@ async function tick(client) {
 
 function initJobScheduler(client) {
     bootstrap();
-    tick(client); // immediate check on startup (catches any jobs due while bot was offline)
+    tick(client);
     setInterval(() => tick(client), 30_000);
     console.log('[JobScheduler] Initialized · polling every 30s');
 }

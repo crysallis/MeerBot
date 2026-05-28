@@ -80,6 +80,72 @@ app.post('/api/bot/restart', (req, res) => {
     });
 });
 
+const JOB_DISPLAY = {
+    './handlers/scanReminder':     'Scan Reminder',
+    './handlers/weeklySummary':    'Weekly Summary',
+    './handlers/anniversaryCheck': 'Anniversary Check',
+    './handlers/afkExpiry':        'AFK Expiry',
+    './handlers/birthdayCheck':    'Birthday Check',
+    './handlers/dailyReset':       'Daily Reset',
+};
+
+// GET /api/scheduled-jobs — system job schedule config
+app.get('/api/scheduled-jobs', (req, res) => {
+    try {
+        const rows = db.prepare(`
+            SELECT sj.id, sj.fire_at, sj.recurrence, scj.handler_path
+            FROM scheduled_jobs sj
+            JOIN script_jobs scj ON scj.job_id = sj.id
+            ORDER BY sj.fire_at
+        `).all();
+        res.json(rows.map(r => ({
+            id:           r.id,
+            display:      JOB_DISPLAY[r.handler_path] ?? r.handler_path,
+            handler_path: r.handler_path,
+            fire_at:      r.fire_at,
+            recurrence:   r.recurrence ?? 'daily:1',
+        })));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT /api/scheduled-jobs/:id — update fire_at and/or recurrence
+app.put('/api/scheduled-jobs/:id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { fire_at, recurrence } = req.body;
+
+    if (fire_at) {
+        const d = new Date(fire_at);
+        if (isNaN(d)) return res.status(400).json({ error: 'Invalid fire_at datetime' });
+    }
+
+    if (recurrence) {
+        const [unit, n] = recurrence.split(':');
+        const count = parseInt(n || '1', 10);
+        if (!['daily', 'weekly'].includes(unit) || isNaN(count) || count < 1) {
+            return res.status(400).json({ error: 'recurrence must be daily:N or weekly:N (N >= 1)' });
+        }
+    }
+
+    try {
+        const exists = db.prepare('SELECT 1 FROM scheduled_jobs WHERE id = ? AND type = ?').get(id, 'script_job');
+        if (!exists) return res.status(404).json({ error: 'Job not found' });
+
+        if (fire_at && recurrence) {
+            db.prepare('UPDATE scheduled_jobs SET fire_at = ?, recurrence = ? WHERE id = ?').run(fire_at, recurrence, id);
+        } else if (fire_at) {
+            db.prepare('UPDATE scheduled_jobs SET fire_at = ? WHERE id = ?').run(fire_at, id);
+        } else if (recurrence) {
+            db.prepare('UPDATE scheduled_jobs SET recurrence = ? WHERE id = ?').run(recurrence, id);
+        }
+
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/jobs — recent scheduler_log entries
 app.get('/api/jobs', (req, res) => {
     try {
