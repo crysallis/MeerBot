@@ -1,16 +1,22 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
-const botConfig = require('../utils/botConfig');
 const { pickColor } = require('../utils/colors');
 
 const JOB_META = {
-    './handlers/dailyReset':       { display: '📅 Daily Reset Message', logName: 'daily_reset',       schedule: 'Daily 00:00 UTC' },
-    './handlers/birthdayCheck':    { display: '🎂 Birthday Check',       logName: 'birthday_check',    schedule: 'Daily 00:00 UTC' },
-    './handlers/afkExpiry':        { display: '✈️ AFK Expiry',           logName: 'afk_expiry',        schedule: 'Daily 00:00 UTC' },
-    './handlers/scanReminder':     { display: '⏰ Scan Reminder',         logName: 'scan_reminder',     schedule: () => `Daily ${botConfig.get('SCAN_REMINDER_TIME', '20:00')} UTC` },
-    './handlers/weeklySummary':    { display: '📊 Weekly Summary',        logName: 'weekly_summary',    schedule: () => `Mondays ${botConfig.get('WEEKLY_SUMMARY_TIME', '09:00')} UTC` },
-    './handlers/anniversaryCheck': { display: '🎉 Anniversary Check',    logName: 'anniversary_check', schedule: () => `Daily ${botConfig.get('ANNIVERSARY_TIME', '18:00')} UTC` },
+    './handlers/dailyReset':       { display: '📅 Daily Reset Message', logName: 'daily_reset'       },
+    './handlers/birthdayCheck':    { display: '🎂 Birthday Check',       logName: 'birthday_check'    },
+    './handlers/afkExpiry':        { display: '✈️ AFK Expiry',           logName: 'afk_expiry'        },
+    './handlers/scanReminder':     { display: '⏰ Scan Reminder',         logName: 'scan_reminder'     },
+    './handlers/weeklySummary':    { display: '📊 Weekly Summary',        logName: 'weekly_summary'    },
+    './handlers/anniversaryCheck': { display: '🎉 Anniversary Check',    logName: 'anniversary_check' },
 };
+
+function fmtRecurrence(recurrence) {
+    const [unit, n] = (recurrence || 'daily:1').split(':');
+    const count = parseInt(n || '1', 10);
+    if (unit === 'weekly') return count === 1 ? 'Every week' : `Every ${count} weeks`;
+    return count === 1 ? 'Every day' : `Every ${count} days`;
+}
 
 function humanizeUntil(isoStr) {
     const ms = new Date(isoStr) - Date.now();
@@ -41,7 +47,7 @@ module.exports = {
 
     async execute(interaction) {
         const systemJobs = db.prepare(`
-            SELECT sj.fire_at, sj.last_fired_at, scj.handler_path
+            SELECT sj.fire_at, sj.recurrence, scj.handler_path
             FROM scheduled_jobs sj
             JOIN script_jobs scj ON scj.job_id = sj.id
             ORDER BY sj.fire_at
@@ -50,14 +56,13 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setTitle('📅 Scheduled Jobs')
             .setColor(pickColor())
-            .setFooter({ text: `${systemJobs.length} system jobs · times in UTC (18:00 = 2pm EDT / 1pm EST)` })
+            .setFooter({ text: `${systemJobs.length} system jobs · times in UTC · edit via admin panel` })
             .setTimestamp();
 
         for (const job of systemJobs) {
             const meta = JOB_META[job.handler_path];
             if (!meta) continue;
 
-            const schedule = typeof meta.schedule === 'function' ? meta.schedule() : meta.schedule;
             const last = getLastRun(meta.logName);
             const lastStr = last
                 ? `${fmtIso(last.sent_at)}${last.late ? ' *(late)*' : ''}`
@@ -66,7 +71,7 @@ module.exports = {
 
             embed.addFields({
                 name: meta.display,
-                value: `\`${schedule}\`\n**Last:** ${lastStr}\n**Next:** ${nextStr}`,
+                value: `\`${fmtRecurrence(job.recurrence)}\`\n**Last:** ${lastStr}\n**Next:** ${nextStr}`,
                 inline: false,
             });
         }

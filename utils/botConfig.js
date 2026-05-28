@@ -11,10 +11,6 @@ const CONFIG_META = {
     INACTIVITY_ALERT_CHANNEL_ID: { label: 'Inactivity Alert Channel',  description: 'Channel for inactivity alerts post-scan', category: 'channels',    default: '' },
     SCAN_REMINDER_CHANNEL_ID:    { label: 'Scan Reminder Channel',     description: 'Channel for daily scan reminder',         category: 'channels',    default: '' },
     WEEKLY_SUMMARY_CHANNEL_ID:   { label: 'Weekly Summary Channel',    description: 'Channel for Monday power summary',        category: 'channels',    default: '' },
-    // --- Timing (HH:MM UTC) ---
-    SCAN_REMINDER_TIME:          { label: 'Scan Reminder Time',        description: 'Daily scan reminder (HH:MM UTC)',         category: 'timing',      default: '20:00' },
-    WEEKLY_SUMMARY_TIME:         { label: 'Weekly Summary Time',       description: 'Monday summary fire time (HH:MM UTC)',    category: 'timing',      default: '09:00' },
-    ANNIVERSARY_TIME:            { label: 'Anniversary Time',          description: 'Daily anniversary check (HH:MM UTC)',     category: 'timing',      default: '18:00' },
     // --- Thresholds ---
     INACTIVITY_DAYS:             { label: 'Inactivity Days',           description: 'Days before flagging a member inactive',  category: 'thresholds',  default: '3' },
     LATE_WARNING_MINUTES:        { label: 'Late Warning Minutes',      description: 'Minutes late before adding a late footer',category: 'thresholds',  default: '30' },
