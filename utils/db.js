@@ -113,6 +113,33 @@ try { db.exec(`
     )
 `); } catch {}
 
+// message_reactions table — auto-response rules for chat messages
+try { db.exec(`
+    CREATE TABLE IF NOT EXISTS message_reactions (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        name             TEXT NOT NULL,
+        pattern          TEXT NOT NULL DEFAULT '',
+        pattern_type     TEXT NOT NULL DEFAULT 'contains',
+        ignore_case      INTEGER NOT NULL DEFAULT 1,
+        channel_filter   TEXT,
+        require_mention  INTEGER NOT NULL DEFAULT 0,
+        response_type    TEXT NOT NULL DEFAULT 'reply',
+        response_content TEXT NOT NULL DEFAULT '',
+        response_channel TEXT,
+        cooldown_seconds INTEGER NOT NULL DEFAULT 60,
+        enabled          INTEGER NOT NULL DEFAULT 1,
+        created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+`); } catch {}
+
+// Only one mention-type rule allowed
+try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mr_one_mention ON message_reactions(pattern_type) WHERE pattern_type = 'mention'`); } catch {}
+
+// Embed support on message reactions
+try { db.exec(`ALTER TABLE message_reactions ADD COLUMN embed_title TEXT`); } catch {}
+try { db.exec(`ALTER TABLE message_reactions ADD COLUMN embed_description TEXT`); } catch {}
+try { db.exec(`ALTER TABLE message_reactions ADD COLUMN embed_color TEXT`); } catch {}
+
 // Idempotent migrations for scheduler_log
 for (const sql of [
     'ALTER TABLE scheduler_log ADD COLUMN id INTEGER',

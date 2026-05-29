@@ -154,6 +154,22 @@
   .channels-fetched { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
 
   .meerbot_header {padding: 10px; margin: 0 auto;}
+
+  .bot-status-bar {
+    display: flex; align-items: center; gap: 20px;
+    background: #0d0d0d; border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 16px; margin-bottom: 16px; font-size: 12px;
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    box-shadow: 0 0 6px currentColor;
+  }
+  .status-online  { background: var(--green); color: var(--green); }
+  .status-stopped { background: var(--red);   color: var(--red);   }
+  .status-other   { background: var(--gray);  color: var(--gray);  }
+  .bot-status-bar .stat { display: flex; flex-direction: column; gap: 1px; }
+  .bot-status-bar .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .bot-status-bar .stat-value { color: #fff; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -170,6 +186,15 @@
 
 <main>
   <div class="meerbot_header"><img src="./images/meerbot_header.jpg" alt="MeerBot Header" style="width: 400px; height: auto; display: block; margin: 0 auto;"></div>
+
+  <div class="bot-status-bar" id="botStatusBar">
+    <div class="status-dot status-other" id="statusDot"></div>
+    <div class="stat"><span class="stat-label">Status</span><span class="stat-value" id="statStatus">Loading...</span></div>
+    <div class="stat"><span class="stat-label">CPU</span><span class="stat-value" id="statCpu">--</span></div>
+    <div class="stat"><span class="stat-label">Memory</span><span class="stat-value" id="statMemory">--</span></div>
+    <div class="stat"><span class="stat-label">Uptime</span><span class="stat-value" id="statUptime">--</span></div>
+  </div>
+
   <div class="info-bar">
     <span>Changes take effect after bot restart</span>
     <span id="channelsFetchedAt"></span>
@@ -178,6 +203,161 @@
   <div class="tabs" id="tabs"></div>
 
   <div id="sections"></div>
+
+  <div class="section" id="section-reactions">
+    <div class="section-title">Message Reactions</div>
+
+    <div style="margin-bottom:16px">
+      <button class="save-btn" onclick="openReactionForm(null)" style="background:#2f9e44">+ Add Rule</button>
+    </div>
+
+    <!-- Add / Edit form -->
+    <div id="rxForm" style="display:none; margin-bottom:20px">
+      <div class="card" style="padding:16px 20px">
+        <div style="font-size:14px; font-weight:600; color:#fff; margin-bottom:14px" id="rxFormTitle">Add Reaction Rule</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px">
+          <div>
+            <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Rule Name *</label>
+            <input type="text" id="rx-name" placeholder="e.g. Hello response">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Pattern Type</label>
+            <select id="rx-pattern-type" onchange="rxPatternTypeChange()">
+              <option value="contains">Contains</option>
+              <option value="exact">Exact match</option>
+              <option value="regex">Regex</option>
+              <option value="mention">@Mention bot (no pattern)</option>
+            </select>
+          </div>
+          <div id="rx-pattern-wrap">
+            <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Pattern *</label>
+            <input type="text" id="rx-pattern" placeholder="Text to match">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Response Type</label>
+            <select id="rx-response-type" onchange="rxResponseTypeChange()">
+              <option value="reply">Reply (threaded)</option>
+              <option value="message">Standalone message</option>
+              <option value="emoji">Emoji react</option>
+              <option value="dm">DM sender</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px" id="rx-content-label">Response Content *</label>
+            <input type="text" id="rx-response-content" placeholder="Text to send (or emoji char)" oninput="updatePreview()">
+          </div>
+          <div id="rx-resp-channel-wrap" style="display:none">
+            <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Response Channel (optional)</label>
+            <input type="text" id="rx-resp-channel-filter" placeholder="Filter..." oninput="rxFilterSelect('rx-response-channel', this.value)" style="margin-bottom:4px">
+            <select id="rx-response-channel">
+              <option value="">— same channel as trigger —</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Cooldown (seconds)</label>
+            <input type="number" id="rx-cooldown" value="60" min="0" style="width:90px">
+          </div>
+        </div>
+        <div style="display:flex; gap:16px; align-items:center; margin-bottom:12px; flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="rx-ignore-case" checked> Case-insensitive
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="rx-require-mention"> Require @mention
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="rx-enabled" checked> Enabled
+          </label>
+        </div>
+        <div style="margin-bottom:12px; padding:12px; border:1px solid var(--border); border-radius:6px">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Embed (optional — combine with text or use alone)</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px">
+            <div>
+              <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Embed Title</label>
+              <input type="text" id="rx-embed-title" placeholder="e.g. Need help?" oninput="updatePreview()">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Embed Color (hex)</label>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input type="color" id="rx-embed-color-picker" value="#4dabf7" oninput="document.getElementById('rx-embed-color').value=this.value;updatePreview()" style="width:38px;height:32px;padding:2px;border-radius:5px;border:1px solid var(--border);background:var(--bg);cursor:pointer">
+                <input type="text" id="rx-embed-color" placeholder="#4dabf7" oninput="rxSyncColorPicker();updatePreview()" style="width:100px">
+              </div>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Embed Description</label>
+            <textarea id="rx-embed-description" placeholder="Supports Discord markdown..." rows="3" oninput="updatePreview()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:5px;font-size:13px;resize:vertical;outline:none;font-family:inherit"></textarea>
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Channel Filter (leave blank = all channels)</label>
+          <input type="text" id="rx-ch-filter" placeholder="Filter channels..." oninput="rxFilterSelect('rx-channel-filter-select', this.value)" style="margin-bottom:4px;max-width:340px">
+          <select id="rx-channel-filter-select" multiple size="4" style="width:100%;max-width:400px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:4px"></select>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Hold Ctrl/Cmd to select multiple channels. No selection = fires in all channels.</div>
+        </div>
+        <!-- Preview pane -->
+        <div style="margin-bottom:12px">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Preview</div>
+          <div id="rx-preview" style="min-height:48px;background:#313338;border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:14px;line-height:1.5;color:#dbdee1;white-space:pre-wrap;word-break:break-word">
+            <span style="color:var(--muted);font-style:italic">Start typing to preview...</span>
+          </div>
+        </div>
+
+        <!-- Cheat sheet -->
+        <details style="margin-bottom:12px">
+          <summary style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;cursor:pointer;user-select:none">Quick Reference (click to expand)</summary>
+          <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+            <div>
+              <div style="font-size:11px;font-weight:600;color:#fff;margin-bottom:6px">Formatting</div>
+              <div id="rx-fmt-chips" style="display:flex;flex-direction:column;gap:4px"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:#fff;margin-bottom:6px">Variables</div>
+              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Filled in at send time</div>
+              <div id="rx-var-chips" style="display:flex;flex-direction:column;gap:4px"></div>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <span style="font-size:11px;font-weight:600;color:#fff">Channels</span>
+                <button class="reset-btn" style="font-size:10px;padding:2px 7px" onclick="refreshDiscordData()">⟳ Refresh</button>
+              </div>
+              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Click to insert</div>
+              <div id="rx-channel-chips" style="display:flex;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:#fff;margin-bottom:6px">Roles</div>
+              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Click to insert</div>
+              <div id="rx-role-chips" style="display:flex;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto"></div>
+            </div>
+          </div>
+          <div id="rx-refresh-status" style="font-size:11px;color:var(--muted);margin-top:8px"></div>
+        </details>
+
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="save-btn" onclick="saveReactionRule()">Save Rule</button>
+          <button class="reset-btn" onclick="cancelReactionForm()">Cancel</button>
+          <span id="rx-error" style="color:var(--red);font-size:12px"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rules table -->
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th>Name</th>
+          <th>Trigger</th>
+          <th>Response</th>
+          <th>Scope</th>
+          <th>Cooldown</th>
+          <th>Status</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="rxTableBody"><tr><td colspan="7" style="color:var(--muted)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 
   <div class="section" id="section-scheduledjobs">
     <div class="section-title">Scheduled Jobs</div>
@@ -216,18 +396,21 @@ const CATEGORY_LABELS = {
 
 let allConfig = [];
 let channelList = [];
+let roleList = [];
 let activeTab = 'channels';
 
 async function init() {
-  const [configRes, channelsRes, jobsRes, sjRes] = await Promise.all([
+  const [configRes, channelsRes, rolesRes, jobsRes, sjRes] = await Promise.all([
     fetch('/api/config').then(r => r.json()),
     fetch('/api/channels').then(r => r.json()),
+    fetch('/api/roles').then(r => r.json()),
     fetch('/api/jobs').then(r => r.json()),
     fetch('/api/scheduled-jobs').then(r => r.json()),
   ]);
 
-  allConfig = configRes;
-  channelList = channelsRes.channels ?? [];
+  allConfig    = configRes;
+  channelList  = channelsRes.channels ?? [];
+  roleList     = rolesRes.roles ?? [];
 
   if (channelsRes.fetched_at) {
     document.getElementById('channelsFetchedAt').textContent =
@@ -238,6 +421,8 @@ async function init() {
   renderAllSections();
   renderScheduledJobs(sjRes);
   renderJobs(jobsRes);
+  await loadReactions();
+  loadBotStatus();
 }
 
 function renderTabs() {
@@ -252,6 +437,13 @@ function renderTabs() {
     btn.onclick = () => switchTab(cat);
     tabsEl.appendChild(btn);
   }
+
+  // Reactions tab
+  const rxTab = document.createElement('button');
+  rxTab.className = 'tab' + (activeTab === 'reactions' ? ' active' : '');
+  rxTab.textContent = 'Reactions';
+  rxTab.onclick = () => switchTab('reactions');
+  tabsEl.appendChild(rxTab);
 
   // Scheduled Jobs tab
   const sjTab = document.createElement('button');
@@ -271,7 +463,7 @@ function renderTabs() {
 function switchTab(cat) {
   activeTab = cat;
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const cats = [...new Set(allConfig.map(c => c.category)), 'scheduledjobs', 'jobs'];
+    const cats = [...new Set(allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs'];
     t.classList.toggle('active', cats[i] === cat);
   });
   document.querySelectorAll('.section').forEach(s => {
@@ -605,6 +797,450 @@ function applyJobView() {
         </tr>`).join('')
     : '<tr><td colspan="3" style="color:var(--muted)">No matches.</td></tr>';
 }
+
+// ── Bot status bar ───────────────────────────────────────────────────────────
+
+function fmtUptime(ms) {
+  if (ms == null || ms < 0) return '--';
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m ${s % 60}s`;
+}
+
+async function loadBotStatus() {
+  try {
+    const data = await fetch('/api/bot-status').then(r => r.json());
+    const dot  = document.getElementById('statusDot');
+    dot.className = 'status-dot ' + (data.status === 'online' ? 'status-online' : data.status === 'stopped' ? 'status-stopped' : 'status-other');
+    document.getElementById('statStatus').textContent = data.status ?? '--';
+    document.getElementById('statCpu').textContent    = data.cpu != null ? data.cpu + '%' : '--';
+    document.getElementById('statMemory').textContent = data.memory ? (data.memory / 1024 / 1024).toFixed(1) + ' MB' : '--';
+    document.getElementById('statUptime').textContent = fmtUptime(data.uptime_ms);
+  } catch {
+    document.getElementById('statStatus').textContent = 'unavailable';
+  }
+}
+
+// ── Discord markdown preview ─────────────────────────────────────────────────
+
+function renderDiscordMarkdown(text) {
+  if (!text) return '<span style="color:var(--muted);font-style:italic">Start typing to preview...</span>';
+  let s = escHtml(text);
+  // Substitute variables with styled placeholders (after escHtml -- braces are safe)
+  s = s
+    .replace(/\{user\}/gi,     '<span style="background:#3c4270;color:#c9cdfb;padding:1px 4px;border-radius:3px">@YourName</span>')
+    .replace(/\{username\}/gi, '<span style="background:#3c4270;color:#c9cdfb;padding:1px 4px;border-radius:3px">YourName</span>')
+    .replace(/\{server\}/gi,   '<span style="background:#3c4270;color:#c9cdfb;padding:1px 4px;border-radius:3px">RiffRaff</span>')
+    .replace(/\{channel\}/gi,  '<span style="background:#3c4270;color:#c9cdfb;padding:1px 4px;border-radius:3px">#current-channel</span>');
+  // Code blocks (multi-line) -- do first to avoid inner processing
+  s = s.replace(/```(?:\w+\n)?([\s\S]*?)```/g, '<pre style="background:#1e1f22;padding:8px;border-radius:4px;font-size:12px;overflow-x:auto;margin:4px 0"><code>$1</code></pre>');
+  // Inline code
+  s = s.replace(/`([^`]+)`/g, '<code style="background:#1e1f22;padding:1px 5px;border-radius:3px;font-size:12px">$1</code>');
+  // Bold italic
+  s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  // Bold
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic (* or _)
+  s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  s = s.replace(/_([^_]+)_/g, '<em>$1</em>');
+  // Underline
+  s = s.replace(/__(.+?)__/g, '<u>$1</u>');
+  // Strikethrough
+  s = s.replace(/~~(.+?)~~/g, '<del>$1</del>');
+  // Blockquote
+  s = s.replace(/^&gt; (.+)/gm, '<div style="border-left:3px solid #4e5058;padding-left:10px;color:#b5bac1;margin:2px 0">$1</div>');
+  // Channel mention
+  s = s.replace(/&lt;#(\d+)&gt;/g, (_, id) => {
+    const ch = channelList.find(c => c.id === id);
+    return `<span style="background:#3c4270;color:#c9cdfb;padding:1px 4px;border-radius:3px">#${ch ? escHtml(ch.name) : id}</span>`;
+  });
+  // Role mention
+  s = s.replace(/&lt;@&amp;(\d+)&gt;/g, (_, id) => {
+    const role = roleList.find(r => r.id === id);
+    const color = role?.color && role.color !== '#000000' ? role.color : '#c9cdfb';
+    return `<span style="background:#3c4270;color:${color};padding:1px 4px;border-radius:3px">@${role ? escHtml(role.name) : id}</span>`;
+  });
+  // User mention
+  s = s.replace(/&lt;@(\d+)&gt;/g, '<span style="background:#3c4270;color:#c9cdfb;padding:1px 4px;border-radius:3px">@user</span>');
+  // Newlines
+  s = s.replace(/\n/g, '<br>');
+  return s;
+}
+
+function updatePreview() {
+  const content = document.getElementById('rx-response-content')?.value || '';
+  const desc    = document.getElementById('rx-embed-description')?.value || '';
+  const title   = document.getElementById('rx-embed-title')?.value || '';
+  const color   = document.getElementById('rx-embed-color')?.value || '#4dabf7';
+  const el      = document.getElementById('rx-preview');
+  if (!el) return;
+
+  let html = '';
+  if (content) html += `<div style="margin-bottom:${(title||desc)?'8px':'0'}">${renderDiscordMarkdown(content)}</div>`;
+
+  if (title || desc) {
+    const borderColor = /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#4dabf7';
+    html += `<div style="border-left:4px solid ${borderColor};background:#2b2d31;border-radius:0 4px 4px 0;padding:10px 14px;margin-top:4px">`;
+    if (title) html += `<div style="font-weight:600;color:#f2f3f5;margin-bottom:${desc?'6px':'0'}">${renderDiscordMarkdown(title)}</div>`;
+    if (desc)  html += `<div style="font-size:13px;color:#dbdee1">${renderDiscordMarkdown(desc)}</div>`;
+    html += '</div>';
+  }
+
+  el.innerHTML = html || '<span style="color:var(--muted);font-style:italic">Start typing to preview...</span>';
+}
+
+function buildCheatSheet() {
+  // Formatting chips
+  const fmtEl = document.getElementById('rx-fmt-chips');
+  if (fmtEl) {
+    const snippets = [
+      { label: '**bold**',          insert: '**bold**'          },
+      { label: '*italic*',          insert: '*italic*'          },
+      { label: '__underline__',     insert: '__underline__'     },
+      { label: '~~strike~~',        insert: '~~strikethrough~~' },
+      { label: '`inline code`',     insert: '`code`'            },
+      { label: '```code block```',  insert: '```\ncode\n```'    },
+      { label: '> blockquote',      insert: '> '                },
+    ];
+    fmtEl.innerHTML = snippets.map((s, i) =>
+      `<button data-idx="${i}" class="rx-fmt-chip" style="background:#2b2d31;border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left;font-family:monospace">${escHtml(s.label)}</button>`
+    ).join('');
+    fmtEl.querySelectorAll('.rx-fmt-chip').forEach((btn, i) => {
+      btn.addEventListener('click', () => rxInsert(snippets[i].insert));
+    });
+  }
+
+  // Variable chips
+  const varEl = document.getElementById('rx-var-chips');
+  if (varEl) {
+    const vars = [
+      { label: '{user}',     desc: 'Pings the sender'       },
+      { label: '{username}', desc: 'Display name, no ping'  },
+      { label: '{server}',   desc: 'Server name'            },
+      { label: '{channel}',  desc: 'Current channel'        },
+    ];
+    varEl.innerHTML = '';
+    for (const v of vars) {
+      const btn = document.createElement('button');
+      btn.style.cssText = 'background:#2b2d31;border:1px solid var(--border);color:#e9c46a;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left;font-family:monospace';
+      btn.title = v.desc;
+      btn.textContent = v.label;
+      btn.addEventListener('click', () => rxInsert(v.label));
+      varEl.appendChild(btn);
+    }
+  }
+
+  // Channel chips
+  const chEl = document.getElementById('rx-channel-chips');
+  if (chEl) {
+    chEl.innerHTML = channelList
+      .map(c => `<button onclick="rxInsert('<#${c.id}>')" style="background:#2b2d31;border:1px solid var(--border);color:#c9cdfb;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left">#${escHtml(c.name)}</button>`)
+      .join('');
+  }
+
+  // Role chips
+  const roEl = document.getElementById('rx-role-chips');
+  if (roEl) {
+    roEl.innerHTML = roleList
+      .filter(r => r.name !== '@everyone' && !r.managed)
+      .map(r => {
+        const color = r.color && r.color !== '#000000' ? r.color : '#c9cdfb';
+        return `<button onclick="rxInsert('<@&${r.id}>')" style="background:#2b2d31;border:1px solid var(--border);color:${color};padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left">@${escHtml(r.name)}</button>`;
+      })
+      .join('');
+  }
+}
+
+function rxInsert(text) {
+  // Insert into whichever of the text inputs/textareas was last focused
+  const target = document._rxLastFocus;
+  if (!target) return;
+  const start = target.selectionStart ?? target.value.length;
+  const end   = target.selectionEnd   ?? target.value.length;
+  target.value = target.value.slice(0, start) + text + target.value.slice(end);
+  target.selectionStart = target.selectionEnd = start + text.length;
+  target.focus();
+  updatePreview();
+}
+
+async function refreshDiscordData() {
+  const statusEl = document.getElementById('rx-refresh-status');
+  statusEl.textContent = 'Refreshing...';
+  statusEl.style.color = 'var(--muted)';
+  try {
+    const res  = await fetch('/api/refresh-discord-data', { method: 'POST' });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+
+    const [chRes, roRes] = await Promise.all([
+      fetch('/api/channels').then(r => r.json()),
+      fetch('/api/roles').then(r => r.json()),
+    ]);
+    channelList = chRes.channels ?? [];
+    roleList    = roRes.roles    ?? [];
+    buildCheatSheet();
+    populateRxChannelSelect('rx-channel-filter-select');
+    statusEl.textContent = 'Refreshed!';
+    statusEl.style.color = 'var(--green)';
+    setTimeout(() => { statusEl.textContent = ''; }, 3000);
+  } catch (err) {
+    statusEl.textContent = 'Failed: ' + err.message;
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
+// ── Reactions tab ────────────────────────────────────────────────────────────
+
+let allReactions = [];
+let editingRxId  = null;
+
+async function loadReactions() {
+  allReactions = await fetch('/api/message-reactions').then(r => r.json());
+  renderReactionsTable();
+}
+
+function renderReactionsTable() {
+  const tbody = document.getElementById('rxTableBody');
+  if (!tbody) return;
+  if (!allReactions.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted)">No rules yet. Click + Add Rule to create one.</td></tr>';
+    return;
+  }
+
+  const PTYPES = { contains:'contains', exact:'exact', regex:'regex', mention:'@mention' };
+  const RTYPES = { reply:'reply', message:'message', emoji:'emoji react', dm:'DM sender' };
+
+  tbody.innerHTML = allReactions.map(r => {
+    const trigger = r.pattern_type === 'mention' ? '<em>@mention</em>' : `<code>${escHtml(r.pattern)}</code> <span style="color:var(--muted);font-size:11px">(${PTYPES[r.pattern_type]??r.pattern_type})</span>`;
+    const response = `${RTYPES[r.response_type]??r.response_type}: <code>${escHtml(r.response_content||'')}</code>`;
+    let scope = 'all channels';
+    if (r.channel_filter) {
+      const ids = JSON.parse(r.channel_filter);
+      scope = ids.map(id => {
+        const ch = channelList.find(c => c.id === id);
+        return ch ? `#${ch.name}` : id;
+      }).join(', ');
+    }
+    const status = r.enabled
+      ? '<span style="color:var(--green);font-weight:600">ON</span>'
+      : '<span style="color:var(--muted);text-decoration:line-through">OFF</span>';
+    return `<tr>
+      <td style="font-weight:600;color:#fff">${escHtml(r.name)}</td>
+      <td>${trigger}</td>
+      <td>${response}</td>
+      <td style="font-size:12px;color:var(--muted)">${escHtml(scope)}</td>
+      <td style="font-size:12px">${r.cooldown_seconds}s</td>
+      <td>${status}</td>
+      <td style="white-space:nowrap">
+        <button class="save-btn" onclick="openReactionForm(${r.id})" style="font-size:11px;padding:4px 8px">Edit</button>
+        <button class="reset-btn" onclick="deleteReactionRule(${r.id})" style="margin-left:4px">Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function populateRxChannelSelect(selectId, selectedIds = []) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '';
+  for (const ch of channelList) {
+    const opt = document.createElement('option');
+    opt.value = ch.id;
+    opt.textContent = `#${ch.name} (${ch.id})`;
+    if (selectedIds.includes(ch.id)) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+function populateRxResponseChannelSelect(selectedId = '') {
+  const sel = document.getElementById('rx-response-channel');
+  if (!sel) return;
+  // keep the first "same channel" option, rebuild the rest
+  while (sel.options.length > 1) sel.remove(1);
+  for (const ch of channelList) {
+    const opt = document.createElement('option');
+    opt.value = ch.id;
+    opt.textContent = `#${ch.name} (${ch.id})`;
+    if (ch.id === selectedId) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+function rxFilterSelect(selectId, filter) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const lc = filter.toLowerCase();
+  for (const opt of sel.options) {
+    if (!opt.value) continue; // keep "same channel" blank option
+    opt.hidden = lc && !opt.text.toLowerCase().includes(lc);
+  }
+}
+
+function rxSyncColorPicker() {
+  const val = document.getElementById('rx-embed-color').value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+    document.getElementById('rx-embed-color-picker').value = val;
+  }
+}
+
+function rxPatternTypeChange() {
+  const type = document.getElementById('rx-pattern-type').value;
+  const wrap = document.getElementById('rx-pattern-wrap');
+  if (wrap) wrap.style.display = type === 'mention' ? 'none' : '';
+}
+
+function rxResponseTypeChange() {
+  const type = document.getElementById('rx-response-type').value;
+  const label = document.getElementById('rx-content-label');
+  const wrap  = document.getElementById('rx-resp-channel-wrap');
+  if (label) label.textContent = type === 'emoji' ? 'Emoji Character *' : 'Response Content *';
+  if (wrap)  wrap.style.display = type === 'message' ? '' : 'none';
+}
+
+function openReactionForm(id) {
+  editingRxId = id;
+  const form = document.getElementById('rxForm');
+  const title = document.getElementById('rxFormTitle');
+
+  // Populate channel selects
+  populateRxChannelSelect('rx-channel-filter-select');
+  populateRxResponseChannelSelect();
+
+  if (id === null) {
+    // New rule — reset form
+    title.textContent = 'Add Reaction Rule';
+    document.getElementById('rx-name').value = '';
+    document.getElementById('rx-pattern-type').value = 'contains';
+    document.getElementById('rx-pattern').value = '';
+    document.getElementById('rx-response-type').value = 'reply';
+    document.getElementById('rx-response-content').value = '';
+    document.getElementById('rx-cooldown').value = '60';
+    document.getElementById('rx-ignore-case').checked = true;
+    document.getElementById('rx-require-mention').checked = false;
+    document.getElementById('rx-enabled').checked = true;
+    document.getElementById('rx-embed-title').value = '';
+    document.getElementById('rx-embed-description').value = '';
+    document.getElementById('rx-embed-color').value = '';
+    document.getElementById('rx-embed-color-picker').value = '#4dabf7';
+    document.getElementById('rx-error').textContent = '';
+    for (const opt of document.getElementById('rx-channel-filter-select').options) opt.selected = false;
+  } else {
+    const rule = allReactions.find(r => r.id === id);
+    if (!rule) return;
+    title.textContent = `Edit Rule · ${rule.name}`;
+    document.getElementById('rx-name').value = rule.name;
+    document.getElementById('rx-pattern-type').value = rule.pattern_type;
+    document.getElementById('rx-pattern').value = rule.pattern;
+    document.getElementById('rx-response-type').value = rule.response_type;
+    document.getElementById('rx-response-content').value = rule.response_content;
+    document.getElementById('rx-cooldown').value = rule.cooldown_seconds;
+    document.getElementById('rx-ignore-case').checked = !!rule.ignore_case;
+    document.getElementById('rx-require-mention').checked = !!rule.require_mention;
+    document.getElementById('rx-enabled').checked = !!rule.enabled;
+    document.getElementById('rx-error').textContent = '';
+
+    document.getElementById('rx-embed-title').value = rule.embed_title || '';
+    document.getElementById('rx-embed-description').value = rule.embed_description || '';
+    const color = rule.embed_color || '';
+    document.getElementById('rx-embed-color').value = color;
+    if (/^#[0-9a-fA-F]{6}$/.test(color)) document.getElementById('rx-embed-color-picker').value = color;
+
+    const selectedChannels = rule.channel_filter ? JSON.parse(rule.channel_filter) : [];
+    for (const opt of document.getElementById('rx-channel-filter-select').options) {
+      opt.selected = selectedChannels.includes(opt.value);
+    }
+    populateRxResponseChannelSelect(rule.response_channel || '');
+  }
+
+  rxPatternTypeChange();
+  rxResponseTypeChange();
+  form.style.display = '';
+  buildCheatSheet();
+  updatePreview();
+
+  // Track which input was last focused for rxInsert
+  for (const id of ['rx-response-content', 'rx-embed-title', 'rx-embed-description']) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('focus', () => { document._rxLastFocus = el; }, { once: false });
+  }
+
+  document.getElementById('rx-name').focus();
+}
+
+function cancelReactionForm() {
+  document.getElementById('rxForm').style.display = 'none';
+  editingRxId = null;
+}
+
+async function saveReactionRule() {
+  const errEl = document.getElementById('rx-error');
+  errEl.textContent = '';
+
+  const name = document.getElementById('rx-name').value.trim();
+  if (!name) { errEl.textContent = 'Name is required.'; return; }
+
+  const pattern_type = document.getElementById('rx-pattern-type').value;
+  const pattern      = document.getElementById('rx-pattern').value.trim();
+  if (pattern_type !== 'mention' && !pattern) { errEl.textContent = 'Pattern is required.'; return; }
+
+  const response_type    = document.getElementById('rx-response-type').value;
+  const response_content = document.getElementById('rx-response-content').value.trim();
+  const embed_title       = document.getElementById('rx-embed-title').value.trim();
+  const embed_description = document.getElementById('rx-embed-description').value.trim();
+  const embed_color       = document.getElementById('rx-embed-color').value.trim();
+
+  if (!response_content && !embed_title && !embed_description && response_type !== 'emoji') {
+    errEl.textContent = 'Provide response text, an embed title/description, or both.';
+    return;
+  }
+
+  const selectedChannels = [...document.getElementById('rx-channel-filter-select').selectedOptions].map(o => o.value);
+  const channel_filter   = selectedChannels.length ? JSON.stringify(selectedChannels) : null;
+  const response_channel = document.getElementById('rx-response-channel')?.value || null;
+
+  const body = {
+    name, pattern, pattern_type,
+    ignore_case:       document.getElementById('rx-ignore-case').checked,
+    require_mention:   document.getElementById('rx-require-mention').checked,
+    response_type, response_content,
+    response_channel:  response_channel || null,
+    channel_filter,
+    cooldown_seconds:  parseInt(document.getElementById('rx-cooldown').value, 10) || 60,
+    enabled:           document.getElementById('rx-enabled').checked,
+    embed_title:       embed_title || null,
+    embed_description: embed_description || null,
+    embed_color:       embed_color || null,
+  };
+
+  const url    = editingRxId === null ? '/api/message-reactions' : `/api/message-reactions/${editingRxId}`;
+  const method = editingRxId === null ? 'POST' : 'PUT';
+
+  const res  = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!data.ok) { errEl.textContent = data.error || 'Save failed.'; return; }
+
+  await loadReactions();
+  cancelReactionForm();
+}
+
+async function deleteReactionRule(id) {
+  const rule = allReactions.find(r => r.id === id);
+  if (!confirm(`Delete rule "${rule?.name ?? id}"?`)) return;
+  const res  = await fetch(`/api/message-reactions/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (!data.ok) { alert('Delete failed: ' + data.error); return; }
+  await loadReactions();
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 
 init();
 </script>

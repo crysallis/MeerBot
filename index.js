@@ -4,6 +4,7 @@ const path = require('path');
 const { Client, GatewayIntentBits, MessageFlags, ActivityType } = require('discord.js');
 const { initJobScheduler } = require('./utils/jobScheduler');
 const { logCommand } = require('./utils/commandLogger');
+const { handleMessage } = require('./utils/messageReactions');
 const { rateLimit } = require('./config');
 
 require('./utils/db');
@@ -23,7 +24,11 @@ function isRateLimited() {
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ]
 });
 
 client.slashCommands = new Map();
@@ -46,6 +51,8 @@ client.once('clientReady', () => {
   client.user.setActivity('Meerbot Assistance | /help', { type: ActivityType.Playing });
   initJobScheduler(client);
 });
+
+client.on('messageCreate', message => handleMessage(message, client));
 
 client.on('interactionCreate', async interaction => {
   if (interaction.isAutocomplete()) {
