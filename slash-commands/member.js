@@ -48,7 +48,7 @@ module.exports = {
         if (mentionedUser) {
             current = db.prepare(`
                 SELECT m.ingame_name, m.discord_id, m.first_seen,
-                       ms.last_active, ms.combat_power, ms.combat_power_value,
+                       ms.last_active, ms.combat_power, ms.combat_power_value, ms.warband,
                        afk.return_date AS afk_until
                 FROM member_snapshots ms
                 JOIN members m ON m.id = ms.member_id
@@ -63,7 +63,7 @@ module.exports = {
         } else {
             current = db.prepare(`
                 SELECT m.ingame_name, m.discord_id, m.first_seen,
-                       ms.last_active, ms.combat_power, ms.combat_power_value,
+                       ms.last_active, ms.combat_power, ms.combat_power_value, ms.warband,
                        afk.return_date AS afk_until
                 FROM member_snapshots ms
                 JOIN members m ON m.id = ms.member_id
@@ -80,7 +80,7 @@ module.exports = {
         const lookupName = current.ingame_name;
 
         const history = db.prepare(`
-            SELECT s.scraped_at, ms.combat_power_value, ms.last_active
+            SELECT s.scraped_at, ms.combat_power_value, ms.warband, ms.last_active
             FROM member_snapshots ms
             JOIN snapshots s ON s.id = ms.snapshot_id
             JOIN members m ON m.id = ms.member_id
@@ -91,7 +91,7 @@ module.exports = {
 
         const chronological = [...history].reverse();
         const histLines = history.map(h =>
-            `${h.scraped_at.slice(0, 10)} | ${fmtPower(h.combat_power_value).padStart(6)} | ${h.last_active}`
+            `${h.scraped_at.slice(0, 10)} | ${fmtPower(h.combat_power_value).padStart(6)} | ${(h.warband || '·').padEnd(16)} | ${h.last_active}`
         );
 
         let powerGrowth = '·';
@@ -106,16 +106,17 @@ module.exports = {
             .setTitle(`👤 ${current.ingame_name} (in game name)`)
             .addFields(
                 { name: 'Combat Power', value: current.combat_power || '·', inline: true },
-                { name: 'Last Active', value: current.last_active || '·', inline: true },
-                { name: 'Discord', value: current.discord_id ? `<@${current.discord_id}>` : 'Not linked', inline: true },
-                { name: 'First Seen', value: current.first_seen?.slice(0, 10) || '·', inline: true },
+                { name: 'Warband',      value: current.warband || '·',       inline: true },
+                { name: 'Last Active',  value: current.last_active || '·',   inline: true },
+                { name: 'Discord',      value: current.discord_id ? `<@${current.discord_id}>` : 'Not linked', inline: true },
+                { name: 'First Seen',   value: current.first_seen?.slice(0, 10) || '·', inline: true },
                 { name: 'Power Growth', value: powerGrowth, inline: true },
-                { name: 'AF AFK', value: afkValue, inline: true },
+                { name: 'AFK',          value: afkValue, inline: true },
             )
             .setColor(color);
 
         if (histLines.length) {
-            const header = `${'Date'.padEnd(10)} | ${'Power'.padStart(6)} | Last Active`;
+            const header = `${'Date'.padEnd(10)} | ${'Power'.padStart(6)} | ${'Warband'.padEnd(16)} | Last Active`;
             embed.setDescription('**Snapshot History**\n```\n' + header + '\n' + histLines.join('\n') + '\n```');
         }
 

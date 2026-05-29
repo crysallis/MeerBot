@@ -23,7 +23,7 @@ function snapshotDate(snapshot) {
 
 function currentWeekStart() {
     const now = new Date();
-    const dayOfWeek = now.getUTCDay(); // 0=Sun
+    const dayOfWeek = now.getUTCDay();
     const daysSinceMonday = (dayOfWeek + 6) % 7;
     const monday = new Date(now);
     monday.setUTCDate(now.getUTCDate() - daysSinceMonday);
@@ -53,27 +53,78 @@ function badge(memberId, newIds, afkIds) {
     return b;
 }
 
+// Build a warband filter clause + params for prepared statements
+function warbandFilter(warband) {
+    return warband
+        ? { clause: 'AND ms.warband = ?', extra: [warband] }
+        : { clause: '', extra: [] };
+}
+
+const WARBAND_OPTION = o => o
+    .setName('warband')
+    .setDescription('Filter to a specific warband')
+    .setAutocomplete(true)
+    .setRequired(false);
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('guild')
         .setDescription('Guild member statistics')
-        .addSubcommand(s => s.setName('power').setDescription('Members ranked by combat power'))
+        .addSubcommand(s => s
+            .setName('power')
+            .setDescription('Members ranked by combat power')
+            .addStringOption(WARBAND_OPTION))
         .addSubcommand(s => s
             .setName('top')
             .setDescription('Top N members by combat power')
             .addIntegerOption(o => o.setName('number').setDescription('How many to show (default 10)').setMinValue(1).setMaxValue(50).setRequired(false))
-        )
-        .addSubcommand(s => s.setName('inactive').setDescription('Members ranked by inactivity (longest offline first)'))
-        .addSubcommand(s => s.setName('activeness').setDescription('Members ranked by activeness (lowest first)'))
-        .addSubcommand(s => s.setName('growth').setDescription('Top 5 power growth since last snapshot'))
-        .addSubcommand(s => s.setName('status').setDescription('Guild summary'))
-        .addSubcommand(s => s.setName('newcomers').setDescription('Members not in the previous snapshot'))
-        .addSubcommand(s => s.setName('nogrowth').setDescription('Members with no power growth since last snapshot'))
+            .addStringOption(WARBAND_OPTION))
+        .addSubcommand(s => s
+            .setName('inactive')
+            .setDescription('Members ranked by inactivity (longest offline first)')
+            .addStringOption(WARBAND_OPTION))
+        .addSubcommand(s => s
+            .setName('activeness')
+            .setDescription('Members ranked by activeness (lowest first)')
+            .addStringOption(WARBAND_OPTION))
+        .addSubcommand(s => s
+            .setName('growth')
+            .setDescription('Top 5 power growth since last snapshot')
+            .addStringOption(WARBAND_OPTION))
+        .addSubcommand(s => s
+            .setName('status')
+            .setDescription('Guild summary')
+            .addStringOption(WARBAND_OPTION))
+        .addSubcommand(s => s
+            .setName('newcomers')
+            .setDescription('Members not in the previous snapshot')
+            .addStringOption(WARBAND_OPTION))
+        .addSubcommand(s => s
+            .setName('nogrowth')
+            .setDescription('Members with no power growth since last snapshot')
+            .addStringOption(WARBAND_OPTION))
         .addSubcommand(s => s
             .setName('chart')
             .setDescription('Power growth over time for current members (last 10 scans)')
             .addIntegerOption(o => o.setName('number').setDescription('Limit to top N by power (default: all current members)').setMinValue(1).setMaxValue(30).setRequired(false))
-        ),
+            .addStringOption(WARBAND_OPTION))
+        .addSubcommand(s => s
+            .setName('warbands')
+            .setDescription('List all warbands with member counts and stats')),
+
+    async autocomplete(interaction) {
+        const focused = interaction.options.getFocused().toLowerCase();
+        const rows = db.prepare(`
+            SELECT DISTINCT warband FROM member_snapshots
+            WHERE snapshot_id = (SELECT MAX(id) FROM snapshots)
+              AND warband != ''
+            ORDER BY warband
+        `).all();
+        const filtered = rows
+            .filter(r => r.warband.toLowerCase().includes(focused))
+            .slice(0, 25);
+        await interaction.respond(filtered.map(r => ({ name: r.warband, value: r.warband })));
+    },
 
     async execute(interaction) {
         const snapshot = getLatestSnapshot();
@@ -91,26 +142,30 @@ module.exports = {
             case 'newcomers':  return handleNewcomers(interaction, snapshot);
             case 'nogrowth':   return handleNoGrowth(interaction, snapshot);
             case 'chart':      return handleChart(interaction, snapshot);
+            case 'warbands':   return handleWarbands(interaction, snapshot);
         }
     },
 };
 
 async function handlePower(interaction, snapshot) {
+    const warband = interaction.options.getString('warband') || null;
+    const { clause, extra } = warbandFilter(warband);
     const rows = db.prepare(`
         SELECT ms.member_id, ms.name, ms.combat_power_value
-        FROM member_snapshots ms WHERE ms.snapshot_id = ?
+        FROM member_snapshots ms WHERE ms.snapshot_id = ? ${clause}
         ORDER BY ms.combat_power_value DESC
-    `).all(snapshot.id);
+    `).all(snapshot.id, ...extra);
 
     const newIds = newMemberIds(snapshot.id);
     const afkIds = afkMemberIds();
+    const scope = warband ? `${warband} · ` : '';
     const lines = rows.map((r, i) =>
         `\`${String(i + 1).padStart(2)}.\` **${r.name}**${badge(r.member_id, newIds, afkIds)} · ${fmtPower(r.combat_power_value)}`
     );
 
     await interaction.reply({ embeds: [
         new EmbedBuilder()
-            .setTitle('⚔️ Guild Power Rankings')
+            .setTitle(`⚔️ ${scope}Power Rankings`)
             .setDescription(lines.join('\n'))
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
@@ -120,22 +175,25 @@ async function handlePower(interaction, snapshot) {
 
 async function handleTop(interaction, snapshot) {
     const n = interaction.options.getInteger('number') ?? 10;
+    const warband = interaction.options.getString('warband') || null;
+    const { clause, extra } = warbandFilter(warband);
     const rows = db.prepare(`
         SELECT ms.member_id, ms.name, ms.combat_power_value
-        FROM member_snapshots ms WHERE ms.snapshot_id = ?
+        FROM member_snapshots ms WHERE ms.snapshot_id = ? ${clause}
         ORDER BY ms.combat_power_value DESC
         LIMIT ?
-    `).all(snapshot.id, n);
+    `).all(snapshot.id, ...extra, n);
 
     const newIds = newMemberIds(snapshot.id);
     const afkIds = afkMemberIds();
+    const scope = warband ? `${warband} · ` : '';
     const lines = rows.map((r, i) =>
         `\`${String(i + 1).padStart(2)}.\` **${r.name}**${badge(r.member_id, newIds, afkIds)} · ${fmtPower(r.combat_power_value)}`
     );
 
     await interaction.reply({ embeds: [
         new EmbedBuilder()
-            .setTitle(`⚔️ Top ${n} by Power`)
+            .setTitle(`⚔️ ${scope}Top ${n} by Power`)
             .setDescription(lines.join('\n'))
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
@@ -144,21 +202,24 @@ async function handleTop(interaction, snapshot) {
 }
 
 async function handleInactive(interaction, snapshot) {
+    const warband = interaction.options.getString('warband') || null;
+    const { clause, extra } = warbandFilter(warband);
     const rows = db.prepare(`
         SELECT ms.member_id, ms.name, ms.last_active, ms.activeness
-        FROM member_snapshots ms WHERE ms.snapshot_id = ?
+        FROM member_snapshots ms WHERE ms.snapshot_id = ? ${clause}
         ORDER BY ms.last_seen_approx ASC
-    `).all(snapshot.id);
+    `).all(snapshot.id, ...extra);
 
     const newIds = newMemberIds(snapshot.id);
     const afkIds = afkMemberIds();
+    const scope = warband ? `${warband} · ` : '';
     const lines = rows.map((r, i) =>
         `\`${String(i + 1).padStart(2)}.\` **${r.name}**${badge(r.member_id, newIds, afkIds)} · ${r.last_active} · ${r.activeness} act`
     );
 
     await interaction.reply({ embeds: [
         new EmbedBuilder()
-            .setTitle('💤 Guild Inactivity')
+            .setTitle(`💤 ${scope}Inactivity`)
             .setDescription(lines.join('\n'))
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
@@ -167,21 +228,24 @@ async function handleInactive(interaction, snapshot) {
 }
 
 async function handleActiveness(interaction, snapshot) {
+    const warband = interaction.options.getString('warband') || null;
+    const { clause, extra } = warbandFilter(warband);
     const rows = db.prepare(`
         SELECT ms.member_id, ms.name, ms.activeness, ms.last_active
-        FROM member_snapshots ms WHERE ms.snapshot_id = ?
+        FROM member_snapshots ms WHERE ms.snapshot_id = ? ${clause}
         ORDER BY ms.activeness ASC
-    `).all(snapshot.id);
+    `).all(snapshot.id, ...extra);
 
     const newIds = newMemberIds(snapshot.id);
     const afkIds = afkMemberIds();
+    const scope = warband ? `${warband} · ` : '';
     const lines = rows.map((r, i) =>
         `\`${String(i + 1).padStart(2)}.\` **${r.name}**${badge(r.member_id, newIds, afkIds)} · ${r.activeness} act · ${r.last_active}`
     );
 
     await interaction.reply({ embeds: [
         new EmbedBuilder()
-            .setTitle('📊 Guild Activeness')
+            .setTitle(`📊 ${scope}Activeness`)
             .setDescription(lines.join('\n'))
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
@@ -195,6 +259,10 @@ async function handleGrowth(interaction, snapshot) {
         return interaction.reply({ content: 'Need at least 2 snapshots to show growth.', flags: MessageFlags.Ephemeral });
     }
 
+    const warband = interaction.options.getString('warband') || null;
+    const warbandClause = warband ? 'AND ms2.warband = ?' : '';
+    const params = warband ? [prevId, snapshot.id, warband] : [prevId, snapshot.id];
+
     const rows = db.prepare(`
         SELECT ms2.name,
                ms2.combat_power_value  AS current_power,
@@ -202,14 +270,15 @@ async function handleGrowth(interaction, snapshot) {
                (ms2.combat_power_value - COALESCE(ms1.combat_power_value, 0)) AS growth
         FROM member_snapshots ms2
         LEFT JOIN member_snapshots ms1 ON ms1.member_id = ms2.member_id AND ms1.snapshot_id = ?
-        WHERE ms2.snapshot_id = ?
+        WHERE ms2.snapshot_id = ? ${warbandClause}
         ORDER BY growth DESC
         LIMIT 5
-    `).all(prevId, snapshot.id);
+    `).all(...params);
 
+    const scope = warband ? `${warband} · ` : '';
     const medals = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'];
     const embed = new EmbedBuilder()
-        .setTitle('📈 Top 5 Power Growth')
+        .setTitle(`📈 ${scope}Top 5 Power Growth`)
         .setFooter({ text: 'Compared to previous snapshot' })
         .setColor(pickColor());
 
@@ -228,17 +297,20 @@ async function handleGrowth(interaction, snapshot) {
 }
 
 async function handleStatus(interaction, snapshot) {
+    const warband = interaction.options.getString('warband') || null;
+    const { clause, extra } = warbandFilter(warband);
     const s = db.prepare(`
         SELECT COUNT(*) AS total,
                SUM(combat_power_value) AS total_power,
                SUM(CASE WHEN last_seen_approx >= datetime('now', '-1 day') THEN 1 ELSE 0 END) AS active_today,
                SUM(CASE WHEN activeness > 0 THEN 1 ELSE 0 END) AS active_week
-        FROM member_snapshots WHERE snapshot_id = ?
-    `).get(snapshot.id);
+        FROM member_snapshots ms WHERE snapshot_id = ? ${clause}
+    `).get(snapshot.id, ...extra);
 
+    const scope = warband ? `${warband} · ` : '';
     await interaction.reply({ embeds: [
         new EmbedBuilder()
-            .setTitle('🏰 Guild Status')
+            .setTitle(`🏰 ${scope}Status`)
             .addFields(
                 { name: 'Members',          value: `${s.total}`,              inline: true },
                 { name: 'Total Power',      value: fmtPower(s.total_power),   inline: true },
@@ -257,6 +329,10 @@ async function handleNoGrowth(interaction, snapshot) {
         return interaction.reply({ content: 'Need at least 2 snapshots to show growth data.', flags: MessageFlags.Ephemeral });
     }
 
+    const warband = interaction.options.getString('warband') || null;
+    const warbandClause = warband ? 'AND ms2.warband = ?' : '';
+    const params = warband ? [prevId, snapshot.id, warband] : [prevId, snapshot.id];
+
     const rows = db.prepare(`
         SELECT ms2.member_id,
                ms2.name,
@@ -266,8 +342,9 @@ async function handleNoGrowth(interaction, snapshot) {
         JOIN member_snapshots ms1 ON ms1.member_id = ms2.member_id AND ms1.snapshot_id = ?
         WHERE ms2.snapshot_id = ?
           AND (ms2.combat_power_value - ms1.combat_power_value) <= 0
+          ${warbandClause}
         ORDER BY growth ASC
-    `).all(prevId, snapshot.id);
+    `).all(...params);
 
     if (rows.length === 0) {
         await interaction.reply({ content: '✅ Everyone grew this week!' });
@@ -277,13 +354,14 @@ async function handleNoGrowth(interaction, snapshot) {
 
     const newIds = newMemberIds(snapshot.id);
     const afkIds = afkMemberIds();
+    const scope = warband ? `${warband} · ` : '';
     const lines = rows.map((r, i) =>
         `\`${String(i + 1).padStart(2)}.\` **${r.name}**${badge(r.member_id, newIds, afkIds)} · ${fmtPower(r.current_power)}`
     );
 
     await interaction.reply({ embeds: [
         new EmbedBuilder()
-            .setTitle('📉 No Power Growth')
+            .setTitle(`📉 ${scope}No Power Growth`)
             .setDescription(lines.join('\n'))
             .setFooter({ text: 'Compared to previous snapshot' })
             .setColor(pickColor()),
@@ -304,22 +382,22 @@ const CHART_COLORS = [
 
 async function handleChart(interaction, snapshot) {
     const n = interaction.options.getInteger('number') ?? 999;
+    const warband = interaction.options.getString('warband') || null;
+    const { clause, extra } = warbandFilter(warband);
 
-    // Current active members only — whoever is in the latest snapshot
     const topMembers = db.prepare(`
         SELECT ms.member_id, m.ingame_name
         FROM member_snapshots ms
         JOIN members m ON m.id = ms.member_id
-        WHERE ms.snapshot_id = ? AND m.active = 1
+        WHERE ms.snapshot_id = ? AND m.active = 1 ${clause}
         ORDER BY ms.combat_power_value DESC
         LIMIT ?
-    `).all(snapshot.id, n);
+    `).all(snapshot.id, ...extra, n);
 
     if (topMembers.length === 0) {
         return interaction.reply({ content: 'No snapshot data yet · run `/scan` first.', flags: MessageFlags.Ephemeral });
     }
 
-    // Last 10 scans in chronological order
     const allSnapshots = db.prepare(
         'SELECT id, scraped_at FROM snapshots ORDER BY scraped_at DESC LIMIT 10'
     ).all().reverse();
@@ -343,11 +421,12 @@ async function handleChart(interaction, snapshot) {
         };
     });
 
+    const scope = warband ? `${warband} · ` : '';
     const config = {
         type: 'line',
         data: { labels, datasets },
         options: {
-            title: { display: true, text: `Guild Power · Last ${allSnapshots.length} Scans`, fontSize: 15 },
+            title: { display: true, text: `${scope}Power · Last ${allSnapshots.length} Scans`, fontSize: 15 },
             scales: {
                 yAxes: [{ scaleLabel: { display: true, labelString: 'Power (M)' } }],
             },
@@ -366,7 +445,7 @@ async function handleChart(interaction, snapshot) {
 
     await interaction.editReply({ embeds: [
         new EmbedBuilder()
-            .setTitle(`📈 Guild Power Growth · Last ${allSnapshots.length} Scans`)
+            .setTitle(`📈 ${scope}Power Growth · Last ${allSnapshots.length} Scans`)
             .setImage(url)
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
@@ -380,6 +459,10 @@ async function handleNewcomers(interaction, snapshot) {
         return interaction.reply({ content: 'Need at least 2 snapshots to show newcomers.', flags: MessageFlags.Ephemeral });
     }
 
+    const warband = interaction.options.getString('warband') || null;
+    const warbandClause = warband ? 'AND ms2.warband = ?' : '';
+    const params = warband ? [snapshot.id, prevId, warband] : [snapshot.id, prevId];
+
     const rows = db.prepare(`
         SELECT ms2.name, ms2.combat_power, ms2.activeness
         FROM member_snapshots ms2
@@ -389,7 +472,8 @@ async function handleNewcomers(interaction, snapshot) {
               SELECT member_id FROM member_snapshots
               WHERE snapshot_id = ? AND member_id IS NOT NULL
           )
-    `).all(snapshot.id, prevId);
+          ${warbandClause}
+    `).all(...params);
 
     if (rows.length === 0) {
         await interaction.reply({ content: '✅ No new members since the previous snapshot.' });
@@ -397,14 +481,48 @@ async function handleNewcomers(interaction, snapshot) {
         return;
     }
 
+    const scope = warband ? `${warband} · ` : '';
     const lines = rows.map(r => `• **${r.name}** · ${r.combat_power} | ${r.activeness} act`);
 
     await interaction.reply({ embeds: [
         new EmbedBuilder()
-            .setTitle('🆕 New Members')
+            .setTitle(`🆕 ${scope}New Members`)
             .setDescription(lines.join('\n'))
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
     ]});
+    autoDelete(interaction);
+}
+
+async function handleWarbands(interaction, snapshot) {
+    const rows = db.prepare(`
+        SELECT warband,
+               COUNT(*) AS member_count,
+               SUM(combat_power_value) AS total_power,
+               ROUND(AVG(activeness)) AS avg_activeness
+        FROM member_snapshots
+        WHERE snapshot_id = ? AND warband != ''
+        GROUP BY warband
+        ORDER BY total_power DESC
+    `).all(snapshot.id);
+
+    if (rows.length === 0) {
+        return interaction.reply({ content: 'No warband data in latest snapshot · run `/scan` first.', flags: MessageFlags.Ephemeral });
+    }
+
+    const embed = new EmbedBuilder()
+        .setTitle('⚔️ Warbands')
+        .setFooter({ text: snapshotDate(snapshot) })
+        .setColor(pickColor());
+
+    for (const r of rows) {
+        embed.addFields({
+            name: r.warband,
+            value: `**${r.member_count}** members · **${fmtPower(r.total_power)}** total · **${r.avg_activeness}** avg act`,
+            inline: false,
+        });
+    }
+
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     autoDelete(interaction);
 }
