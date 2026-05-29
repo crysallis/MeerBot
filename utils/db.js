@@ -27,7 +27,8 @@ db.exec(`
     fire_at       TEXT NOT NULL,
     recurrence    TEXT,
     created_at    TEXT NOT NULL,
-    last_fired_at TEXT
+    last_fired_at TEXT,
+    enabled       INTEGER NOT NULL DEFAULT 1
   );
   CREATE INDEX IF NOT EXISTS idx_sj_fire_at ON scheduled_jobs(fire_at);
 
