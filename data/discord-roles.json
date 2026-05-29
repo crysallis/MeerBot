@@ -1,12 +1,12 @@
 {
-  "fetched_at": "2026-05-26T00:43:24.038Z",
+  "fetched_at": "2026-05-29T03:45:31.377Z",
   "guild_id": "1229548158611226766",
   "roles": [
     {
       "id": "1229572649651404830",
       "name": "Riff",
       "color": "#ff4276",
-      "position": 51,
+      "position": 53,
       "mentionable": false,
       "hoist": false,
       "managed": false,
@@ -16,17 +16,17 @@
       "id": "1229554049788018808",
       "name": "Raff",
       "color": "#fee75c",
-      "position": 50,
+      "position": 52,
       "mentionable": false,
       "hoist": false,
       "managed": false,
-      "member_count": 5
+      "member_count": 4
     },
     {
       "id": "1343097889265553533",
       "name": "Dyno",
       "color": "#000000",
-      "position": 49,
+      "position": 51,
       "mentionable": false,
       "hoist": false,
       "managed": true,
@@ -36,7 +36,7 @@
       "id": "1508325701785354304",
       "name": "Meerbot",
       "color": "#000000",
-      "position": 48,
+      "position": 50,
       "mentionable": false,
       "hoist": false,
       "managed": true,
@@ -46,7 +46,7 @@
       "id": "1502845579661672478",
       "name": "OG RiffRaff",
       "color": "#ffff00",
-      "position": 47,
+      "position": 49,
       "mentionable": false,
       "hoist": false,
       "managed": false,
@@ -56,7 +56,7 @@
       "id": "1401783863960666143",
       "name": "RiffRaffians",
       "color": "#2980b9",
-      "position": 46,
+      "position": 48,
       "mentionable": false,
       "hoist": true,
       "managed": false,
@@ -66,7 +66,7 @@
       "id": "1434417743616147557",
       "name": "Kingdom",
       "color": "#d35400",
-      "position": 45,
+      "position": 47,
       "mentionable": false,
       "hoist": true,
       "managed": false,
@@ -76,6 +76,26 @@
       "id": "1482484067965599846",
       "name": "Penguins",
       "color": "#6e32c3",
+      "position": 46,
+      "mentionable": false,
+      "hoist": true,
+      "managed": false,
+      "member_count": 15
+    },
+    {
+      "id": "1509752237193429104",
+      "name": "Sobaquitos",
+      "color": "#ff5dd6",
+      "position": 45,
+      "mentionable": false,
+      "hoist": true,
+      "managed": false,
+      "member_count": 1
+    },
+    {
+      "id": "1299596817402695680",
+      "name": "Frog",
+      "color": "#1f8b4c",
       "position": 44,
       "mentionable": false,
       "hoist": true,
@@ -83,20 +103,10 @@
       "member_count": 15
     },
     {
-      "id": "1299596817402695680",
-      "name": "Frog",
-      "color": "#1f8b4c",
-      "position": 43,
-      "mentionable": false,
-      "hoist": true,
-      "managed": false,
-      "member_count": 16
-    },
-    {
       "id": "1269053193996996709",
       "name": "Senior",
       "color": "#00f5ff",
-      "position": 42,
+      "position": 43,
       "mentionable": false,
       "hoist": false,
       "managed": false,
@@ -106,7 +116,7 @@
       "id": "1269053550156058634",
       "name": "Junior",
       "color": "#88c0d0",
-      "position": 41,
+      "position": 42,
       "mentionable": false,
       "hoist": false,
       "managed": false,
@@ -116,7 +126,7 @@
       "id": "1269053789239771187",
       "name": "Newbie",
       "color": "#bb77ee",
-      "position": 40,
+      "position": 41,
       "mentionable": false,
       "hoist": false,
       "managed": false,
@@ -126,17 +136,17 @@
       "id": "1300151919012089866",
       "name": "Sister of Chaos",
       "color": "#ff0000",
-      "position": 39,
+      "position": 40,
       "mentionable": false,
       "hoist": false,
       "managed": false,
-      "member_count": 3
+      "member_count": 2
     },
     {
       "id": "1269052266682519582",
       "name": "AFK Forever",
       "color": "#2c2f33",
-      "position": 38,
+      "position": 39,
       "mentionable": false,
       "hoist": true,
       "managed": false,
@@ -146,7 +156,7 @@
       "id": "1306854601777217586",
       "name": "RiffRaff's Bard - Master of Poets",
       "color": "#71368a",
-      "position": 37,
+      "position": 38,
       "mentionable": false,
       "hoist": false,
       "managed": false,
@@ -156,7 +166,7 @@
       "id": "1310170398532567123",
       "name": "Interaction Bot",
       "color": "#000000",
-      "position": 36,
+      "position": 37,
       "mentionable": false,
       "hoist": false,
       "managed": true,
@@ -166,7 +176,7 @@
       "id": "1312190055476891699",
       "name": "CHIPPY'S NUMBER ONE HATER",
       "color": "#673200",
-      "position": 35,
+      "position": 36,
       "mentionable": false,
       "hoist": false,
       "managed": false,
@@ -176,7 +186,7 @@
       "id": "1330742760306638889",
       "name": "Who Dis?",
       "color": "#ff48c3",
-      "position": 34,
+      "position": 35,
       "mentionable": false,
       "hoist": false,
       "managed": false,
@@ -186,7 +196,7 @@
       "id": "1330767779607085067",
       "name": "Server Booster",
       "color": "#f47fff",
-      "position": 33,
+      "position": 34,
       "mentionable": false,
       "hoist": false,
       "managed": true,
@@ -195,8 +205,8 @@
     {
       "id": "1303422881002426398",
       "name": "Queen of the Frogs",
-      "color": "#2ecc71",
-      "position": 32,
+      "color": "#57f287",
+      "position": 33,
       "mentionable": false,
       "hoist": false,
       "managed": false,
@@ -205,8 +215,8 @@
     {
       "id": "1434423850858446872",
       "name": "Kingdom-Emperor",
-      "color": "#e67e22",
-      "position": 31,
+      "color": "#ff871b",
+      "position": 32,
       "mentionable": false,
       "hoist": false,
       "managed": false,
@@ -215,12 +225,22 @@
     {
       "id": "1482485409765261467",
       "name": "Penguin-Admiral",
-      "color": "#9b59b6",
-      "position": 30,
+      "color": "#a18cd1",
+      "position": 31,
       "mentionable": false,
       "hoist": false,
       "managed": false,
       "member_count": 2
+    },
+    {
+      "id": "1509752517725257881",
+      "name": "Sobaquitos-Leader",
+      "color": "#ff9cbf",
+      "position": 30,
+      "mentionable": false,
+      "hoist": false,
+      "managed": false,
+      "member_count": 1
     },
     {
       "id": "1338718062316228618",
@@ -270,7 +290,7 @@
       "mentionable": false,
       "hoist": false,
       "managed": false,
-      "member_count": 27
+      "member_count": 26
     },
     {
       "id": "1338718826925396020",
@@ -290,7 +310,7 @@
       "mentionable": false,
       "hoist": false,
       "managed": false,
-      "member_count": 15
+      "member_count": 16
     },
     {
       "id": "1343058595411005441",
@@ -310,7 +330,7 @@
       "mentionable": false,
       "hoist": false,
       "managed": false,
-      "member_count": 15
+      "member_count": 14
     },
     {
       "id": "1343058901389541499",
@@ -320,7 +340,7 @@
       "mentionable": false,
       "hoist": false,
       "managed": false,
-      "member_count": 21
+      "member_count": 22
     },
     {
       "id": "1343058959921184859",
@@ -420,7 +440,7 @@
       "mentionable": false,
       "hoist": false,
       "managed": false,
-      "member_count": 20
+      "member_count": 19
     },
     {
       "id": "1343776344999198822",
@@ -460,7 +480,7 @@
       "mentionable": false,
       "hoist": false,
       "managed": false,
-      "member_count": 21
+      "member_count": 20
     },
     {
       "id": "1347042415327838299",

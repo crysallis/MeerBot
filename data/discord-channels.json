@@ -1,5 +1,5 @@
 {
-  "fetched_at": "2026-05-26T00:15:57.298Z",
+  "fetched_at": "2026-05-29T03:45:29.903Z",
   "guild_id": "1229548158611226766",
   "categories": [
     {
@@ -18,11 +18,6 @@
         {
           "id": "1229551249209430066",
           "name": "╚⋱ㆍpromoㆍcodesㆍ💳",
-          "type": "text"
-        },
-        {
-          "id": "1370803792420798494",
-          "name": "guild-voting",
           "type": "text"
         }
       ]
@@ -98,6 +93,11 @@
         {
           "id": "1303422049011892234",
           "name": "╠⋮ㆍfrogㆍ🐸",
+          "type": "text"
+        },
+        {
+          "id": "1509752054707519658",
+          "name": "╠⋮ㆍsobaquitosㆍ🍧",
           "type": "text"
         },
         {
@@ -191,6 +191,11 @@
           "type": "text"
         },
         {
+          "id": "1509757695090229378",
+          "name": "╠⋮🏰battleㆍdrillsㆍsobaquitos",
+          "type": "text"
+        },
+        {
           "id": "1331493588982304820",
           "name": "╠⋮🐦‍🔥guildㆍsupremacy",
           "type": "text"
@@ -246,13 +251,18 @@
           "type": "text"
         },
         {
-          "id": "1434428761251778632",
-          "name": "﴾ㆍclashfrontsㆍfrog",
+          "id": "1482486776932204698",
+          "name": "﴾ㆍclashfrontsㆍpenguins",
           "type": "text"
         },
         {
-          "id": "1482486776932204698",
-          "name": "﴾ㆍclashfrontsㆍpenguins",
+          "id": "1509758617937772564",
+          "name": "﴾ㆍclashfrontsㆍsobaquitos",
+          "type": "text"
+        },
+        {
+          "id": "1434428761251778632",
+          "name": "﴾ㆍclashfrontsㆍfrog",
           "type": "text"
         },
         {
