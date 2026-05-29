@@ -88,7 +88,9 @@ All tables are created on startup via `CREATE TABLE IF NOT EXISTS`:
 ```sql
 birthdays           Discord user birthdays. UNIQUE(user_id, guild_id).
 members             Guild members. Linked by discord_id to Discord users.
-                    ingame_name is the primary key (UNIQUE).
+                    ingame_name is the primary key (UNIQUE). active = in latest scan.
+                    pending = 1 when the scanner could not confidently match the read
+                    to an existing member (awaiting /review).
 member_name_history Audit log of name changes from /rename.
 name_corrections    OCR correction map. Written by scraper, readable by bot.
 member_notes        Admin notes on members. Multiple notes per member.
@@ -107,6 +109,23 @@ The `members` table is the join hub. It links:
 - To `birthdays` via `members.discord_id = birthdays.user_id`
 - To `member_afk` via `members.id = member_afk.member_id`
 - To `member_notes` via `members.id = member_notes.member_id`
+
+### Canonical names & member deduplication
+
+`members` is the single source of truth for a member's name. Everything downstream keys off
+`member_id`, and display queries select `members.ingame_name` (via `COALESCE(m.ingame_name,
+ms.name)` join) rather than the raw per-snapshot OCR text — so a rename in one place propagates
+to every chart, summary, and lookup with no re-scan.
+
+The scraper resolves each OCR read *into* this roster (alias → exact → fuzzy → else flag
+`pending`), which prevents a noisy read from spawning a duplicate member row. When duplicates
+still need collapsing, `mergeMembers(keepId, dropId)` (exported from `utils/db.js`) repoints all
+of the dropped member's rows (`member_snapshots`, `member_notes`, `member_afk`,
+`member_name_history`) onto the keeper, aliases the dropped name into `name_corrections`, carries
+over a Discord link if the keeper lacks one, and deletes the dropped row — all in one transaction.
+
+`mergeMembers` is the shared primitive behind `/rename` (merge-on-collision), `/review merge`,
+the admin panel **Members** tab, and the one-shot `scripts/merge-dupes.js`.
 
 ---
 
@@ -263,6 +282,13 @@ REST API:
 | `GET` | `/api/scheduled-jobs` | All system jobs with display name, `fire_at`, `recurrence` |
 | `PUT` | `/api/scheduled-jobs/:id` | Update `fire_at` and/or `recurrence` for a job |
 | `GET` | `/api/jobs` | Last 50 rows from `scheduler_log` (filterable/sortable in UI) |
+| `GET` | `/api/members` | Roster with latest power/warband, `pending` flagged first |
+| `PUT` | `/api/members/:id` | Rename (merges via `mergeMembers` if the name already exists) |
+| `POST` | `/api/members/:id/link` | Set or clear the Discord link |
+| `POST` | `/api/members/:id/approve` | Clear the `pending` flag |
+| `POST` | `/api/members/merge` | `{ keepId, dropId }` · collapse a duplicate |
+
+The Members routes power the admin panel's **Members** tab (rename / link / merge / approve).
 
 The config PUT endpoint validates the key against `CONFIG_META` before writing, preventing arbitrary DB writes. The scheduled-jobs PUT validates that `recurrence` matches `daily:N` or `weekly:N` and that `fire_at` is a valid datetime.
 

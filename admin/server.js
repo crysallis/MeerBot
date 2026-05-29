@@ -363,6 +363,93 @@ app.post('/api/message-reactions/reload', (req, res) => {
     res.json({ ok: true, note: 'Cache auto-refreshes every 5 min. Use Restart Bot for immediate effect.' });
 });
 
+// ── Members management ──────────────────────────────────────────────────────
+
+// GET /api/members — roster with latest power/warband, pending flagged first
+app.get('/api/members', (req, res) => {
+    try {
+        const rows = db.prepare(`
+            SELECT m.id, m.ingame_name, m.discord_id, m.discord_name, m.active, m.pending,
+                   ms.combat_power, ms.warband, ms.last_active
+            FROM members m
+            LEFT JOIN member_snapshots ms
+                   ON ms.member_id = m.id AND ms.snapshot_id = (SELECT MAX(id) FROM snapshots)
+            ORDER BY m.pending DESC, m.active DESC, m.ingame_name COLLATE NOCASE
+        `).all();
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT /api/members/:id — rename (merges if the new name already exists)
+app.put('/api/members/:id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const newName = (req.body.ingame_name || '').trim();
+    if (!newName) return res.status(400).json({ error: 'ingame_name is required' });
+    try {
+        const member = db.prepare('SELECT * FROM members WHERE id = ?').get(id);
+        if (!member) return res.status(404).json({ error: 'Member not found' });
+        const collision = db.prepare('SELECT id FROM members WHERE ingame_name = ? AND id != ?').get(newName, id);
+        if (collision) {
+            db.mergeMembers(collision.id, id);
+            return res.json({ ok: true, merged: true, into: collision.id });
+        }
+        const now = new Date().toISOString();
+        db.prepare('UPDATE members SET ingame_name = ?, pending = 0 WHERE id = ?').run(newName, id);
+        db.prepare('INSERT INTO member_name_history (member_id, old_name, new_name, changed_at) VALUES (?, ?, ?, ?)')
+            .run(id, member.ingame_name, newName, now);
+        db.prepare("INSERT OR REPLACE INTO name_corrections (ocr_name, correct_name, source) VALUES (?, ?, 'admin')")
+            .run(member.ingame_name.toLowerCase(), newName);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/members/:id/link — set or clear the Discord link
+app.post('/api/members/:id/link', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const discordId = (req.body.discord_id || '').trim() || null;
+    const discordName = (req.body.discord_name || '').trim() || null;
+    try {
+        const member = db.prepare('SELECT id FROM members WHERE id = ?').get(id);
+        if (!member) return res.status(404).json({ error: 'Member not found' });
+        if (discordId) {
+            const clash = db.prepare('SELECT ingame_name FROM members WHERE discord_id = ? AND id != ?').get(discordId, id);
+            if (clash) return res.status(400).json({ error: `That Discord ID is already linked to ${clash.ingame_name}` });
+        }
+        db.prepare('UPDATE members SET discord_id = ?, discord_name = ? WHERE id = ?').run(discordId, discordName, id);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/members/:id/approve — clear the pending flag
+app.post('/api/members/:id/approve', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+        const result = db.prepare('UPDATE members SET pending = 0 WHERE id = ?').run(id);
+        if (result.changes === 0) return res.status(404).json({ error: 'Member not found' });
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/members/merge — { keepId, dropId }
+app.post('/api/members/merge', (req, res) => {
+    const keepId = parseInt(req.body.keepId, 10);
+    const dropId = parseInt(req.body.dropId, 10);
+    try {
+        db.mergeMembers(keepId, dropId);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
 // ────────────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, '127.0.0.1', () => {

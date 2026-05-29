@@ -384,6 +384,25 @@
       </table>
     </div>
   </div>
+
+  <div class="section" id="section-members">
+    <div class="section-title">Members</div>
+    <div class="info-bar" style="margin-bottom:12px">
+      <span id="membersSummary">Loading...</span>
+      <input id="memberFilter" placeholder="Filter name / warband..." oninput="renderMembers()"
+             style="max-width:240px">
+    </div>
+    <div class="card">
+      <table class="jobs-table">
+        <thead>
+          <tr class="jobs-header-row">
+            <th>Name</th><th>Warband</th><th>Power</th><th>Discord</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="membersBody"><tr><td colspan="6" style="color:var(--muted)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 </main>
 
 <script>
@@ -422,6 +441,7 @@ async function init() {
   renderScheduledJobs(sjRes);
   renderJobs(jobsRes);
   await loadReactions();
+  await loadMembers();
   loadBotStatus();
 }
 
@@ -458,12 +478,19 @@ function renderTabs() {
   jobTab.textContent = 'Job Runs';
   jobTab.onclick = () => switchTab('jobs');
   tabsEl.appendChild(jobTab);
+
+  // Members tab
+  const memTab = document.createElement('button');
+  memTab.className = 'tab' + (activeTab === 'members' ? ' active' : '');
+  memTab.textContent = 'Members';
+  memTab.onclick = () => switchTab('members');
+  tabsEl.appendChild(memTab);
 }
 
 function switchTab(cat) {
   activeTab = cat;
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const cats = [...new Set(allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs'];
+    const cats = [...new Set(allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members'];
     t.classList.toggle('active', cats[i] === cat);
   });
   document.querySelectorAll('.section').forEach(s => {
@@ -1257,6 +1284,109 @@ async function deleteReactionRule(id) {
   const data = await res.json();
   if (!data.ok) { alert('Delete failed: ' + data.error); return; }
   await loadReactions();
+}
+
+// ── Members ─────────────────────────────────────────────────────────────────
+
+let memberList = [];
+
+async function loadMembers() {
+  try {
+    memberList = await fetch('/api/members').then(r => r.json());
+  } catch (e) {
+    memberList = [];
+  }
+  renderMembers();
+}
+
+function renderMembers() {
+  const body = document.getElementById('membersBody');
+  const q = (document.getElementById('memberFilter').value || '').toLowerCase();
+  const rows = memberList.filter(m =>
+    m.ingame_name.toLowerCase().includes(q) || (m.warband || '').toLowerCase().includes(q));
+
+  const pendingCount = memberList.filter(m => m.pending).length;
+  document.getElementById('membersSummary').textContent =
+    `${memberList.length} members · ${pendingCount} pending review`;
+
+  if (rows.length === 0) {
+    body.innerHTML = '<tr><td colspan="6" style="color:var(--muted)">No members.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = rows.map(m => {
+    const discord = m.discord_id
+      ? `<span title="${m.discord_id}">${m.discord_name || m.discord_id}</span>`
+      : '<span style="color:var(--muted)">—</span>';
+    const status = m.pending
+      ? '<span style="color:#f59f00;font-weight:600">PENDING</span>'
+      : (m.active ? '<span style="color:#2f9e44">active</span>' : '<span style="color:var(--muted)">inactive</span>');
+    const approveBtn = m.pending
+      ? `<button class="save-btn" style="background:#2f9e44;padding:3px 8px" onclick="approveMember(${m.id})">Approve</button>` : '';
+    return `<tr>
+      <td><b>${escapeHtml(m.ingame_name)}</b></td>
+      <td>${escapeHtml(m.warband || '')}</td>
+      <td>${escapeHtml(m.combat_power || '')}</td>
+      <td>${discord}</td>
+      <td>${status}</td>
+      <td style="white-space:nowrap">
+        ${approveBtn}
+        <button class="save-btn" style="padding:3px 8px" onclick="renameMember(${m.id}, ${JSON.stringify(m.ingame_name)})">Rename</button>
+        <button class="save-btn" style="padding:3px 8px" onclick="linkMember(${m.id}, ${JSON.stringify(m.ingame_name)}, ${JSON.stringify(m.discord_id || '')})">Link</button>
+        <button class="save-btn" style="padding:3px 8px" onclick="mergeMemberPrompt(${m.id}, ${JSON.stringify(m.ingame_name)})">Merge</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+async function approveMember(id) {
+  const res = await fetch(`/api/members/${id}/approve`, { method: 'POST' });
+  const data = await res.json();
+  if (!data.ok) { alert('Approve failed: ' + data.error); return; }
+  await loadMembers();
+}
+
+async function renameMember(id, current) {
+  const newName = prompt(`Rename "${current}" to (if the new name already exists, they will be merged):`, current);
+  if (!newName || newName.trim() === current) return;
+  const res = await fetch(`/api/members/${id}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ingame_name: newName.trim() }),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Rename failed: ' + data.error); return; }
+  await loadMembers();
+}
+
+async function linkMember(id, name, currentId) {
+  const discordId = prompt(`Discord user ID to link to "${name}" (blank to unlink):`, currentId);
+  if (discordId === null) return;
+  const res = await fetch(`/api/members/${id}/link`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ discord_id: discordId.trim() }),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Link failed: ' + data.error); return; }
+  await loadMembers();
+}
+
+async function mergeMemberPrompt(dropId, dropName) {
+  const keepName = prompt(`Merge "${dropName}" INTO which existing member? (this removes "${dropName}")`);
+  if (!keepName) return;
+  const keep = memberList.find(m => m.ingame_name.toLowerCase() === keepName.trim().toLowerCase());
+  if (!keep) { alert(`No member named "${keepName}".`); return; }
+  if (keep.id === dropId) { alert('Cannot merge a member into itself.'); return; }
+  const res = await fetch('/api/members/merge', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keepId: keep.id, dropId }),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Merge failed: ' + data.error); return; }
+  await loadMembers();
 }
 
 // ────────────────────────────────────────────────────────────────────────────

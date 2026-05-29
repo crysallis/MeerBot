@@ -144,4 +144,54 @@ migrate('ALTER TABLE scheduler_log ADD COLUMN id INTEGER');
 migrate("ALTER TABLE scheduler_log ADD COLUMN sent_at TEXT NOT NULL DEFAULT ''");
 migrate('ALTER TABLE scheduler_log ADD COLUMN late INTEGER NOT NULL DEFAULT 0');
 
+migrate('ALTER TABLE members ADD COLUMN pending INTEGER NOT NULL DEFAULT 0');
+
+/**
+ * Merge duplicate members: repoint all of dropId's data onto keepId, alias the
+ * dropped name, and delete the dropped row. Used to collapse OCR phantom dupes
+ * and by /rename + admin merge when a rename would collide with an existing name.
+ * Returns the kept member's id.
+ */
+function mergeMembers(keepId, dropId) {
+    keepId = Number(keepId);
+    dropId = Number(dropId);
+    if (!keepId || !dropId || keepId === dropId) {
+        throw new Error('mergeMembers needs two distinct member ids');
+    }
+    const keep = db.prepare('SELECT * FROM members WHERE id = ?').get(keepId);
+    const drop = db.prepare('SELECT * FROM members WHERE id = ?').get(dropId);
+    if (!keep || !drop) throw new Error('mergeMembers: member not found');
+
+    const tx = db.transaction(() => {
+        // Keep only one AFK row (UNIQUE on member_id) — prefer the kept member's
+        const keepHasAfk = db.prepare('SELECT 1 FROM member_afk WHERE member_id = ?').get(keepId);
+        if (keepHasAfk) {
+            db.prepare('DELETE FROM member_afk WHERE member_id = ?').run(dropId);
+        } else {
+            db.prepare('UPDATE member_afk SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
+        }
+
+        db.prepare('UPDATE member_snapshots   SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
+        db.prepare('UPDATE member_notes       SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
+        db.prepare('UPDATE member_name_history SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
+
+        // If the kept row has no Discord link but the dropped one did, carry it over
+        if (!keep.discord_id && drop.discord_id) {
+            db.prepare('UPDATE members SET discord_id = ?, discord_name = ? WHERE id = ?')
+                .run(drop.discord_id, drop.discord_name, keepId);
+        }
+
+        // Alias the dropped OCR name to the kept canonical name for future scans
+        db.prepare(`INSERT OR REPLACE INTO name_corrections (ocr_name, correct_name, source)
+                    VALUES (?, ?, 'merge')`).run(drop.ingame_name.toLowerCase(), keep.ingame_name);
+        db.prepare('INSERT INTO member_name_history (member_id, old_name, new_name, changed_at) VALUES (?, ?, ?, ?)')
+            .run(keepId, drop.ingame_name, keep.ingame_name, new Date().toISOString());
+
+        db.prepare('DELETE FROM members WHERE id = ?').run(dropId);
+    });
+    tx();
+    return keepId;
+}
+
 module.exports = db;
+module.exports.mergeMembers = mergeMembers;
