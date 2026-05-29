@@ -135,6 +135,9 @@ try { db.exec(`
 // Only one mention-type rule allowed
 try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mr_one_mention ON message_reactions(pattern_type) WHERE pattern_type = 'mention'`); } catch {}
 
+// Enable/disable flag for scheduled jobs
+try { db.exec('ALTER TABLE scheduled_jobs ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1'); } catch {}
+
 // Embed support on message reactions
 try { db.exec(`ALTER TABLE message_reactions ADD COLUMN embed_title TEXT`); } catch {}
 try { db.exec(`ALTER TABLE message_reactions ADD COLUMN embed_description TEXT`); } catch {}

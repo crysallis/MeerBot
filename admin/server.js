@@ -145,7 +145,7 @@ const JOB_DISPLAY = {
 app.get('/api/scheduled-jobs', (req, res) => {
     try {
         const rows = db.prepare(`
-            SELECT sj.id, sj.fire_at, sj.recurrence, scj.handler_path
+            SELECT sj.id, sj.fire_at, sj.recurrence, sj.enabled, scj.handler_path
             FROM scheduled_jobs sj
             JOIN script_jobs scj ON scj.job_id = sj.id
             ORDER BY sj.fire_at
@@ -156,6 +156,7 @@ app.get('/api/scheduled-jobs', (req, res) => {
             handler_path: r.handler_path,
             fire_at:      r.fire_at,
             recurrence:   r.recurrence ?? 'daily:1',
+            enabled:      r.enabled ?? 1,
         })));
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -165,7 +166,7 @@ app.get('/api/scheduled-jobs', (req, res) => {
 // PUT /api/scheduled-jobs/:id — update fire_at and/or recurrence
 app.put('/api/scheduled-jobs/:id', (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const { fire_at, recurrence } = req.body;
+    const { fire_at, recurrence, enabled } = req.body;
 
     if (fire_at) {
         const d = new Date(fire_at);
@@ -184,6 +185,9 @@ app.put('/api/scheduled-jobs/:id', (req, res) => {
         const exists = db.prepare('SELECT 1 FROM scheduled_jobs WHERE id = ? AND type = ?').get(id, 'script_job');
         if (!exists) return res.status(404).json({ error: 'Job not found' });
 
+        if (enabled !== undefined) {
+            db.prepare('UPDATE scheduled_jobs SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, id);
+        }
         if (fire_at && recurrence) {
             db.prepare('UPDATE scheduled_jobs SET fire_at = ?, recurrence = ? WHERE id = ?').run(fire_at, recurrence, id);
         } else if (fire_at) {
