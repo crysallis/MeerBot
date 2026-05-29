@@ -669,8 +669,15 @@ function renderScheduledJobs(jobs) {
 
     const card = document.createElement('div');
     card.className = 'sj-card';
+    card.style.opacity = job.enabled ? '1' : '0.5';
     card.innerHTML = `
-      <div class="sj-name">${job.display}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="sj-name" style="margin-bottom:0;${!job.enabled ? 'text-decoration:line-through;color:var(--muted)' : ''}">${job.display}</div>
+        <button id="sj-toggle-${job.id}" onclick="toggleScheduledJob(${job.id}, ${job.enabled ? 0 : 1})"
+          style="background:${job.enabled ? '#2f9e44' : 'var(--border)'};color:#fff;border:none;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600">
+          ${job.enabled ? 'Enabled' : 'Disabled'}
+        </button>
+      </div>
       <div class="sj-fields">
         <div class="sj-field">
           <label>Next Fire (your local time)</label>
@@ -696,6 +703,18 @@ function renderScheduledJobs(jobs) {
       </div>`;
     container.appendChild(card);
   }
+}
+
+async function toggleScheduledJob(id, newEnabled) {
+  const res  = await fetch(`/api/scheduled-jobs/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled: newEnabled }),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Toggle failed: ' + data.error); return; }
+  const sjRes = await fetch('/api/scheduled-jobs').then(r => r.json());
+  renderScheduledJobs(sjRes);
 }
 
 async function saveScheduledJob(id) {
