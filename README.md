@@ -110,7 +110,10 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | Command | Description |
 |---|---|
 | `/scan` | Trigger a live guild scrape (authorized user only) |
-| `/rename old: new:` | Rename a member, logs history and adds name correction |
+| `/rename old: new:` | Rename a member · merges into the target if that name already exists (dedupe) |
+| `/review list` | List members the scanner flagged as new/unrecognized (`pending`) |
+| `/review approve name:` | Confirm a pending member is real and correctly named |
+| `/review merge pending_name: into_name:` | Merge a pending duplicate into an existing member |
 | `/note add name: text:` | Add a note to a member |
 | `/note view name:` | View all notes for a member |
 | `/note delete id:` | Delete a note by ID |
@@ -158,7 +161,8 @@ MeerBot/
         member.js               /member lookup with autocomplete.
         link.js                 /link with autocomplete.
         scan.js                 /scan + post-scan inactivity alert.
-        rename.js               /rename with autocomplete.
+        rename.js               /rename with autocomplete · merges on name collision.
+        review.js               /review list/approve/merge for scanner-flagged pending members.
         note.js                 /note add/view/delete.
         afk.js                  /afk set/clear/list.
         birthday.js             /birthday register/list/remove/test.
@@ -182,6 +186,7 @@ MeerBot/
             anniversaryCheck.js Daily guild anniversary handler + milestoneFor() export.
             dailyReset.js       Daily reset message handler (max 2h late window).
     scripts/
+        merge-dupes.js          One-shot cleanup that collapses OCR phantom duplicate members.
         sync-join-dates.js      One-time backfill of first_seen from Discord join dates.
         list-channels.js        Fetch all guild channels and dump to data/discord-channels.json.
         list-roles.js           Fetch all guild roles and dump to data/discord-roles.json.

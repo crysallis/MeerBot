@@ -27,8 +27,8 @@ function linkMember(discordId, discordName, ingameName) {
 
 function getLatestIngameNames() {
     return db.prepare(`
-        SELECT DISTINCT name FROM member_snapshots
-        WHERE snapshot_id = (SELECT MAX(id) FROM snapshots)
+        SELECT ingame_name AS name FROM members WHERE active = 1
+        ORDER BY ingame_name COLLATE NOCASE
     `).all().map(r => r.name);
 }
 

@@ -151,8 +151,10 @@ async function handlePower(interaction, snapshot) {
     const warband = interaction.options.getString('warband') || null;
     const { clause, extra } = warbandFilter(warband);
     const rows = db.prepare(`
-        SELECT ms.member_id, ms.name, ms.combat_power_value
-        FROM member_snapshots ms WHERE ms.snapshot_id = ? ${clause}
+        SELECT ms.member_id, COALESCE(m.ingame_name, ms.name) AS name, ms.combat_power_value
+        FROM member_snapshots ms
+        LEFT JOIN members m ON m.id = ms.member_id
+        WHERE ms.snapshot_id = ? ${clause}
         ORDER BY ms.combat_power_value DESC
     `).all(snapshot.id, ...extra);
 
@@ -178,8 +180,10 @@ async function handleTop(interaction, snapshot) {
     const warband = interaction.options.getString('warband') || null;
     const { clause, extra } = warbandFilter(warband);
     const rows = db.prepare(`
-        SELECT ms.member_id, ms.name, ms.combat_power_value
-        FROM member_snapshots ms WHERE ms.snapshot_id = ? ${clause}
+        SELECT ms.member_id, COALESCE(m.ingame_name, ms.name) AS name, ms.combat_power_value
+        FROM member_snapshots ms
+        LEFT JOIN members m ON m.id = ms.member_id
+        WHERE ms.snapshot_id = ? ${clause}
         ORDER BY ms.combat_power_value DESC
         LIMIT ?
     `).all(snapshot.id, ...extra, n);
@@ -205,8 +209,10 @@ async function handleInactive(interaction, snapshot) {
     const warband = interaction.options.getString('warband') || null;
     const { clause, extra } = warbandFilter(warband);
     const rows = db.prepare(`
-        SELECT ms.member_id, ms.name, ms.last_active, ms.activeness
-        FROM member_snapshots ms WHERE ms.snapshot_id = ? ${clause}
+        SELECT ms.member_id, COALESCE(m.ingame_name, ms.name) AS name, ms.last_active, ms.activeness
+        FROM member_snapshots ms
+        LEFT JOIN members m ON m.id = ms.member_id
+        WHERE ms.snapshot_id = ? ${clause}
         ORDER BY ms.last_seen_approx ASC
     `).all(snapshot.id, ...extra);
 
@@ -231,8 +237,10 @@ async function handleActiveness(interaction, snapshot) {
     const warband = interaction.options.getString('warband') || null;
     const { clause, extra } = warbandFilter(warband);
     const rows = db.prepare(`
-        SELECT ms.member_id, ms.name, ms.activeness, ms.last_active
-        FROM member_snapshots ms WHERE ms.snapshot_id = ? ${clause}
+        SELECT ms.member_id, COALESCE(m.ingame_name, ms.name) AS name, ms.activeness, ms.last_active
+        FROM member_snapshots ms
+        LEFT JOIN members m ON m.id = ms.member_id
+        WHERE ms.snapshot_id = ? ${clause}
         ORDER BY ms.activeness ASC
     `).all(snapshot.id, ...extra);
 
@@ -264,11 +272,12 @@ async function handleGrowth(interaction, snapshot) {
     const params = warband ? [prevId, snapshot.id, warband] : [prevId, snapshot.id];
 
     const rows = db.prepare(`
-        SELECT ms2.name,
+        SELECT COALESCE(m.ingame_name, ms2.name) AS name,
                ms2.combat_power_value  AS current_power,
                ms1.combat_power_value  AS prev_power,
                (ms2.combat_power_value - COALESCE(ms1.combat_power_value, 0)) AS growth
         FROM member_snapshots ms2
+        LEFT JOIN members m ON m.id = ms2.member_id
         LEFT JOIN member_snapshots ms1 ON ms1.member_id = ms2.member_id AND ms1.snapshot_id = ?
         WHERE ms2.snapshot_id = ? ${warbandClause}
         ORDER BY growth DESC
@@ -335,10 +344,11 @@ async function handleNoGrowth(interaction, snapshot) {
 
     const rows = db.prepare(`
         SELECT ms2.member_id,
-               ms2.name,
+               COALESCE(m.ingame_name, ms2.name) AS name,
                ms2.combat_power_value AS current_power,
                (ms2.combat_power_value - ms1.combat_power_value) AS growth
         FROM member_snapshots ms2
+        LEFT JOIN members m ON m.id = ms2.member_id
         JOIN member_snapshots ms1 ON ms1.member_id = ms2.member_id AND ms1.snapshot_id = ?
         WHERE ms2.snapshot_id = ?
           AND (ms2.combat_power_value - ms1.combat_power_value) <= 0
@@ -464,8 +474,9 @@ async function handleNewcomers(interaction, snapshot) {
     const params = warband ? [snapshot.id, prevId, warband] : [snapshot.id, prevId];
 
     const rows = db.prepare(`
-        SELECT ms2.name, ms2.combat_power, ms2.activeness
+        SELECT COALESCE(m.ingame_name, ms2.name) AS name, ms2.combat_power, ms2.activeness
         FROM member_snapshots ms2
+        LEFT JOIN members m ON m.id = ms2.member_id
         WHERE ms2.snapshot_id = ?
           AND ms2.member_id IS NOT NULL
           AND ms2.member_id NOT IN (

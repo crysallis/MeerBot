@@ -30,7 +30,7 @@ async function postWeeklySummary(client, channelId) {
 
         const rows = prev
             ? db.prepare(`
-                SELECT ms2.name, ms2.combat_power_value, ms2.activeness,
+                SELECT m.ingame_name AS name, ms2.combat_power_value, ms2.activeness,
                        (ms2.combat_power_value - COALESCE(ms1.combat_power_value, 0)) AS growth
                 FROM member_snapshots ms2
                 JOIN members m ON m.id = ms2.member_id AND m.active = 1
@@ -39,7 +39,7 @@ async function postWeeklySummary(client, channelId) {
                 ORDER BY growth DESC, ms2.combat_power_value DESC
               `).all(prev.id, latest.id)
             : db.prepare(`
-                SELECT ms.name, ms.combat_power_value, ms.activeness, 0 AS growth
+                SELECT m.ingame_name AS name, ms.combat_power_value, ms.activeness, 0 AS growth
                 FROM member_snapshots ms
                 JOIN members m ON m.id = ms.member_id AND m.active = 1
                 WHERE ms.snapshot_id = ?
