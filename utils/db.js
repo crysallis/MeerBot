@@ -171,6 +171,12 @@ function mergeMembers(keepId, dropId) {
             db.prepare('UPDATE member_afk SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
         }
 
+        // Collapse snapshot rows: if the keeper already has a row in a scan, drop the
+        // duplicate (same person can't appear twice in one snapshot); repoint the rest.
+        db.prepare(`DELETE FROM member_snapshots
+                    WHERE member_id = ?
+                      AND snapshot_id IN (SELECT snapshot_id FROM member_snapshots WHERE member_id = ?)`)
+            .run(dropId, keepId);
         db.prepare('UPDATE member_snapshots   SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
         db.prepare('UPDATE member_notes       SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
         db.prepare('UPDATE member_name_history SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
