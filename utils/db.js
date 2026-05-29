@@ -6,6 +6,7 @@ const dbPath = process.env.GUILD_DB_PATH || path.join(__dirname, '../../AFKDataM
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+db.pragma('busy_timeout = 5000');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS birthdays (
@@ -99,58 +100,48 @@ db.exec(`
   );
 `);
 
-// Idempotent migrations
-try { db.exec('ALTER TABLE members ADD COLUMN active INTEGER NOT NULL DEFAULT 0'); } catch {}
-try { db.exec('ALTER TABLE birthdays DROP COLUMN year'); } catch {}
-try { db.exec('ALTER TABLE birthdays ADD COLUMN set_by TEXT'); } catch {}
-try { db.exec('ALTER TABLE scheduled_jobs DROP COLUMN last_fired_at'); } catch {}
-
-// bot_config table — admin-panel overrides for env/hardcoded values
-try { db.exec(`
-    CREATE TABLE IF NOT EXISTS bot_config (
-        key        TEXT PRIMARY KEY,
-        value      TEXT NOT NULL,
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-`); } catch {}
-
-// message_reactions table — auto-response rules for chat messages
-try { db.exec(`
-    CREATE TABLE IF NOT EXISTS message_reactions (
-        id               INTEGER PRIMARY KEY AUTOINCREMENT,
-        name             TEXT NOT NULL,
-        pattern          TEXT NOT NULL DEFAULT '',
-        pattern_type     TEXT NOT NULL DEFAULT 'contains',
-        ignore_case      INTEGER NOT NULL DEFAULT 1,
-        channel_filter   TEXT,
-        require_mention  INTEGER NOT NULL DEFAULT 0,
-        response_type    TEXT NOT NULL DEFAULT 'reply',
-        response_content TEXT NOT NULL DEFAULT '',
-        response_channel TEXT,
-        cooldown_seconds INTEGER NOT NULL DEFAULT 60,
-        enabled          INTEGER NOT NULL DEFAULT 1,
-        created_at       TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-`); } catch {}
-
-// Only one mention-type rule allowed
-try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mr_one_mention ON message_reactions(pattern_type) WHERE pattern_type = 'mention'`); } catch {}
-
-// Enable/disable flag for scheduled jobs
-try { db.exec('ALTER TABLE scheduled_jobs ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1'); } catch {}
-
-// Embed support on message reactions
-try { db.exec(`ALTER TABLE message_reactions ADD COLUMN embed_title TEXT`); } catch {}
-try { db.exec(`ALTER TABLE message_reactions ADD COLUMN embed_description TEXT`); } catch {}
-try { db.exec(`ALTER TABLE message_reactions ADD COLUMN embed_color TEXT`); } catch {}
-
-// Idempotent migrations for scheduler_log
-for (const sql of [
-    'ALTER TABLE scheduler_log ADD COLUMN id INTEGER',
-    'ALTER TABLE scheduler_log ADD COLUMN sent_at TEXT NOT NULL DEFAULT \'\'',
-    'ALTER TABLE scheduler_log ADD COLUMN late INTEGER NOT NULL DEFAULT 0',
-]) {
-    try { db.exec(sql); } catch { /* column already exists */ }
+function migrate(sql) {
+    try { db.exec(sql); }
+    catch (e) { if (!e.message.includes('duplicate column') && !e.message.includes('no such column')) console.warn('[DB migration]', e.message); }
 }
+
+// Idempotent migrations
+migrate('ALTER TABLE members ADD COLUMN active INTEGER NOT NULL DEFAULT 0');
+migrate('ALTER TABLE birthdays DROP COLUMN year');
+migrate('ALTER TABLE birthdays ADD COLUMN set_by TEXT');
+migrate('ALTER TABLE scheduled_jobs DROP COLUMN last_fired_at');
+
+migrate(`CREATE TABLE IF NOT EXISTS bot_config (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+)`);
+
+migrate(`CREATE TABLE IF NOT EXISTS message_reactions (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT NOT NULL,
+    pattern          TEXT NOT NULL DEFAULT '',
+    pattern_type     TEXT NOT NULL DEFAULT 'contains',
+    ignore_case      INTEGER NOT NULL DEFAULT 1,
+    channel_filter   TEXT,
+    require_mention  INTEGER NOT NULL DEFAULT 0,
+    response_type    TEXT NOT NULL DEFAULT 'reply',
+    response_content TEXT NOT NULL DEFAULT '',
+    response_channel TEXT,
+    cooldown_seconds INTEGER NOT NULL DEFAULT 60,
+    enabled          INTEGER NOT NULL DEFAULT 1,
+    created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+)`);
+
+migrate(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mr_one_mention ON message_reactions(pattern_type) WHERE pattern_type = 'mention'`);
+
+migrate('ALTER TABLE scheduled_jobs ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1');
+migrate('ALTER TABLE message_reactions ADD COLUMN embed_title TEXT');
+migrate('ALTER TABLE message_reactions ADD COLUMN embed_description TEXT');
+migrate('ALTER TABLE message_reactions ADD COLUMN embed_color TEXT');
+
+migrate('ALTER TABLE scheduler_log ADD COLUMN id INTEGER');
+migrate("ALTER TABLE scheduler_log ADD COLUMN sent_at TEXT NOT NULL DEFAULT ''");
+migrate('ALTER TABLE scheduler_log ADD COLUMN late INTEGER NOT NULL DEFAULT 0');
 
 module.exports = db;
