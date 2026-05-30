@@ -114,16 +114,10 @@ module.exports = {
 
     async autocomplete(interaction) {
         const focused = interaction.options.getFocused().toLowerCase();
-        const rows = db.prepare(`
-            SELECT DISTINCT warband FROM member_snapshots
-            WHERE snapshot_id = (SELECT MAX(id) FROM snapshots)
-              AND warband != ''
-            ORDER BY warband
-        `).all();
-        const filtered = rows
-            .filter(r => r.warband.toLowerCase().includes(focused))
+        const filtered = db.getWarbands()
+            .filter(w => w.name.toLowerCase().includes(focused))
             .slice(0, 25);
-        await interaction.respond(filtered.map(r => ({ name: r.warband, value: r.warband })));
+        await interaction.respond(filtered.map(w => ({ name: w.name, value: w.name })));
     },
 
     async execute(interaction) {

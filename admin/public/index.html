@@ -403,6 +403,26 @@
       </table>
     </div>
   </div>
+
+  <div class="section" id="section-warbands">
+    <div class="section-title">Warbands</div>
+    <div style="margin-bottom:16px; display:flex; gap:8px">
+      <input id="newWarbandName" placeholder="New warband name" style="max-width:240px">
+      <button class="save-btn" style="background:#2f9e44" onclick="addWarband()">+ Add Warband</button>
+    </div>
+    <p style="color:var(--muted); font-size:12px; margin-bottom:12px">
+      Renaming a warband updates it everywhere (all members and history) in one step.
+      Archived warbands are hidden from scans and filters but keep their history.
+    </p>
+    <div class="card">
+      <table class="jobs-table">
+        <thead>
+          <tr class="jobs-header-row"><th>Warband</th><th>Active Members</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="warbandsBody"><tr><td colspan="4" style="color:var(--muted)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 </main>
 
 <script>
@@ -485,12 +505,19 @@ function renderTabs() {
   memTab.textContent = 'Members';
   memTab.onclick = () => switchTab('members');
   tabsEl.appendChild(memTab);
+
+  // Warbands tab
+  const wbTab = document.createElement('button');
+  wbTab.className = 'tab' + (activeTab === 'warbands' ? ' active' : '');
+  wbTab.textContent = 'Warbands';
+  wbTab.onclick = () => switchTab('warbands');
+  tabsEl.appendChild(wbTab);
 }
 
 function switchTab(cat) {
   activeTab = cat;
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const cats = [...new Set(allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members'];
+    const cats = [...new Set(allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands'];
     t.classList.toggle('active', cats[i] === cat);
   });
   document.querySelectorAll('.section').forEach(s => {
@@ -1289,14 +1316,19 @@ async function deleteReactionRule(id) {
 // ── Members ─────────────────────────────────────────────────────────────────
 
 let memberList = [];
+let warbandsList = [];
 
 async function loadMembers() {
   try {
-    memberList = await fetch('/api/members').then(r => r.json());
+    [memberList, warbandsList] = await Promise.all([
+      fetch('/api/members').then(r => r.json()),
+      fetch('/api/warbands').then(r => r.json()),
+    ]);
   } catch (e) {
-    memberList = [];
+    memberList = []; warbandsList = [];
   }
   renderMembers();
+  renderWarbands();
 }
 
 function renderMembers() {
@@ -1333,6 +1365,7 @@ function renderMembers() {
         ${approveBtn}
         <button class="save-btn" style="padding:3px 8px" onclick="renameMember(${m.id}, ${JSON.stringify(m.ingame_name)})">Rename</button>
         <button class="save-btn" style="padding:3px 8px" onclick="linkMember(${m.id}, ${JSON.stringify(m.ingame_name)}, ${JSON.stringify(m.discord_id || '')})">Link</button>
+        <button class="save-btn" style="padding:3px 8px" onclick="setWarband(${m.id}, ${JSON.stringify(m.ingame_name)})">Warband</button>
         <button class="save-btn" style="padding:3px 8px" onclick="mergeMemberPrompt(${m.id}, ${JSON.stringify(m.ingame_name)})">Merge</button>
       </td>
     </tr>`;
@@ -1386,6 +1419,82 @@ async function mergeMemberPrompt(dropId, dropName) {
   });
   const data = await res.json();
   if (!data.ok) { alert('Merge failed: ' + data.error); return; }
+  await loadMembers();
+}
+
+async function setWarband(id, name) {
+  const active = warbandsList.filter(w => !w.archived);
+  const choices = active.map((w, i) => `${i + 1}. ${w.name}`).join('\n');
+  const ans = prompt(`Set warband for "${name}":\n${choices}\n\nEnter a number (0 or blank to clear):`);
+  if (ans === null) return;
+  const n = parseInt(ans, 10);
+  let warband_id = null;
+  if (ans.trim() && n !== 0) {
+    if (!active[n - 1]) { alert('Invalid choice.'); return; }
+    warband_id = active[n - 1].id;
+  }
+  const res = await fetch(`/api/members/${id}/warband`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ warband_id }),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Failed: ' + data.error); return; }
+  await loadMembers();
+}
+
+// ── Warbands ────────────────────────────────────────────────────────────────
+
+function renderWarbands() {
+  const body = document.getElementById('warbandsBody');
+  if (!body) return;
+  if (!warbandsList.length) {
+    body.innerHTML = '<tr><td colspan="4" style="color:var(--muted)">No warbands.</td></tr>';
+    return;
+  }
+  body.innerHTML = warbandsList.map(w => `<tr>
+    <td><b>${escapeHtml(w.name)}</b></td>
+    <td>${w.members}</td>
+    <td>${w.archived ? '<span style="color:var(--muted)">archived</span>' : '<span style="color:#2f9e44">active</span>'}</td>
+    <td style="white-space:nowrap">
+      <button class="save-btn" style="padding:3px 8px" onclick="renameWarbandUI(${w.id}, ${JSON.stringify(w.name)})">Rename</button>
+      <button class="save-btn" style="padding:3px 8px" onclick="archiveWarband(${w.id}, ${w.archived ? 0 : 1})">${w.archived ? 'Unarchive' : 'Archive'}</button>
+    </td>
+  </tr>`).join('');
+}
+
+async function addWarband() {
+  const input = document.getElementById('newWarbandName');
+  const name = input.value.trim();
+  if (!name) return;
+  const res = await fetch('/api/warbands', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Add failed: ' + data.error); return; }
+  input.value = '';
+  await loadMembers();
+}
+
+async function renameWarbandUI(id, current) {
+  const name = prompt(`Rename warband "${current}" to (updates everywhere):`, current);
+  if (!name || name.trim() === current) return;
+  const res = await fetch(`/api/warbands/${id}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name.trim() }),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Rename failed: ' + data.error); return; }
+  await loadMembers();
+}
+
+async function archiveWarband(id, archived) {
+  const res = await fetch(`/api/warbands/${id}/archive`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ archived }),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Failed: ' + data.error); return; }
   await loadMembers();
 }
 

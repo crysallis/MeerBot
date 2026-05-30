@@ -24,7 +24,7 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 |---|---|
 | `index.js` | Entry point, command loader, rate limiter |
 | `config.js` | Rate limit + ping tier constants (static code config only) |
-| `utils/db.js` | DB connection + all table CREATE/migrations · exports `mergeMembers(keepId, dropId)` for deduping members |
+| `utils/db.js` | DB connection + all table CREATE/migrations · exports `mergeMembers`, `getWarbands`, `renameWarband`, `setMemberWarband` |
 | `utils/botConfig.js` | DB-backed config store · `get(key)` reads DB → ENV → default · `set(key,val)` writes DB · `getAll()` for admin UI |
 | `utils/scheduledMessages.js` | Timed auto-posts · add new messages to MESSAGES array here |
 | `utils/afkExpiry.js` | Daily midnight UTC · clears expired AFK records, posts to inactivity channel |
@@ -35,7 +35,7 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `utils/commandLogger.js` | Posts a Dyno-style audit embed for every slash command to `COMMAND_LOG_CHANNEL_ID` |
 | `utils/jobLog.js` | Shared helper · scheduled jobs call `logJobRun(name)` to record runs in `scheduler_log` |
 | `admin/server.js` | Express admin panel server (port 3001, localhost only) · PM2 process `meerbot-admin` |
-| `admin/public/index.html` | Plain HTML admin UI · edit channel IDs, timing, thresholds + **Members** tab (rename/link/merge/approve pending) |
+| `admin/public/index.html` | Plain HTML admin UI · channel IDs, timing, thresholds + **Members** tab (rename/link/merge/approve/warband) + **Warbands** tab (add/rename/archive) |
 | `ecosystem.config.js` | PM2 multi-process config · defines `meerbot` + `meerbot-admin` |
 
 ## Slash Commands
@@ -55,7 +55,8 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `/anniversary` | list / upcoming / test · ephemeral except `test` which posts the embed in the current channel with pings suppressed |
 
 ## Database Tables (key ones)
-- `members` · ingame_name (canonical, UNIQUE), discord_id, first_seen, active, `pending` (scanner couldn't match read → awaiting /review)
+- `members` · ingame_name (canonical, UNIQUE), discord_id, first_seen, active, `pending` (scanner couldn't match read → awaiting /review), `warband_id` (current warband · synced from scan, manually overridable)
+- `warbands` · canonical warband list (id, name UNIQUE, sort_order, archived) · rename here propagates everywhere
 - `snapshots` · one row per scan run
 - `member_snapshots` · power/activeness per member per snapshot
 - `member_afk` · active AFK records · return_date is YYYY-MM-DD
