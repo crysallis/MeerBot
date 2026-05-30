@@ -102,7 +102,6 @@ const COMMANDS = {
     },
     afk: {
         description: 'Mark members as AFK to exempt them from inactivity alerts.',
-        perm: 'riffOrRaff',
         subcommands: [
             { name: '/afk set name: reason: return_date:', desc: 'Mark a member AFK. Reason and return date optional. Date format: YYYY-MM-DD.' },
             { name: '/afk clear name:',                    desc: 'Remove AFK status from a member.' },

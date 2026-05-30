@@ -55,7 +55,7 @@ async function postInactivityAlert(client) {
 				.setTitle(`⚠️ ${inactive.length} member${inactive.length === 1 ? "" : "s"} inactive ${INACTIVITY_DAYS}+ days`)
 				.setDescription(lines.join("\n"))
 				.setColor(pickColor())
-				.setFooter({ text: "AF AFK members are excluded · speak to a Guild leader to set an /afk exemption" }),
+				.setFooter({ text: "AFK members are excluded · see a guild leader to set an /afk exemption" }),
 		],
 	});
 }
