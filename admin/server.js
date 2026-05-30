@@ -370,8 +370,10 @@ app.get('/api/members', (req, res) => {
     try {
         const rows = db.prepare(`
             SELECT m.id, m.ingame_name, m.discord_id, m.discord_name, m.active, m.pending,
-                   ms.combat_power, ms.warband, ms.last_active
+                   m.warband_id, w.name AS warband,
+                   ms.combat_power, ms.last_active
             FROM members m
+            LEFT JOIN warbands w ON w.id = m.warband_id
             LEFT JOIN member_snapshots ms
                    ON ms.member_id = m.id AND ms.snapshot_id = (SELECT MAX(id) FROM snapshots)
             ORDER BY m.pending DESC, m.active DESC, m.ingame_name COLLATE NOCASE
@@ -447,6 +449,75 @@ app.post('/api/members/merge', (req, res) => {
         res.json({ ok: true });
     } catch (err) {
         res.status(400).json({ error: err.message });
+    }
+});
+
+// POST /api/members/:id/warband — { warband_id } (null/empty to clear) · manual override
+app.post('/api/members/:id/warband', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const warbandId = req.body.warband_id ? parseInt(req.body.warband_id, 10) : null;
+    try {
+        const member = db.prepare('SELECT id FROM members WHERE id = ?').get(id);
+        if (!member) return res.status(404).json({ error: 'Member not found' });
+        db.setMemberWarband(id, warbandId);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── Warbands ────────────────────────────────────────────────────────────────
+
+// GET /api/warbands — list with current member counts
+app.get('/api/warbands', (req, res) => {
+    try {
+        const rows = db.prepare(`
+            SELECT w.id, w.name, w.sort_order, w.archived,
+                   (SELECT COUNT(*) FROM members m WHERE m.warband_id = w.id AND m.active = 1) AS members
+            FROM warbands w
+            ORDER BY w.archived, w.sort_order, w.name COLLATE NOCASE
+        `).all();
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/warbands — { name }
+app.post('/api/warbands', (req, res) => {
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Warband name required' });
+    try {
+        const max = db.prepare('SELECT COALESCE(MAX(sort_order), -1) AS m FROM warbands').get().m;
+        const r = db.prepare('INSERT INTO warbands (name, sort_order) VALUES (?, ?)').run(name, max + 1);
+        res.json({ ok: true, id: r.lastInsertRowid });
+    } catch (err) {
+        res.status(err.message.includes('UNIQUE') ? 400 : 500)
+           .json({ error: err.message.includes('UNIQUE') ? 'That warband already exists' : err.message });
+    }
+});
+
+// PUT /api/warbands/:id — rename (propagates everywhere via renameWarband)
+app.put('/api/warbands/:id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+        db.renameWarband(id, req.body.name);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// POST /api/warbands/:id/archive — { archived: 0|1 }
+app.post('/api/warbands/:id/archive', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const archived = req.body.archived ? 1 : 0;
+    try {
+        const r = db.prepare('UPDATE warbands SET archived = ? WHERE id = ?').run(archived, id);
+        if (r.changes === 0) return res.status(404).json({ error: 'Warband not found' });
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 

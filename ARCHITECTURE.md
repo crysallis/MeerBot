@@ -91,6 +91,9 @@ members             Guild members. Linked by discord_id to Discord users.
                     ingame_name is the primary key (UNIQUE). active = in latest scan.
                     pending = 1 when the scanner could not confidently match the read
                     to an existing member (awaiting /review).
+                    warband_id = current warband (synced from scan, manually overridable).
+warbands            Canonical warband list (id, name UNIQUE, sort_order, archived).
+                    Rename here propagates everywhere via renameWarband().
 member_name_history Audit log of name changes from /rename.
 name_corrections    OCR correction map. Written by scraper, readable by bot.
 member_notes        Admin notes on members. Multiple notes per member.
@@ -287,8 +290,13 @@ REST API:
 | `POST` | `/api/members/:id/link` | Set or clear the Discord link |
 | `POST` | `/api/members/:id/approve` | Clear the `pending` flag |
 | `POST` | `/api/members/merge` | `{ keepId, dropId }` · collapse a duplicate |
+| `POST` | `/api/members/:id/warband` | `{ warband_id }` · manual current-warband override |
+| `GET` | `/api/warbands` | Warband list with active member counts |
+| `POST` | `/api/warbands` | `{ name }` · add a warband |
+| `PUT` | `/api/warbands/:id` | Rename (propagates everywhere via `renameWarband`) |
+| `POST` | `/api/warbands/:id/archive` | `{ archived }` · hide from scans/filters, keep history |
 
-The Members routes power the admin panel's **Members** tab (rename / link / merge / approve).
+The Members and Warbands routes power the admin panel's **Members** and **Warbands** tabs.
 
 The config PUT endpoint validates the key against `CONFIG_META` before writing, preventing arbitrary DB writes. The scheduled-jobs PUT validates that `recurrence` matches `daily:N` or `weekly:N` and that `fire_at` is a valid datetime.
 

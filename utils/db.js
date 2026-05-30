@@ -146,6 +146,36 @@ migrate('ALTER TABLE scheduler_log ADD COLUMN late INTEGER NOT NULL DEFAULT 0');
 
 migrate('ALTER TABLE members ADD COLUMN pending INTEGER NOT NULL DEFAULT 0');
 
+// ── Warbands (canonical, normalized) ────────────────────────────────────────
+migrate(`CREATE TABLE IF NOT EXISTS warbands (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL UNIQUE,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    archived    INTEGER NOT NULL DEFAULT 0
+)`);
+migrate('ALTER TABLE members ADD COLUMN warband_id INTEGER REFERENCES warbands(id)');
+migrate('ALTER TABLE member_snapshots ADD COLUMN warband_id INTEGER REFERENCES warbands(id)');
+
+// Seed the known warbands (idempotent) and backfill ids from existing text.
+{
+    const seed = db.prepare('INSERT OR IGNORE INTO warbands (name, sort_order) VALUES (?, ?)');
+    ['RKF RiffRaff', 'RKF Kings', 'Sobaquitos'].forEach((n, i) => seed.run(n, i));
+    // Adopt any other non-empty warband text already in the data as a warband row
+    db.prepare(`INSERT OR IGNORE INTO warbands (name)
+                SELECT DISTINCT warband FROM member_snapshots
+                WHERE warband <> '' AND warband NOT IN (SELECT name FROM warbands)`).run();
+    // Link snapshot + member rows to warband ids where not yet set
+    db.prepare(`UPDATE member_snapshots
+                SET warband_id = (SELECT id FROM warbands WHERE name = member_snapshots.warband)
+                WHERE warband_id IS NULL AND warband <> ''`).run();
+    db.prepare(`UPDATE members
+                SET warband_id = (
+                    SELECT ms.warband_id FROM member_snapshots ms
+                    WHERE ms.member_id = members.id AND ms.warband_id IS NOT NULL
+                    ORDER BY ms.snapshot_id DESC LIMIT 1)
+                WHERE warband_id IS NULL`).run();
+}
+
 /**
  * Merge duplicate members: repoint all of dropId's data onto keepId, alias the
  * dropped name, and delete the dropped row. Used to collapse OCR phantom dupes
@@ -199,5 +229,49 @@ function mergeMembers(keepId, dropId) {
     return keepId;
 }
 
+/** List warbands (active first, by sort order). */
+function getWarbands(includeArchived = false) {
+    return db.prepare(`SELECT * FROM warbands ${includeArchived ? '' : 'WHERE archived = 0'}
+                       ORDER BY archived, sort_order, name COLLATE NOCASE`).all();
+}
+
+/**
+ * Rename a warband in one place. Updates the canonical row and re-syncs the
+ * denormalized text cache on member_snapshots so every view follows immediately.
+ */
+function renameWarband(id, newName) {
+    newName = String(newName || '').trim();
+    if (!newName) throw new Error('Warband name required');
+    const clash = db.prepare('SELECT id FROM warbands WHERE name = ? AND id != ?').get(newName, id);
+    if (clash) throw new Error('A warband with that name already exists');
+    const tx = db.transaction(() => {
+        db.prepare('UPDATE warbands SET name = ? WHERE id = ?').run(newName, id);
+        db.prepare('UPDATE member_snapshots SET warband = ? WHERE warband_id = ?').run(newName, id);
+    });
+    tx();
+}
+
+/**
+ * Set a member's current warband (manual override). Also stamps their latest
+ * snapshot row so /guild views reflect it without waiting for a re-scan.
+ * Pass warbandId = null to clear.
+ */
+function setMemberWarband(memberId, warbandId) {
+    warbandId = warbandId ? Number(warbandId) : null;
+    const name = warbandId ? (db.prepare('SELECT name FROM warbands WHERE id = ?').get(warbandId)?.name ?? '') : '';
+    const latest = db.prepare('SELECT MAX(id) AS id FROM snapshots').get()?.id;
+    const tx = db.transaction(() => {
+        db.prepare('UPDATE members SET warband_id = ? WHERE id = ?').run(warbandId, memberId);
+        if (latest) {
+            db.prepare('UPDATE member_snapshots SET warband_id = ?, warband = ? WHERE member_id = ? AND snapshot_id = ?')
+                .run(warbandId, name, memberId, latest);
+        }
+    });
+    tx();
+}
+
 module.exports = db;
 module.exports.mergeMembers = mergeMembers;
+module.exports.getWarbands = getWarbands;
+module.exports.renameWarband = renameWarband;
+module.exports.setMemberWarband = setMemberWarband;
