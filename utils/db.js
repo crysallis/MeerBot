@@ -156,24 +156,35 @@ migrate(`CREATE TABLE IF NOT EXISTS warbands (
 migrate('ALTER TABLE members ADD COLUMN warband_id INTEGER REFERENCES warbands(id)');
 migrate('ALTER TABLE member_snapshots ADD COLUMN warband_id INTEGER REFERENCES warbands(id)');
 
-// Seed the known warbands (idempotent) and backfill ids from existing text.
-{
-    const seed = db.prepare('INSERT OR IGNORE INTO warbands (name, sort_order) VALUES (?, ?)');
-    ['RKF RiffRaff', 'RKF Kings', 'Sobaquitos'].forEach((n, i) => seed.run(n, i));
-    // Adopt any other non-empty warband text already in the data as a warband row
-    db.prepare(`INSERT OR IGNORE INTO warbands (name)
-                SELECT DISTINCT warband FROM member_snapshots
-                WHERE warband <> '' AND warband NOT IN (SELECT name FROM warbands)`).run();
-    // Link snapshot + member rows to warband ids where not yet set
-    db.prepare(`UPDATE member_snapshots
-                SET warband_id = (SELECT id FROM warbands WHERE name = member_snapshots.warband)
-                WHERE warband_id IS NULL AND warband <> ''`).run();
-    db.prepare(`UPDATE members
-                SET warband_id = (
-                    SELECT ms.warband_id FROM member_snapshots ms
-                    WHERE ms.member_id = members.id AND ms.warband_id IS NOT NULL
-                    ORDER BY ms.snapshot_id DESC LIMIT 1)
-                WHERE warband_id IS NULL`).run();
+// Seed the known warbands + backfill ids from existing text. Guarded so normal
+// startups stay read-only (no write-lock contention) and a transient lock never
+// crashes boot — the one-time migration just runs on a later start instead.
+try {
+    if (db.prepare('SELECT COUNT(*) AS n FROM warbands').get().n === 0) {
+        const seed = db.prepare('INSERT OR IGNORE INTO warbands (name, sort_order) VALUES (?, ?)');
+        ['RKF RiffRaff', 'RKF Kings', 'Sobaquitos'].forEach((n, i) => seed.run(n, i));
+    }
+    // Only backfill while unmigrated rows exist (no-op — and no writes — once done)
+    const needsBackfill = db.prepare(
+        "SELECT 1 FROM member_snapshots WHERE warband_id IS NULL AND warband <> '' LIMIT 1").get();
+    if (needsBackfill) {
+        db.prepare(`INSERT OR IGNORE INTO warbands (name)
+                    SELECT DISTINCT warband FROM member_snapshots
+                    WHERE warband <> '' AND warband NOT IN (SELECT name FROM warbands)`).run();
+        db.prepare(`UPDATE member_snapshots
+                    SET warband_id = (SELECT id FROM warbands WHERE name = member_snapshots.warband)
+                    WHERE warband_id IS NULL AND warband <> ''`).run();
+        db.prepare(`UPDATE members
+                    SET warband_id = (
+                        SELECT ms.warband_id FROM member_snapshots ms
+                        WHERE ms.member_id = members.id AND ms.warband_id IS NOT NULL
+                        ORDER BY ms.snapshot_id DESC LIMIT 1)
+                    WHERE warband_id IS NULL
+                      AND EXISTS (SELECT 1 FROM member_snapshots ms
+                                  WHERE ms.member_id = members.id AND ms.warband_id IS NOT NULL)`).run();
+    }
+} catch (e) {
+    console.warn('[DB warband migration deferred]', e.message);
 }
 
 /**

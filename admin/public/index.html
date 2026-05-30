@@ -1355,9 +1355,13 @@ function renderMembers() {
       : (m.active ? '<span style="color:#2f9e44">active</span>' : '<span style="color:var(--muted)">inactive</span>');
     const approveBtn = m.pending
       ? `<button class="save-btn" style="background:#2f9e44;padding:3px 8px" onclick="approveMember(${m.id})">Approve</button>` : '';
+    const wbOptions = warbandsList.filter(w => !w.archived)
+      .map(w => `<option value="${w.id}"${m.warband_id === w.id ? ' selected' : ''}>${escapeHtml(w.name)}</option>`).join('');
+    const wbSelect = `<select onchange="setWarband(${m.id}, this.value)" style="background:#1e1f22;color:#dbdee1;border:1px solid #3a3c41;border-radius:4px;padding:2px 4px">`
+      + `<option value=""${m.warband_id ? '' : ' selected'}>— none —</option>${wbOptions}</select>`;
     return `<tr>
       <td><b>${escapeHtml(m.ingame_name)}</b></td>
-      <td>${escapeHtml(m.warband || '')}</td>
+      <td>${wbSelect}</td>
       <td>${escapeHtml(m.combat_power || '')}</td>
       <td>${discord}</td>
       <td>${status}</td>
@@ -1365,7 +1369,6 @@ function renderMembers() {
         ${approveBtn}
         <button class="save-btn" style="padding:3px 8px" onclick="renameMember(${m.id})">Rename</button>
         <button class="save-btn" style="padding:3px 8px" onclick="linkMember(${m.id})">Link</button>
-        <button class="save-btn" style="padding:3px 8px" onclick="setWarband(${m.id})">Warband</button>
         <button class="save-btn" style="padding:3px 8px" onclick="mergeMemberPrompt(${m.id})">Merge</button>
       </td>
     </tr>`;
@@ -1429,24 +1432,14 @@ async function mergeMemberPrompt(dropId) {
   await loadMembers();
 }
 
-async function setWarband(id) {
-  const m = findMember(id); if (!m) return;
-  const active = warbandsList.filter(w => !w.archived);
-  const choices = active.map((w, i) => `${i + 1}. ${w.name}`).join('\n');
-  const ans = prompt(`Set warband for "${m.ingame_name}":\n${choices}\n\nEnter a number (0 or blank to clear):`);
-  if (ans === null) return;
-  const n = parseInt(ans, 10);
-  let warband_id = null;
-  if (ans.trim() && n !== 0) {
-    if (!active[n - 1]) { alert('Invalid choice.'); return; }
-    warband_id = active[n - 1].id;
-  }
+async function setWarband(id, value) {
+  const warband_id = value ? Number(value) : null;  // '' (— none —) → null, never '' (avoids FK error)
   const res = await fetch(`/api/members/${id}/warband`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ warband_id }),
   });
   const data = await res.json();
-  if (!data.ok) { alert('Failed: ' + data.error); return; }
+  if (!data.ok) { alert('Failed: ' + data.error); }
   await loadMembers();
 }
 
