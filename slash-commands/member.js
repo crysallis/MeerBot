@@ -80,7 +80,7 @@ module.exports = {
         const lookupName = current.ingame_name;
 
         const history = db.prepare(`
-            SELECT s.scraped_at, ms.combat_power_value, ms.warband, ms.last_active
+            SELECT s.scraped_at, ms.combat_power_value, ms.warband
             FROM member_snapshots ms
             JOIN snapshots s ON s.id = ms.snapshot_id
             JOIN members m ON m.id = ms.member_id
@@ -91,7 +91,7 @@ module.exports = {
 
         const chronological = [...history].reverse();
         const histLines = history.map(h =>
-            `${h.scraped_at.slice(0, 10)} | ${fmtPower(h.combat_power_value).padStart(6)} | ${(h.warband || '·').padEnd(16)} | ${h.last_active}`
+            `${h.scraped_at.slice(0, 10)} | ${fmtPower(h.combat_power_value).padStart(6)} | ${h.warband || '·'}`
         );
 
         let powerGrowth = '·';
@@ -116,7 +116,7 @@ module.exports = {
             .setColor(color);
 
         if (histLines.length) {
-            const header = `${'Date'.padEnd(10)} | ${'Power'.padStart(6)} | ${'Warband'.padEnd(16)} | Last Active`;
+            const header = `${'Date'.padEnd(10)} | ${'Power'.padStart(6)} | Warband`;
             embed.setDescription('**Snapshot History**\n```\n' + header + '\n' + histLines.join('\n') + '\n```');
         }
 
