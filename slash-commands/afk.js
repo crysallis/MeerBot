@@ -1,6 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
-const { enforce } = require('../utils/permissions');
 const { pickColor } = require('../utils/colors');
 
 function getMemberByName(name) {
@@ -27,7 +26,7 @@ module.exports = {
     autocomplete,
     data: new SlashCommandBuilder()
         .setName('afk')
-        .setDescription('Manage AFK status for guild members (Riff/Raff only)')
+        .setDescription('Manage AFK status for guild members')
         .addSubcommand(s => s
             .setName('set')
             .setDescription('Mark a member as AFK (exempts from inactivity alerts)')
@@ -46,7 +45,6 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        if (!(await enforce(interaction, 'riffOrRaff'))) return;
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'set') {
