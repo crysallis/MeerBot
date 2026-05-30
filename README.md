@@ -122,6 +122,8 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/afk list` | List all currently AFK members |
 | `/birthday test [user:]` | Preview the birthday embed (admin only) |
 
+> `/afk` has no code-enforced role gate — its access is managed entirely via Discord's **Server Settings → Integrations → Command Permissions**. (`/rename` and `/review` still enforce the Riff/Raff role in code as a backstop.)
+
 ### Visual indicators
 
 List commands show badges inline with member names:
