@@ -1,8 +1,6 @@
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
-const { buildBirthdayEmbed } = require('../utils/handlers/birthdayCheck');
 const { pickColor } = require('../utils/colors');
-const { enforce } = require('../utils/permissions');
 
 const DAYS_IN_MONTH = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
@@ -33,11 +31,6 @@ module.exports = {
         .addSubcommand(s => s
             .setName('remove')
             .setDescription('Remove your registered birthday')
-        )
-        .addSubcommand(s => s
-            .setName('test')
-            .setDescription('(Admin) Preview the birthday embed for a user')
-            .addUserOption(o => o.setName('user').setDescription('User to preview for (defaults to you)').setRequired(false))
         ),
 
     async execute(interaction) {
@@ -70,14 +63,6 @@ module.exports = {
                 return interaction.reply({ content: `You don't have a birthday registered.`, flags: MessageFlags.Ephemeral });
             }
             return interaction.reply({ content: `🗑️ Your birthday has been removed.`, flags: MessageFlags.Ephemeral });
-        }
-
-        if (sub === 'test') {
-            if (!(await enforce(interaction, 'riffOrRaff'))) return;
-            const target = interaction.options.getUser('user') ?? interaction.user;
-            const bday = db.prepare('SELECT month, day FROM birthdays WHERE user_id = ? AND guild_id = ?').get(target.id, interaction.guildId);
-            const { content, embed } = buildBirthdayEmbed(target.id, target.username, bday?.month, bday?.day);
-            return interaction.reply({ content, embeds: [embed] });
         }
 
         if (sub === 'list') {

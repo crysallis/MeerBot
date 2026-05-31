@@ -1,6 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
-const { enforce } = require('../utils/permissions');
 const { pickColor } = require('../utils/colors');
 
 function getMemberByName(name) {
@@ -25,7 +24,7 @@ module.exports = {
     autocomplete,
     data: new SlashCommandBuilder()
         .setName('note')
-        .setDescription('Guild leader notes on members (Riff/Raff only)')
+        .setDescription('Guild leader notes on members')
         .addSubcommand(s => s
             .setName('add')
             .setDescription('Add a note to a member')
@@ -44,7 +43,6 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        if (!(await enforce(interaction, 'riffOrRaff'))) return;
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'add') {

@@ -48,32 +48,10 @@ function findMatches(today) {
         .filter(m => m.label);
 }
 
-function buildEmbed(matches, date, isPreview) {
-    const lines = matches.map(m => {
-        const mention = m.discord_id ? `<@${m.discord_id}> / ` : '';
-        return `· ${mention}**${m.ingame_name}** · ${m.label} with the guild`;
-    });
-
-    const title = `🎉 Guild Anniversaries · ${date.toISOString().slice(0, 10)}${isPreview ? ' (preview)' : ''}`;
-    return new EmbedBuilder()
-        .setTitle(title)
-        .setDescription(lines.join('\n') + '\n\nThanks for being part of the guild! 🦡')
-        .setColor(pickColor());
-}
-
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('anniversary')
         .setDescription('Guild anniversary tools')
-        .addSubcommand(s => s
-            .setName('test')
-            .setDescription('Preview the anniversary embed for a date (defaults to today). Posts in current channel.')
-            .addStringOption(o => o
-                .setName('date')
-                .setDescription('YYYY-MM-DD (default: today). Try a future date to preview upcoming.')
-                .setRequired(false)
-            )
-        )
         .addSubcommand(s => s
             .setName('list')
             .setDescription('Show the next N upcoming anniversaries (default 5)')
@@ -99,28 +77,6 @@ module.exports = {
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
-
-        if (sub === 'test') {
-            const dateStr = interaction.options.getString('date');
-            const date = dateStr ? new Date(`${dateStr}T00:00:00Z`) : new Date();
-            if (isNaN(date)) {
-                return interaction.reply({ content: '❌ Invalid date. Use `YYYY-MM-DD`.', flags: MessageFlags.Ephemeral });
-            }
-
-            const matches = findMatches(date);
-            if (matches.length === 0) {
-                return interaction.reply({
-                    content: `No anniversaries on ${date.toISOString().slice(0, 10)}.`,
-                    flags: MessageFlags.Ephemeral,
-                });
-            }
-
-            // Suppress pings in preview so test runs don't notify members
-            return interaction.reply({
-                embeds: [buildEmbed(matches, date, true)],
-                allowedMentions: { parse: [] },
-            });
-        }
 
         if (sub === 'list') {
             const count = interaction.options.getInteger('count') ?? 5;

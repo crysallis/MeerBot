@@ -103,9 +103,8 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/schedule` | View all scheduled system jobs with last/next runs (ephemeral) |
 | `/anniversary list count:` | Next N upcoming guild anniversaries (default 5, ephemeral) |
 | `/anniversary upcoming days:` | All anniversaries in the next N days (default 30, ephemeral) |
-| `/anniversary test date:` | Preview the anniversary embed for a date in the current channel |
 
-### Admin commands (Manage Server permission required)
+### Leader / admin commands
 
 | Command | Description |
 |---|---|
@@ -120,9 +119,8 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/afk set name:` | Mark a member AFK, exempts from inactivity alerts |
 | `/afk clear name:` | Remove AFK status |
 | `/afk list` | List all currently AFK members |
-| `/birthday test [user:]` | Preview the birthday embed (admin only) |
 
-> `/afk` has no code-enforced role gate — its access is managed entirely via Discord's **Server Settings → Integrations → Command Permissions**. (`/rename` and `/review` still enforce the Riff/Raff role in code as a backstop.)
+> **Permissions:** `/afk`, `/rename`, and `/note` have no code-enforced role gate — set access via Discord's **Server Settings → Integrations → Command Permissions** (point them at your guild-leader roles). `/review` is locked in code to the authorized scan user (same as `/scan`), since it's part of the scan/cleanup workflow.
 
 ### Visual indicators
 
@@ -167,12 +165,12 @@ MeerBot/
         review.js               /review list/approve/merge for scanner-flagged pending members.
         note.js                 /note add/view/delete.
         afk.js                  /afk set/clear/list.
-        birthday.js             /birthday register/list/remove/test.
+        birthday.js             /birthday register/list/remove.
         help.js                 /help with permission-aware filtering.
         ping.js                 /ping health check with tiered quips.
         remindme.js             /remindme set / list / cancel personal reminders.
         schedule.js             /schedule view all system jobs with last/next runs.
-        anniversary.js          /anniversary list / upcoming / test.
+        anniversary.js          /anniversary list / upcoming.
     utils/
         db.js                   SQLite connection, schema creation, idempotent migrations.
         botConfig.js            DB-backed config store. get(key) reads DB > ENV > default.

@@ -1,12 +1,11 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { mergeMembers } = db;
-const { enforce } = require('../utils/permissions');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('rename')
-        .setDescription('Rename a guild member in the database (Riff/Raff only)')
+        .setDescription('Rename a guild member in the database')
         .addStringOption(opt =>
             opt.setName('old_name')
                 .setDescription('Current in-game name')
@@ -30,7 +29,6 @@ module.exports = {
     },
 
     async execute(interaction) {
-        if (!(await enforce(interaction, 'riffOrRaff'))) return;
         const oldName = interaction.options.getString('old_name');
         const newName = interaction.options.getString('new_name').trim();
 

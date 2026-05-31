@@ -27,7 +27,7 @@ function rosterNames() {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('review')
-        .setDescription('Review members the scanner flagged as new/unrecognized (Riff/Raff only)')
+        .setDescription('Review members the scanner flagged as new/unrecognized (scan user only)')
         .addSubcommand(s => s
             .setName('list')
             .setDescription('List pending members awaiting review'))
@@ -53,7 +53,7 @@ module.exports = {
     },
 
     async execute(interaction) {
-        if (!(await enforce(interaction, 'riffOrRaff'))) return;
+        if (!(await enforce(interaction, 'scanUser'))) return;
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'list') {

@@ -48,11 +48,11 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `/afk set/clear/list` | AFK management · set_by stores Discord user ID (not username) |
 | `/link` | Links a Discord user to an in-game name |
 | `/rename` | Corrects an in-game name · merges into the target via `mergeMembers` if that name already exists |
-| `/review` | list / approve / merge · manage members the scanner flagged `pending` (Riff/Raff only) |
+| `/review` | list / approve / merge · manage members the scanner flagged `pending` (scan user only · same gate as /scan) |
 | `/note` | Adds/views notes on a member |
-| `/birthday` | Birthday registration + test subcommand |
+| `/birthday` | Birthday registration (register / list / remove) |
 | `/schedule` | View scheduled jobs with last/next runs · ephemeral, no hardcoded restriction (use Discord role permissions if needed) |
-| `/anniversary` | list / upcoming / test · ephemeral except `test` which posts the embed in the current channel with pings suppressed |
+| `/anniversary` | list / upcoming · upcoming guild anniversaries (ephemeral) |
 
 ## Database Tables (key ones)
 - `members` · ingame_name (canonical, UNIQUE), discord_id, first_seen, active, `pending` (scanner couldn't match read → awaiting /review), `warband_id` (current warband · synced from scan, manually overridable)

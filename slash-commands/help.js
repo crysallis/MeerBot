@@ -9,7 +9,6 @@ const COMMANDS = {
             { name: '/birthday register month: day:', desc: 'Register your birthday. Day is validated against the month (Feb 29 is allowed for leap-day births).' },
             { name: '/birthday list',                       desc: 'List all registered birthdays, sorted by month/day. Shows in-game name if linked.' },
             { name: '/birthday remove',                     desc: 'Remove your registered birthday.' },
-            { name: '/birthday test [user:]',               desc: 'Preview the birthday embed for a user in the current channel.', perm: 'riffOrRaff' },
         ],
     },
     guild: {
@@ -43,7 +42,7 @@ const COMMANDS = {
         description: 'Link a Discord account to an in-game name.',
         subcommands: [
             { name: '/link ingame_name:',       desc: 'Link yourself. Name autocompletes from latest snapshot.' },
-            { name: '/link ingame_name: user:', desc: 'Link a different Discord user.', perm: 'riffOrRaff' },
+            { name: '/link ingame_name: user:', desc: 'Link a different Discord user.', perm: 'admin' },
         ],
     },
     scan: {
@@ -58,7 +57,6 @@ const COMMANDS = {
         subcommands: [
             { name: '/anniversary list count:', desc: 'Show the next N upcoming anniversaries (default 5, max 20). Ephemeral.' },
             { name: '/anniversary upcoming days:', desc: 'Show all anniversaries in the next N days (default 30, max 365). Ephemeral.' },
-            { name: '/anniversary test date:', desc: 'Preview the anniversary embed for a date in the current channel. Pings suppressed.' },
         ],
     },
     remindme: {
@@ -77,14 +75,12 @@ const COMMANDS = {
     },
     rename: {
         description: 'Rename a guild member in the database.',
-        perm: 'riffOrRaff',
         subcommands: [
             { name: '/rename old_name: new_name:', desc: 'Updates the member record, logs the change to history, and adds a name correction so future scans map correctly.' },
         ],
     },
     note: {
         description: 'Guild leader notes on members.',
-        perm: 'riffOrRaff',
         subcommands: [
             { name: '/note add name: text:', desc: 'Add a note to a member.' },
             { name: '/note view name:',      desc: 'View all notes for a member, with IDs and timestamps.' },
@@ -93,7 +89,7 @@ const COMMANDS = {
     },
     review: {
         description: 'Review members the scanner flagged as new or unrecognized (pending).',
-        perm: 'riffOrRaff',
+        perm: 'scanUser',
         subcommands: [
             { name: '/review list',                          desc: 'List pending members awaiting review, with power and warband.' },
             { name: '/review approve name:',                 desc: 'Confirm a pending member is real and correctly named.' },
@@ -175,11 +171,11 @@ module.exports = {
         // Top-level list · only commands the caller can run
         const visible = visibleCommands(interaction);
         const summaries = {
-            birthday: 'Register · list · remove · test birthdays',
+            birthday: 'Register · list · remove birthdays',
             guild: 'power · top · inactive · activeness · growth · nogrowth · status · newcomers · chart',
             member: 'Look up a member by name or @mention',
             link: 'Link your Discord to your in-game name',
-            anniversary: 'list · upcoming · test',
+            anniversary: 'list · upcoming',
             remindme: 'Set · list · cancel personal reminders',
             ping: 'Latency check with a quip',
             scan: 'Trigger a guild scan',

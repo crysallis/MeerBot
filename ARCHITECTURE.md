@@ -216,15 +216,13 @@ Day validation uses a hardcoded days-per-month array with February set to 29 so 
 const DAYS_IN_MONTH = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 ```
 
-The `/birthday test` subcommand calls `buildBirthdayEmbed()` from `utils/handlers/birthdayCheck.js`, which is the same function used by the real daily check. This ensures the preview is pixel-accurate to the real message.
-
 ---
 
 ## utils/handlers/birthdayCheck.js
 
 ### Embed builder
 
-`buildBirthdayEmbed(userId, username, month, day)` is a pure function (no side effects, no Discord API calls). It queries the DB for the linked guild member, constructs the embed, and returns `{ content, embed, displayName }`. Both the scheduler and the `/birthday test` command call this same function.
+`buildBirthdayEmbed(userId, username, month, day)` is a pure function (no side effects, no Discord API calls). It queries the DB for the linked guild member, constructs the embed, and returns `{ content, embed, displayName }`. The scheduled daily birthday check calls it.
 
 ### Year-over-year power growth
 
