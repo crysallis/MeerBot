@@ -26,22 +26,22 @@ module.exports = {
     autocomplete,
     data: new SlashCommandBuilder()
         .setName('afk')
-        .setDescription('Manage AFK status for guild members')
+        .setDescription('Manage AF AFK status for guild members')
         .addSubcommand(s => s
             .setName('set')
-            .setDescription('Mark a member as AFK (exempts from inactivity alerts)')
+            .setDescription('Mark a member as AF AFK (exempts from inactivity alerts)')
             .addStringOption(o => o.setName('name').setDescription('Member name').setRequired(true).setAutocomplete(true))
             .addStringOption(o => o.setName('reason').setDescription('Reason').setRequired(true))
             .addStringOption(o => o.setName('return_date').setDescription('Expected return (e.g. 2025-06-01)').setRequired(false))
         )
         .addSubcommand(s => s
             .setName('clear')
-            .setDescription('Remove AFK status from a member')
+            .setDescription('Remove AF AFK status from a member')
             .addStringOption(o => o.setName('name').setDescription('Member name').setRequired(true).setAutocomplete(true))
         )
         .addSubcommand(s => s
             .setName('list')
-            .setDescription('List all members currently marked AFK')
+            .setDescription('List all members currently marked AF AFK')
         ),
 
     async execute(interaction) {
