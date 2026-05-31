@@ -24,6 +24,11 @@ function rosterNames() {
         .all().map(r => r.ingame_name);
 }
 
+function inactiveNames() {
+    return db.prepare('SELECT ingame_name FROM members WHERE active = 0 ORDER BY ingame_name COLLATE NOCASE')
+        .all().map(r => r.ingame_name);
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('review')
@@ -42,12 +47,27 @@ module.exports = {
             .addStringOption(o => o
                 .setName('pending_name').setDescription('Pending (duplicate) name').setRequired(true).setAutocomplete(true))
             .addStringOption(o => o
-                .setName('into_name').setDescription('Existing member to merge into').setRequired(true).setAutocomplete(true))),
+                .setName('into_name').setDescription('Existing member to merge into').setRequired(true).setAutocomplete(true)))
+        .addSubcommand(s => s
+            .setName('remove')
+            .setDescription('Mark a member as left the guild (sets them inactive)')
+            .addStringOption(o => o
+                .setName('name').setDescription('Member who left').setRequired(true).setAutocomplete(true)))
+        .addSubcommand(s => s
+            .setName('return')
+            .setDescription('Reactivate a member previously marked inactive')
+            .addStringOption(o => o
+                .setName('name').setDescription('Inactive member to reactivate').setRequired(true).setAutocomplete(true))),
 
     async autocomplete(interaction) {
         const focusedOpt = interaction.options.getFocused(true);
         const focused = focusedOpt.value.toLowerCase();
-        const source = focusedOpt.name === 'into_name' ? rosterNames() : pendingNames();
+        const sub = interaction.options.getSubcommand();
+        let source;
+        if (focusedOpt.name === 'into_name') source = rosterNames();
+        else if (sub === 'remove') source = rosterNames();
+        else if (sub === 'return') source = inactiveNames();
+        else source = pendingNames();  // list/approve/merge pending_name
         const filtered = source.filter(n => n.toLowerCase().includes(focused)).slice(0, 25);
         await interaction.respond(filtered.map(n => ({ name: n, value: n })));
     },
@@ -96,6 +116,24 @@ module.exports = {
             if (keep.id === drop.id) return interaction.reply({ content: '❌ Pick two different members.', flags: MessageFlags.Ephemeral });
             mergeMembers(keep.id, drop.id);
             return interaction.reply({ content: `✅ Merged **${pendingName}** into **${intoName}** (duplicate removed).`, flags: MessageFlags.Ephemeral });
+        }
+
+        if (sub === 'remove') {
+            const name = interaction.options.getString('name').trim();
+            const m = db.prepare('SELECT id, active FROM members WHERE ingame_name = ?').get(name);
+            if (!m) return interaction.reply({ content: `❌ **${name}** not found.`, flags: MessageFlags.Ephemeral });
+            if (m.active === 0) return interaction.reply({ content: `**${name}** is already inactive.`, flags: MessageFlags.Ephemeral });
+            db.prepare('UPDATE members SET active = 0 WHERE id = ?').run(m.id);
+            return interaction.reply({ content: `✅ **${name}** marked as left (inactive). They will reactivate automatically if scanned again.`, flags: MessageFlags.Ephemeral });
+        }
+
+        if (sub === 'return') {
+            const name = interaction.options.getString('name').trim();
+            const m = db.prepare('SELECT id, active FROM members WHERE ingame_name = ?').get(name);
+            if (!m) return interaction.reply({ content: `❌ **${name}** not found.`, flags: MessageFlags.Ephemeral });
+            if (m.active === 1) return interaction.reply({ content: `**${name}** is already active.`, flags: MessageFlags.Ephemeral });
+            db.prepare('UPDATE members SET active = 1 WHERE id = ?').run(m.id);
+            return interaction.reply({ content: `✅ **${name}** reactivated. (Re-evaluated on the next scan.)`, flags: MessageFlags.Ephemeral });
         }
     },
 };

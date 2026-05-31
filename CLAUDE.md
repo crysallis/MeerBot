@@ -48,14 +48,14 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `/afk set/clear/list` | AFK management · set_by stores Discord user ID (not username) |
 | `/link` | Links a Discord user to an in-game name |
 | `/rename` | Corrects an in-game name · merges into the target via `mergeMembers` if that name already exists |
-| `/review` | list / approve / merge · manage members the scanner flagged `pending` (scan user only · same gate as /scan) |
+| `/review` | list / approve / merge / remove / return · manage `pending` members + mark members left (`remove` → inactive) or reactivate (`return`) · scan user only |
 | `/note` | Adds/views notes on a member |
 | `/birthday` | Birthday registration (register / list / remove) |
 | `/schedule` | View scheduled jobs with last/next runs · ephemeral, no hardcoded restriction (use Discord role permissions if needed) |
 | `/anniversary` | list / upcoming · upcoming guild anniversaries (ephemeral) |
 
 ## Database Tables (key ones)
-- `members` · ingame_name (canonical, UNIQUE), discord_id, first_seen, active, `pending` (scanner couldn't match read → awaiting /review), `warband_id` (current warband · synced from scan, manually overridable)
+- `members` · ingame_name (canonical, UNIQUE), discord_id, first_seen, `active` (latest-scan-only · 1 iff read in the most recent scan, else 0 · re-found = auto-reactivated), `last_scanned_at` (when last actually read by a scan), `pending` (scanner couldn't match read → awaiting /review), `warband_id` (current warband · synced from scan, manually overridable)
 - `warbands` · canonical warband list (id, name UNIQUE, sort_order, archived) · rename here propagates everywhere
 - `snapshots` · one row per scan run
 - `member_snapshots` · power/activeness per member per snapshot
