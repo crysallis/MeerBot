@@ -147,7 +147,7 @@ async function handlePower(interaction, snapshot) {
     const rows = db.prepare(`
         SELECT ms.member_id, COALESCE(m.ingame_name, ms.name) AS name, ms.combat_power_value
         FROM member_snapshots ms
-        LEFT JOIN members m ON m.id = ms.member_id
+        JOIN members m ON m.id = ms.member_id AND m.active = 1
         WHERE ms.snapshot_id = ? ${clause}
         ORDER BY ms.combat_power_value DESC
     `).all(snapshot.id, ...extra);
@@ -176,7 +176,7 @@ async function handleTop(interaction, snapshot) {
     const rows = db.prepare(`
         SELECT ms.member_id, COALESCE(m.ingame_name, ms.name) AS name, ms.combat_power_value
         FROM member_snapshots ms
-        LEFT JOIN members m ON m.id = ms.member_id
+        JOIN members m ON m.id = ms.member_id AND m.active = 1
         WHERE ms.snapshot_id = ? ${clause}
         ORDER BY ms.combat_power_value DESC
         LIMIT ?
@@ -205,7 +205,7 @@ async function handleInactive(interaction, snapshot) {
     const rows = db.prepare(`
         SELECT ms.member_id, COALESCE(m.ingame_name, ms.name) AS name, ms.last_active, ms.activeness
         FROM member_snapshots ms
-        LEFT JOIN members m ON m.id = ms.member_id
+        JOIN members m ON m.id = ms.member_id AND m.active = 1
         WHERE ms.snapshot_id = ? ${clause}
         ORDER BY ms.last_seen_approx ASC
     `).all(snapshot.id, ...extra);
@@ -233,7 +233,7 @@ async function handleActiveness(interaction, snapshot) {
     const rows = db.prepare(`
         SELECT ms.member_id, COALESCE(m.ingame_name, ms.name) AS name, ms.activeness, ms.last_active
         FROM member_snapshots ms
-        LEFT JOIN members m ON m.id = ms.member_id
+        JOIN members m ON m.id = ms.member_id AND m.active = 1
         WHERE ms.snapshot_id = ? ${clause}
         ORDER BY ms.activeness ASC
     `).all(snapshot.id, ...extra);
@@ -271,7 +271,7 @@ async function handleGrowth(interaction, snapshot) {
                ms1.combat_power_value  AS prev_power,
                (ms2.combat_power_value - COALESCE(ms1.combat_power_value, 0)) AS growth
         FROM member_snapshots ms2
-        LEFT JOIN members m ON m.id = ms2.member_id
+        JOIN members m ON m.id = ms2.member_id AND m.active = 1
         LEFT JOIN member_snapshots ms1 ON ms1.member_id = ms2.member_id AND ms1.snapshot_id = ?
         WHERE ms2.snapshot_id = ? ${warbandClause}
         ORDER BY growth DESC
@@ -307,7 +307,9 @@ async function handleStatus(interaction, snapshot) {
                SUM(combat_power_value) AS total_power,
                SUM(CASE WHEN last_seen_approx >= datetime('now', '-1 day') THEN 1 ELSE 0 END) AS active_today,
                SUM(CASE WHEN activeness > 0 THEN 1 ELSE 0 END) AS active_week
-        FROM member_snapshots ms WHERE snapshot_id = ? ${clause}
+        FROM member_snapshots ms
+        JOIN members m ON m.id = ms.member_id AND m.active = 1
+        WHERE ms.snapshot_id = ? ${clause}
     `).get(snapshot.id, ...extra);
 
     const scope = warband ? `${warband} · ` : '';
@@ -342,7 +344,7 @@ async function handleNoGrowth(interaction, snapshot) {
                ms2.combat_power_value AS current_power,
                (ms2.combat_power_value - ms1.combat_power_value) AS growth
         FROM member_snapshots ms2
-        LEFT JOIN members m ON m.id = ms2.member_id
+        JOIN members m ON m.id = ms2.member_id AND m.active = 1
         JOIN member_snapshots ms1 ON ms1.member_id = ms2.member_id AND ms1.snapshot_id = ?
         WHERE ms2.snapshot_id = ?
           AND (ms2.combat_power_value - ms1.combat_power_value) <= 0
@@ -470,9 +472,8 @@ async function handleNewcomers(interaction, snapshot) {
     const rows = db.prepare(`
         SELECT COALESCE(m.ingame_name, ms2.name) AS name, ms2.combat_power, ms2.activeness
         FROM member_snapshots ms2
-        LEFT JOIN members m ON m.id = ms2.member_id
+        JOIN members m ON m.id = ms2.member_id AND m.active = 1
         WHERE ms2.snapshot_id = ?
-          AND ms2.member_id IS NOT NULL
           AND ms2.member_id NOT IN (
               SELECT member_id FROM member_snapshots
               WHERE snapshot_id = ? AND member_id IS NOT NULL
@@ -501,13 +502,14 @@ async function handleNewcomers(interaction, snapshot) {
 
 async function handleWarbands(interaction, snapshot) {
     const rows = db.prepare(`
-        SELECT warband,
+        SELECT ms.warband,
                COUNT(*) AS member_count,
-               SUM(combat_power_value) AS total_power,
-               ROUND(AVG(activeness)) AS avg_activeness
-        FROM member_snapshots
-        WHERE snapshot_id = ? AND warband != ''
-        GROUP BY warband
+               SUM(ms.combat_power_value) AS total_power,
+               ROUND(AVG(ms.activeness)) AS avg_activeness
+        FROM member_snapshots ms
+        JOIN members m ON m.id = ms.member_id AND m.active = 1
+        WHERE ms.snapshot_id = ? AND ms.warband != ''
+        GROUP BY ms.warband
         ORDER BY total_power DESC
     `).all(snapshot.id);
 
