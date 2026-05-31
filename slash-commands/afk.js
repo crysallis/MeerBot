@@ -72,7 +72,7 @@ module.exports = {
             const parts = [`✈️ **${member.ingame_name}** is now marked AFK.`];
             if (reason) parts.push(`Reason: ${reason}`);
             if (returnDate) parts.push(`Expected back: ${returnDate}`);
-            return interaction.reply({ content: parts.join('\n'), ephemeral: false });
+            return interaction.reply({ content: parts.join('\n') });
         }
 
         if (sub === 'clear') {
@@ -85,7 +85,7 @@ module.exports = {
             if (result.changes === 0) {
                 return interaction.reply({ content: `**${member.ingame_name}** was not marked AFK.`, flags: MessageFlags.Ephemeral });
             }
-            return interaction.reply({ content: `✅ AFK status cleared for **${member.ingame_name}**.`, ephemeral: false });
+            return interaction.reply({ content: `✅ AFK status cleared for **${member.ingame_name}**.` });
         }
 
         if (sub === 'list') {
