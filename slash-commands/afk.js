@@ -31,7 +31,7 @@ module.exports = {
             .setName('set')
             .setDescription('Mark a member as AFK (exempts from inactivity alerts)')
             .addStringOption(o => o.setName('name').setDescription('Member name').setRequired(true).setAutocomplete(true))
-            .addStringOption(o => o.setName('reason').setDescription('Reason').setRequired(false))
+            .addStringOption(o => o.setName('reason').setDescription('Reason').setRequired(true))
             .addStringOption(o => o.setName('return_date').setDescription('Expected return (e.g. 2025-06-01)').setRequired(false))
         )
         .addSubcommand(s => s
