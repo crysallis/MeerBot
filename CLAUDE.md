@@ -1,6 +1,6 @@
 # Discord Bot · MeerBot
 
-discord.js v15 · better-sqlite3 · PM2 · Node.js
+discord.js v14 · better-sqlite3 · PM2 · Node.js
 
 Companion to `C:\vscode\AFKDataMining`. Reads the shared guild DB.
 See global context at `C:\Users\crysa\.claude\CLAUDE.md`.
