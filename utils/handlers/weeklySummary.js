@@ -10,6 +10,16 @@ function fmtPower(val) {
     return `${(val / 1_000).toFixed(0)}K`;
 }
 
+function buildLines(rows) {
+    return rows.map((r, i) => {
+        const g = r.growth || 0;
+        const growthStr = g > 0 ? `+${fmtPower(g)}` : '+0';
+        return `${String(i + 1).padStart(2)}. ${r.name.padEnd(20)} ${fmtPower(r.combat_power_value).padStart(7)}  ${growthStr.padStart(7)}  ${String(r.activeness).padStart(4)}`;
+    });
+}
+
+const TABLE_HEADER = ' #  Name                   Power    Growth   Act';
+
 async function postWeeklySummary(client, channelId) {
     try {
         const latest = db.prepare('SELECT id, scraped_at FROM snapshots ORDER BY id DESC LIMIT 1').get();
@@ -28,9 +38,10 @@ async function postWeeklySummary(client, channelId) {
             ).get(latest.id);
         }
 
-        const rows = prev
+        const allRows = prev
             ? db.prepare(`
-                SELECT m.ingame_name AS name, ms2.combat_power_value, ms2.activeness,
+                SELECT m.ingame_name AS name, m.warband_id,
+                       ms2.combat_power_value, ms2.activeness,
                        (ms2.combat_power_value - COALESCE(ms1.combat_power_value, 0)) AS growth
                 FROM member_snapshots ms2
                 JOIN members m ON m.id = ms2.member_id AND m.active = 1
@@ -39,29 +50,36 @@ async function postWeeklySummary(client, channelId) {
                 ORDER BY growth DESC, ms2.combat_power_value DESC
               `).all(prev.id, latest.id)
             : db.prepare(`
-                SELECT m.ingame_name AS name, ms.combat_power_value, ms.activeness, 0 AS growth
+                SELECT m.ingame_name AS name, m.warband_id,
+                       ms.combat_power_value, ms.activeness, 0 AS growth
                 FROM member_snapshots ms
                 JOIN members m ON m.id = ms.member_id AND m.active = 1
                 WHERE ms.snapshot_id = ?
                 ORDER BY ms.combat_power_value DESC
               `).all(latest.id);
 
-        const lines = rows.map((r, i) => {
-            const g = r.growth || 0;
-            const growthStr = g > 0 ? `+${fmtPower(g)}` : '+0';
-            return `${String(i + 1).padStart(2)}. ${r.name.padEnd(20)} ${fmtPower(r.combat_power_value).padStart(7)}  ${growthStr.padStart(7)}  ${String(r.activeness).padStart(4)}`;
-        });
-
+        const warbands = db.prepare('SELECT * FROM warbands WHERE archived=0 ORDER BY sort_order').all();
         const weekOf = latest.scraped_at.slice(0, 10);
         const since = prev ? prev.scraped_at.slice(0, 10) : null;
-        const embed = new EmbedBuilder()
+        const footerText = since ? `Growth since ${since}` : 'No prior week baseline found';
+        const color = pickColor();
+
+        const top10Embed = new EmbedBuilder()
             .setTitle(`📊 Weekly Guild Summary — ${weekOf}`)
-            .setFooter({ text: since ? `Growth since ${since}` : 'No prior week baseline found' })
-            .setDescription('```\n #  Name                   Power    Growth   Act\n' + lines.join('\n') + '\n```')
-            .setColor(pickColor());
+            .setDescription('```\n' + TABLE_HEADER + '\n' + buildLines(allRows.slice(0, 10)).join('\n') + '\n```')
+            .setFooter({ text: footerText })
+            .setColor(color);
+
+        const warbandEmbeds = warbands.map(wb => {
+            const rows = allRows.filter(r => r.warband_id === wb.id);
+            return new EmbedBuilder()
+                .setTitle(`⚔️ ${wb.name}`)
+                .setDescription('```\n' + TABLE_HEADER + '\n' + buildLines(rows).join('\n') + '\n```')
+                .setColor(color);
+        });
 
         const channel = await client.channels.fetch(channelId);
-        await channel.send({ embeds: [embed] });
+        await channel.send({ embeds: [top10Embed, ...warbandEmbeds] });
     } catch (err) {
         console.error('[WeeklySummary] Error:', err);
     } finally {
