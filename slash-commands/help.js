@@ -106,6 +106,14 @@ const COMMANDS = {
             { name: '/afk list',                           desc: 'Show all currently AFK members.' },
         ],
     },
+    wishlist: {
+        description: 'Guild feature wishlist. Anyone can submit; use Discord permissions to restrict add/remove.',
+        subcommands: [
+            { name: '/wishlist add item: priority:', desc: 'Submit a new wishlist item with high / medium / low priority.' },
+            { name: '/wishlist list',                desc: 'View all wishlist items sorted by priority then date.' },
+            { name: '/wishlist remove id:',          desc: 'Remove a wishlist item by its ID.' },
+        ],
+    },
 };
 
 function visibleCommands(interaction) {
@@ -186,6 +194,7 @@ module.exports = {
             note: 'Add · view · delete notes on members',
             review: 'list · approve · merge · remove · return',
             afk: 'Set · clear · list AFK status',
+            wishlist: 'add · list · remove wishlist items',
         };
 
         const fields = visible.map(k => {

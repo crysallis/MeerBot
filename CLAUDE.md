@@ -53,6 +53,7 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `/birthday` | Birthday registration (register / list / remove) |
 | `/schedule` | View scheduled jobs with last/next runs · ephemeral, no hardcoded restriction (use Discord role permissions if needed) |
 | `/anniversary` | list / upcoming · upcoming guild anniversaries (ephemeral) |
+| `/wishlist` | add / list / remove · guild feature wishlist · permissions managed via Discord |
 
 ## Database Tables (key ones)
 - `members` · ingame_name (canonical, UNIQUE), discord_id, first_seen, `active` (latest-scan-only · 1 iff read in the most recent scan, else 0 · re-found = auto-reactivated), `last_scanned_at` (when last actually read by a scan), `pending` (scanner couldn't match read → awaiting /review), `warband_id` (current warband · synced from scan, manually overridable)
@@ -63,6 +64,7 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 - `scheduler_log` · sent_date dedup + full timestamp + late flag for auto-messages
 - `name_corrections` · OCR correction map
 - `bot_config` · key/value admin overrides · precedence: DB > ENV > hardcoded default
+- `wishlist` · id, item, priority (high/medium/low), submitted_by (Discord user ID), submitted_at
 
 ## Scheduled Messages
 Defined in `utils/scheduledMessages.js` MESSAGES array. Each entry has:

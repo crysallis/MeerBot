@@ -72,6 +72,14 @@ db.exec(`
     source       TEXT NOT NULL DEFAULT 'ocr'
   );
 
+  CREATE TABLE IF NOT EXISTS wishlist (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    item         TEXT NOT NULL,
+    priority     TEXT NOT NULL DEFAULT 'medium',
+    submitted_by TEXT NOT NULL,
+    submitted_at TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS member_notes (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     member_id   INTEGER NOT NULL REFERENCES members(id),
