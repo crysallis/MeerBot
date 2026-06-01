@@ -94,6 +94,8 @@ const COMMANDS = {
             { name: '/review list',                          desc: 'List pending members awaiting review, with power and warband.' },
             { name: '/review approve name:',                 desc: 'Confirm a pending member is real and correctly named.' },
             { name: '/review merge pending_name: into_name:', desc: 'Merge a pending duplicate into an existing member.' },
+            { name: '/review remove name:',                  desc: 'Mark a member who left the guild as inactive (drops from /guild views).' },
+            { name: '/review return name:',                  desc: 'Reactivate a member previously removed or gone inactive.' },
         ],
     },
     afk: {
@@ -182,7 +184,7 @@ module.exports = {
             schedule: 'View scheduled system jobs and last/next runs',
             rename: 'Rename a member in the database',
             note: 'Add · view · delete notes on members',
-            review: 'list · approve · merge pending members',
+            review: 'list · approve · merge · remove · return',
             afk: 'Set · clear · list AFK status',
         };
 
