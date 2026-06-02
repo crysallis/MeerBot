@@ -195,8 +195,6 @@ module.exports = {
             if (filterInterest) {
                 query += ' AND r.interest = ?';
                 params.push(filterInterest);
-            } else if (!filterStatus) {
-                query += " AND r.interest != 'none'";
             }
 
             if (filterServer) {
