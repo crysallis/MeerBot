@@ -72,6 +72,44 @@ db.exec(`
     source       TEXT NOT NULL DEFAULT 'ocr'
   );
 
+  CREATE TABLE IF NOT EXISTS ally_seasons (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    name   TEXT NOT NULL UNIQUE,
+    active INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS ally_servers (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    server_number INTEGER NOT NULL,
+    season_id     INTEGER NOT NULL REFERENCES ally_seasons(id) ON DELETE CASCADE,
+    UNIQUE(server_number, season_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_ally_servers_season ON ally_servers(season_id);
+
+  CREATE TABLE IF NOT EXISTS recruitment (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    name           TEXT NOT NULL,
+    power          INTEGER NOT NULL,
+    server_id      INTEGER REFERENCES ally_servers(id),
+    dr_rank        INTEGER,
+    sup_arena_rank INTEGER,
+    lab_rank       INTEGER,
+    dual_rank      INTEGER,
+    interest       TEXT NOT NULL DEFAULT 'unknown',
+    response       TEXT NOT NULL DEFAULT 'first_contact',
+    contacted_at   TEXT NOT NULL,
+    created_by     TEXT NOT NULL,
+    created_at     TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS recruitment_followups (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id         INTEGER NOT NULL REFERENCES scheduled_jobs(id) ON DELETE CASCADE,
+    user_id        TEXT NOT NULL,
+    recruitment_id INTEGER NOT NULL,
+    channel_id     TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS wishlist (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     item         TEXT NOT NULL,

@@ -10,7 +10,8 @@ const CONFIG_META = {
     COMMAND_LOG_CHANNEL_ID:      { label: 'Command Log Channel',       description: 'Channel for command audit log',           category: 'channels',    default: '' },
     INACTIVITY_ALERT_CHANNEL_ID: { label: 'Inactivity Alert Channel',  description: 'Channel for inactivity alerts post-scan', category: 'channels',    default: '' },
     SCAN_REMINDER_CHANNEL_ID:    { label: 'Scan Reminder Channel',     description: 'Channel for daily scan reminder',         category: 'channels',    default: '' },
-    WEEKLY_SUMMARY_CHANNEL_ID:   { label: 'Weekly Summary Channel',    description: 'Channel for Monday power summary',        category: 'channels',    default: '' },
+    WEEKLY_SUMMARY_CHANNEL_ID:          { label: 'Weekly Summary Channel',          description: 'Channel for Monday power summary',               category: 'channels',    default: '' },
+    RECRUITMENT_REMINDER_CHANNEL_ID:    { label: 'Recruitment Reminder Channel',    description: 'Channel for 2-day recruit follow-up pings',     category: 'channels',    default: '' },
     // --- Thresholds ---
     INACTIVITY_DAYS:             { label: 'Inactivity Days',           description: 'Days before flagging a member inactive',  category: 'thresholds',  default: '3' },
     LATE_WARNING_MINUTES:        { label: 'Late Warning Minutes',      description: 'Minutes late before adding a late footer',category: 'thresholds',  default: '30' },

@@ -106,6 +106,26 @@ const COMMANDS = {
             { name: '/afk list',                           desc: 'Show all currently AFK members.' },
         ],
     },
+    season: {
+        description: 'Manage ally seasons and their server lists. Seasons can be prepared before going active.',
+        subcommands: [
+            { name: '/season add name:',                    desc: 'Create a new season (inactive by default).' },
+            { name: '/season activate season:',             desc: 'Mark a season as active.' },
+            { name: '/season inactivate season:',           desc: 'Mark a season as inactive.' },
+            { name: '/season allyadd season: server:',      desc: 'Add an ally server number to a season.' },
+            { name: '/season allyremove season: server:',   desc: 'Remove an ally server number from a season.' },
+            { name: '/season allylist season:',             desc: 'List ally servers for a season (omit season for active).' },
+        ],
+    },
+    recruitment: {
+        description: 'Track guild recruitment prospects with stats, interest level, and auto follow-up reminders.',
+        subcommands: [
+            { name: '/recruitment add name: power: contacted: server: ...', desc: 'Add a prospect. Optional: dr/sup_arena/lab/dual ranks, interest, response. Schedules a 2-day follow-up reminder.' },
+            { name: '/recruitment list',                    desc: 'View prospects (excludes "none" interest by default). Filters: interest, server, date ±14 days. Max 20 shown.' },
+            { name: '/recruitment update name: ...',        desc: 'Update any field on an existing prospect.' },
+            { name: '/recruitment remove name:',            desc: 'Remove a prospect (also cancels any pending follow-up reminder).' },
+        ],
+    },
     wishlist: {
         description: 'Guild feature wishlist. Anyone can submit; use Discord permissions to restrict add/remove.',
         subcommands: [
@@ -194,6 +214,8 @@ module.exports = {
             note: 'Add · view · delete notes on members',
             review: 'list · approve · merge · remove · return',
             afk: 'Set · clear · list AFK status',
+            season: 'add · activate · inactivate · allyadd · allyremove · allylist',
+            recruitment: 'add · list · update · remove prospects',
             wishlist: 'add · list · remove wishlist items',
         };
 

@@ -54,6 +54,8 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `/schedule` | View scheduled jobs with last/next runs · ephemeral, no hardcoded restriction (use Discord role permissions if needed) |
 | `/anniversary` | list / upcoming · upcoming guild anniversaries (ephemeral) |
 | `/wishlist` | add / list / remove · guild feature wishlist · permissions managed via Discord |
+| `/season` | add / activate / inactivate / allyadd / allyremove / allylist · ally season + server management |
+| `/recruitment` | add / list / update / remove · prospect tracking · 2-day follow-up reminder via job scheduler |
 
 ## Database Tables (key ones)
 - `members` · ingame_name (canonical, UNIQUE), discord_id, first_seen, `active` (latest-scan-only · 1 iff read in the most recent scan, else 0 · re-found = auto-reactivated), `last_scanned_at` (when last actually read by a scan), `pending` (scanner couldn't match read → awaiting /review), `warband_id` (current warband · synced from scan, manually overridable)
@@ -65,6 +67,10 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 - `name_corrections` · OCR correction map
 - `bot_config` · key/value admin overrides · precedence: DB > ENV > hardcoded default
 - `wishlist` · id, item, priority (high/medium/low), submitted_by (Discord user ID), submitted_at
+- `ally_seasons` · id, name UNIQUE, active (0/1) · multiple can be inactive; seasons prepped before going active
+- `ally_servers` · id, server_number, season_id · UNIQUE(server_number, season_id) · cascades on season delete
+- `recruitment` · id, name, power, server_id, dr_rank, sup_arena_rank, lab_rank, dual_rank, interest, response, contacted_at, created_by, created_at
+- `recruitment_followups` · id, job_id (→ scheduled_jobs), user_id, recruitment_id, channel_id · 2-day follow-up reminder
 
 ## Scheduled Messages
 Defined in `utils/scheduledMessages.js` MESSAGES array. Each entry has:

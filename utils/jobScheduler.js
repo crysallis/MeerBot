@@ -98,14 +98,40 @@ async function handleRemindme(client, job) {
     }
 }
 
+async function handleRecruitmentFollowup(client, job) {
+    try {
+        const embed = new EmbedBuilder()
+            .setTitle('👤 Recruitment Follow-up')
+            .setDescription(`2 days since first contact with **${job.recruit_name ?? 'Unknown'}**.\nUse \`/recruitment update\` to log progress.`)
+            .setColor(pickColor())
+            .setTimestamp();
+
+        const channel = await client.channels.fetch(job.rf_channel_id).catch(() => null);
+        if (channel) {
+            await channel.send({ content: `<@${job.rf_user_id}>`, embeds: [embed] });
+        }
+
+        try {
+            const user = await client.users.fetch(job.rf_user_id);
+            await user.send({ embeds: [embed] });
+        } catch {}
+    } catch (err) {
+        console.error('[RecruitmentFollowup] Error:', err);
+    }
+}
+
 async function tick(client) {
     const due = db.prepare(`
         SELECT sj.id, sj.type, sj.recurrence, sj.fire_at, sj.created_at,
                rj.user_id, rj.channel_id, rj.guild_id, rj.message,
-               scj.handler_path, scj.args
+               scj.handler_path, scj.args,
+               rf.user_id AS rf_user_id, rf.channel_id AS rf_channel_id, rf.recruitment_id,
+               rec.name AS recruit_name
         FROM scheduled_jobs sj
         LEFT JOIN remindme_jobs rj ON rj.job_id = sj.id
         LEFT JOIN script_jobs scj ON scj.job_id = sj.id
+        LEFT JOIN recruitment_followups rf ON rf.job_id = sj.id
+        LEFT JOIN recruitment rec ON rec.id = rf.recruitment_id
         WHERE datetime(sj.fire_at) <= datetime('now') AND sj.enabled = 1
     `).all();
 
@@ -121,6 +147,9 @@ async function tick(client) {
                     .run(nextFire(job), job.id);
             } else if (job.type === 'remindme') {
                 await handleRemindme(client, job);
+                db.prepare('DELETE FROM scheduled_jobs WHERE id = ?').run(job.id);
+            } else if (job.type === 'recruitment_followup') {
+                await handleRecruitmentFollowup(client, job);
                 db.prepare('DELETE FROM scheduled_jobs WHERE id = ?').run(job.id);
             }
         } catch (err) {
