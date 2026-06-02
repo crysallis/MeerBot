@@ -201,6 +201,7 @@ migrate(`CREATE TABLE IF NOT EXISTS warbands (
 )`);
 migrate('ALTER TABLE members ADD COLUMN warband_id INTEGER REFERENCES warbands(id)');
 migrate('ALTER TABLE member_snapshots ADD COLUMN warband_id INTEGER REFERENCES warbands(id)');
+migrate("ALTER TABLE recruitment ADD COLUMN status TEXT NOT NULL DEFAULT 'scouting'");
 
 // Seed the known warbands + backfill ids from existing text. Guarded so normal
 // startups stay read-only (no write-lock contention) and a transient lock never

@@ -3,8 +3,27 @@ const db = require('../utils/db');
 const botConfig = require('../utils/botConfig');
 const { pickColor } = require('../utils/colors');
 
-const INTEREST_ORDER = { possible: 1, undecided: 2, unknown: 3, none: 4 };
 const INTEREST_EMOJI = { possible: '🟢', undecided: '🟡', unknown: '❓', none: '🔴' };
+const STATUS_EMOJI   = { scouting: '🔍', invited: '📨', joined: '✅', declined: '❌' };
+
+const STATUS_CHOICES = [
+    { name: '🔍 Scouting',  value: 'scouting'  },
+    { name: '📨 Invited',   value: 'invited'   },
+    { name: '✅ Joined',    value: 'joined'    },
+    { name: '❌ Declined',  value: 'declined'  },
+];
+
+const INTEREST_CHOICES = [
+    { name: '🟢 Possible',  value: 'possible'  },
+    { name: '🟡 Undecided', value: 'undecided' },
+    { name: '❓ Unknown',   value: 'unknown'   },
+    { name: '🔴 None',      value: 'none'      },
+];
+
+const RESPONSE_CHOICES = [
+    { name: 'First Contact', value: 'first_contact' },
+    { name: 'No Response',   value: 'no_response'   },
+];
 
 function activeServerNumbers() {
     return db.prepare(`
@@ -41,8 +60,7 @@ module.exports = {
 
         if (focused.name === 'server') {
             const nums = activeServerNumbers();
-            const query = focused.value.toString();
-            const filtered = nums.filter(n => n.toString().includes(query)).slice(0, 25);
+            const filtered = nums.filter(n => n.toString().includes(focused.value.toString())).slice(0, 25);
             return interaction.respond(filtered.map(n => ({ name: String(n), value: n })));
         }
 
@@ -67,26 +85,15 @@ module.exports = {
             .addIntegerOption(o => o.setName('sup_arena').setDescription('Supreme Arena rank (1-100)').setRequired(false).setMinValue(1).setMaxValue(100))
             .addIntegerOption(o => o.setName('lab').setDescription('Labyrinth rank (1-100)').setRequired(false).setMinValue(1).setMaxValue(100))
             .addIntegerOption(o => o.setName('dual').setDescription('Dual rank (1-100)').setRequired(false).setMinValue(1).setMaxValue(100))
-            .addStringOption(o => o.setName('interest').setDescription('Interest level').setRequired(false).addChoices(
-                { name: '🟢 Possible', value: 'possible' },
-                { name: '🟡 Undecided', value: 'undecided' },
-                { name: '❓ Unknown', value: 'unknown' },
-                { name: '🔴 None', value: 'none' },
-            ))
-            .addStringOption(o => o.setName('response').setDescription('Contact response').setRequired(false).addChoices(
-                { name: 'First Contact', value: 'first_contact' },
-                { name: 'No Response', value: 'no_response' },
-            ))
+            .addStringOption(o => o.setName('interest').setDescription('Interest level').setRequired(false).addChoices(...INTEREST_CHOICES))
+            .addStringOption(o => o.setName('response').setDescription('Contact response').setRequired(false).addChoices(...RESPONSE_CHOICES))
+            .addStringOption(o => o.setName('status').setDescription('Recruitment status (default: scouting)').setRequired(false).addChoices(...STATUS_CHOICES))
         )
         .addSubcommand(s => s
             .setName('list')
-            .setDescription('View prospects (excludes "none" interest by default)')
-            .addStringOption(o => o.setName('interest').setDescription('Filter by interest').setRequired(false).addChoices(
-                { name: '🟢 Possible', value: 'possible' },
-                { name: '🟡 Undecided', value: 'undecided' },
-                { name: '❓ Unknown', value: 'unknown' },
-                { name: '🔴 None', value: 'none' },
-            ))
+            .setDescription('View prospects (defaults to scouting + invited)')
+            .addStringOption(o => o.setName('status').setDescription('Filter by status (default: scouting + invited)').setRequired(false).addChoices(...STATUS_CHOICES))
+            .addStringOption(o => o.setName('interest').setDescription('Filter by interest').setRequired(false).addChoices(...INTEREST_CHOICES))
             .addIntegerOption(o => o.setName('server').setDescription('Filter by server number').setRequired(false).setMinValue(1))
             .addStringOption(o => o.setName('date').setDescription('Filter by contacted date ±14 days (YYYY-MM-DD)').setRequired(false))
         )
@@ -94,6 +101,9 @@ module.exports = {
             .setName('update')
             .setDescription('Update a prospect\'s details')
             .addStringOption(o => o.setName('name').setDescription('Prospect name').setRequired(true).setAutocomplete(true))
+            .addStringOption(o => o.setName('status').setDescription('Recruitment status').setRequired(false).addChoices(...STATUS_CHOICES))
+            .addStringOption(o => o.setName('interest').setDescription('Interest level').setRequired(false).addChoices(...INTEREST_CHOICES))
+            .addStringOption(o => o.setName('response').setDescription('Contact response').setRequired(false).addChoices(...RESPONSE_CHOICES))
             .addIntegerOption(o => o.setName('power').setDescription('Updated combat power').setRequired(false).setMinValue(1))
             .addIntegerOption(o => o.setName('server').setDescription('Updated server number').setRequired(false).setAutocomplete(true))
             .addStringOption(o => o.setName('contacted').setDescription('Updated contact date (YYYY-MM-DD)').setRequired(false))
@@ -101,16 +111,6 @@ module.exports = {
             .addIntegerOption(o => o.setName('sup_arena').setDescription('Supreme Arena rank (1-100)').setRequired(false).setMinValue(1).setMaxValue(100))
             .addIntegerOption(o => o.setName('lab').setDescription('Labyrinth rank (1-100)').setRequired(false).setMinValue(1).setMaxValue(100))
             .addIntegerOption(o => o.setName('dual').setDescription('Dual rank (1-100)').setRequired(false).setMinValue(1).setMaxValue(100))
-            .addStringOption(o => o.setName('interest').setDescription('Interest level').setRequired(false).addChoices(
-                { name: '🟢 Possible', value: 'possible' },
-                { name: '🟡 Undecided', value: 'undecided' },
-                { name: '❓ Unknown', value: 'unknown' },
-                { name: '🔴 None', value: 'none' },
-            ))
-            .addStringOption(o => o.setName('response').setDescription('Contact response').setRequired(false).addChoices(
-                { name: 'First Contact', value: 'first_contact' },
-                { name: 'No Response', value: 'no_response' },
-            ))
         )
         .addSubcommand(s => s
             .setName('remove')
@@ -122,16 +122,17 @@ module.exports = {
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'add') {
-            const name = interaction.options.getString('name').trim();
-            const power = interaction.options.getInteger('power');
+            const name     = interaction.options.getString('name').trim();
+            const power    = interaction.options.getInteger('power');
             const contacted = interaction.options.getString('contacted').trim();
             const serverNum = interaction.options.getInteger('server');
-            const dr = interaction.options.getInteger('dr');
+            const dr       = interaction.options.getInteger('dr');
             const supArena = interaction.options.getInteger('sup_arena');
-            const lab = interaction.options.getInteger('lab');
-            const dual = interaction.options.getInteger('dual');
+            const lab      = interaction.options.getInteger('lab');
+            const dual     = interaction.options.getInteger('dual');
             const interest = interaction.options.getString('interest') ?? 'unknown';
             const response = interaction.options.getString('response') ?? 'first_contact';
+            const status   = interaction.options.getString('status') ?? 'scouting';
 
             if (!/^\d{4}-\d{2}-\d{2}$/.test(contacted)) {
                 return interaction.reply({ content: 'Invalid date format. Use YYYY-MM-DD.', flags: MessageFlags.Ephemeral });
@@ -144,9 +145,9 @@ module.exports = {
 
             const now = new Date().toISOString();
             const result = db.prepare(`
-                INSERT INTO recruitment (name, power, server_id, dr_rank, sup_arena_rank, lab_rank, dual_rank, interest, response, contacted_at, created_by, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(name, power, serverId, dr, supArena, lab, dual, interest, response, contacted, interaction.user.id, now);
+                INSERT INTO recruitment (name, power, server_id, dr_rank, sup_arena_rank, lab_rank, dual_rank, interest, response, status, contacted_at, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(name, power, serverId, dr, supArena, lab, dual, interest, response, status, contacted, interaction.user.id, now);
 
             const channelId = botConfig.get('RECRUITMENT_REMINDER_CHANNEL_ID');
             if (channelId) {
@@ -160,22 +161,23 @@ module.exports = {
             }
 
             return interaction.reply({
-                content: `✅ **${name}** added to prospects.${channelId ? ' 2-day follow-up reminder scheduled.' : ''}`,
+                content: `${STATUS_EMOJI[status]} **${name}** added to prospects.${channelId ? ' 2-day follow-up reminder scheduled.' : ''}`,
                 flags: MessageFlags.Ephemeral,
             });
         }
 
         if (sub === 'list') {
+            const filterStatus   = interaction.options.getString('status');
             const filterInterest = interaction.options.getString('interest');
-            const filterServer = interaction.options.getInteger('server');
-            const filterDate = interaction.options.getString('date');
+            const filterServer   = interaction.options.getInteger('server');
+            const filterDate     = interaction.options.getString('date');
 
             if (filterDate && !/^\d{4}-\d{2}-\d{2}$/.test(filterDate)) {
                 return interaction.reply({ content: 'Invalid date format. Use YYYY-MM-DD.', flags: MessageFlags.Ephemeral });
             }
 
             let query = `
-                SELECT r.id, r.name, r.power, r.interest, r.response, r.contacted_at,
+                SELECT r.id, r.name, r.power, r.interest, r.response, r.status, r.contacted_at,
                        als.server_number
                 FROM recruitment r
                 LEFT JOIN ally_servers als ON als.id = r.server_id
@@ -183,10 +185,17 @@ module.exports = {
             `;
             const params = [];
 
+            if (filterStatus) {
+                query += ' AND r.status = ?';
+                params.push(filterStatus);
+            } else {
+                query += " AND r.status IN ('scouting', 'invited')";
+            }
+
             if (filterInterest) {
                 query += ' AND r.interest = ?';
                 params.push(filterInterest);
-            } else {
+            } else if (!filterStatus) {
                 query += " AND r.interest != 'none'";
             }
 
@@ -201,7 +210,8 @@ module.exports = {
             }
 
             query += `
-                ORDER BY CASE r.interest WHEN 'possible' THEN 1 WHEN 'undecided' THEN 2 WHEN 'unknown' THEN 3 ELSE 4 END,
+                ORDER BY CASE r.status WHEN 'invited' THEN 1 WHEN 'scouting' THEN 2 WHEN 'joined' THEN 3 ELSE 4 END,
+                         CASE r.interest WHEN 'possible' THEN 1 WHEN 'undecided' THEN 2 WHEN 'unknown' THEN 3 ELSE 4 END,
                          r.power DESC
                 LIMIT 21
             `;
@@ -223,28 +233,25 @@ module.exports = {
                 ].filter(Boolean).join(' · ');
 
                 const responseLabel = r.response === 'first_contact' ? 'First Contact' : 'No Response';
-                const serverLabel = r.server_number != null ? `Svr ${r.server_number}` : 'No server';
-                const value = `${fmtPower(r.power)} · ${serverLabel} · ${responseLabel} · Contacted: ${r.contacted_at}${ranks ? `\n${ranks}` : ''}`;
+                const serverLabel   = r.server_number != null ? `Svr ${r.server_number}` : '—';
+                const value = `${STATUS_EMOJI[r.status]} ${r.status} · ${INTEREST_EMOJI[r.interest]} ${r.interest} · ${fmtPower(r.power)} · ${serverLabel} · ${responseLabel} · ${r.contacted_at}${ranks ? `\n${ranks}` : ''}`;
 
-                return {
-                    name: `${INTEREST_EMOJI[r.interest]} ${r.name}`,
-                    value,
-                    inline: false,
-                };
+                return { name: r.name, value, inline: false };
             });
 
             const activeFilters = [
-                filterInterest ? `interest: ${filterInterest}` : null,
-                filterServer ? `server: ${filterServer}` : null,
-                filterDate ? `date: ±14d of ${filterDate}` : null,
+                filterStatus  ? `status: ${filterStatus}`       : 'status: scouting+invited',
+                filterInterest ? `interest: ${filterInterest}`  : null,
+                filterServer  ? `server: ${filterServer}`       : null,
+                filterDate    ? `date: ±14d of ${filterDate}`   : null,
             ].filter(Boolean).join(' · ');
 
             const embed = new EmbedBuilder()
                 .setTitle('⚔️ Recruitment Prospects')
+                .setDescription(`Filters: ${activeFilters}`)
                 .addFields(fields)
                 .setColor(pickColor());
 
-            if (activeFilters) embed.setDescription(`Filters: ${activeFilters}`);
             if (overLimit) embed.setFooter({ text: `Showing 20 of ${rows.length - 1}+ · add filters to narrow results` });
 
             return interaction.reply({ embeds: [embed] });
@@ -256,15 +263,16 @@ module.exports = {
             if (!existing) return interaction.reply({ content: `Prospect **${name}** not found.`, flags: MessageFlags.Ephemeral });
 
             const updates = {};
-            const power = interaction.options.getInteger('power');
+            const power    = interaction.options.getInteger('power');
             const serverNum = interaction.options.getInteger('server');
             const contacted = interaction.options.getString('contacted');
-            const dr = interaction.options.getInteger('dr');
+            const dr       = interaction.options.getInteger('dr');
             const supArena = interaction.options.getInteger('sup_arena');
-            const lab = interaction.options.getInteger('lab');
-            const dual = interaction.options.getInteger('dual');
+            const lab      = interaction.options.getInteger('lab');
+            const dual     = interaction.options.getInteger('dual');
             const interest = interaction.options.getString('interest');
             const response = interaction.options.getString('response');
+            const status   = interaction.options.getString('status');
 
             if (power != null)    updates.power = power;
             if (dr != null)       updates.dr_rank = dr;
@@ -273,6 +281,7 @@ module.exports = {
             if (dual != null)     updates.dual_rank = dual;
             if (interest)         updates.interest = interest;
             if (response)         updates.response = response;
+            if (status)           updates.status = status;
 
             if (contacted) {
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(contacted)) {
