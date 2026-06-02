@@ -121,7 +121,7 @@ const COMMANDS = {
         description: 'Track guild recruitment prospects with stats, status, interest level, and auto follow-up reminders.',
         subcommands: [
             { name: '/recruitment add name: power: contacted: server: ...', desc: 'Add a prospect. Status defaults to scouting. Optional: dr/sup_arena/lab/dual ranks, interest, response, status. Schedules a 2-day follow-up reminder.' },
-            { name: '/recruitment list',                    desc: 'View prospects (defaults to scouting + invited, excludes "none" interest). Filters: status, interest, server, date ±14 days. Max 20 shown.' },
+            { name: '/recruitment list',                    desc: 'View prospects (defaults to scouting + invited). Filters: status, interest, server, date ±14 days. Max 20 shown.' },
             { name: '/recruitment update name: ...',        desc: 'Update any field: status (scouting/invited/joined/declined), interest, response, power, server, contacted, ranks.' },
             { name: '/recruitment remove name:',            desc: 'Remove a prospect (also cancels any pending follow-up reminder).' },
         ],

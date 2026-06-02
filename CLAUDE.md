@@ -69,7 +69,7 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 - `wishlist` · id, item, priority (high/medium/low), submitted_by (Discord user ID), submitted_at
 - `ally_seasons` · id, name UNIQUE, active (0/1) · multiple can be inactive; seasons prepped before going active
 - `ally_servers` · id, server_number, season_id · UNIQUE(server_number, season_id) · cascades on season delete
-- `recruitment` · id, name, power, server_id, dr_rank, sup_arena_rank, lab_rank, dual_rank, interest, response, contacted_at, created_by, created_at
+- `recruitment` · id, name, power, server_id, dr_rank, sup_arena_rank, lab_rank, dual_rank, interest, response, status (scouting/invited/joined/declined · default scouting), contacted_at, created_by, created_at
 - `recruitment_followups` · id, job_id (→ scheduled_jobs), user_id, recruitment_id, channel_id · 2-day follow-up reminder
 
 ## Scheduled Messages
@@ -131,6 +131,7 @@ Channels referenced by env vars (snapshot · check the JSON for everything else)
 | `COMMAND_LOG_CHANNEL_ID` | bot-chatter | 1343099233045184594 |
 | `GENERAL_CHANNEL_ID` | general | 1229548159081123893 |
 | `ANNIVERSARY_CHANNEL_ID` | riffraff | 1303421884687192174 |
+| `RECRUITMENT_REMINDER_CHANNEL_ID` | *(set via admin panel)* | — |
 
 ## Key Decisions Made
 - `set_by` fields store Discord user ID, displayed as `<@id> / ingame_name`
