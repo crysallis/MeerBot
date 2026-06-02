@@ -151,7 +151,9 @@ module.exports = {
 
             const channelId = botConfig.get('RECRUITMENT_REMINDER_CHANNEL_ID');
             if (channelId && status === 'scouting') {
-                const fireAt = new Date(new Date(contacted + 'T00:00:00Z').getTime() + 2 * 24 * 60 * 60 * 1000).toISOString();
+                const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
+                const contactedFire = new Date(contacted + 'T00:00:00Z').getTime() + TWO_DAYS;
+                const fireAt = new Date(contactedFire > Date.now() ? contactedFire : Date.now() + TWO_DAYS).toISOString();
                 const sj = db.prepare(
                     "INSERT INTO scheduled_jobs (type, fire_at, recurrence, created_at) VALUES ('recruitment_followup', ?, null, ?)"
                 ).run(fireAt, now);
