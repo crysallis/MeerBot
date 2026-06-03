@@ -42,7 +42,7 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | Command | Notes |
 |---|---|
 | `/ping` | Latency check with tiered quips · tiers in config.js |
-| `/scan` | Runs Python scraper, posts results · authorized user only |
+| `/scan` | Runs Python scraper, posts results · then posts inactivity alert (active members only, AFK excluded) · authorized user only |
 | `/member` | Member stats + power growth line chart (QuickChart GET URL) |
 | `/guild chart` | Multi-line power growth for all members (QuickChart POST → short URL) |
 | `/afk set/clear/list` | AFK management · set_by stores Discord user ID (not username) |

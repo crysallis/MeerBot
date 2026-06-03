@@ -32,6 +32,7 @@ async function postInactivityAlert(client) {
         LEFT JOIN members m ON m.id = ms.member_id
         LEFT JOIN member_afk afk ON afk.member_id = ms.member_id
         WHERE ms.snapshot_id = ?
+          AND m.active = 1
           AND afk.member_id IS NULL
           AND ms.last_seen_approx < ?
         ORDER BY ms.last_seen_approx ASC
