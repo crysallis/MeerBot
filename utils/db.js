@@ -115,7 +115,8 @@ db.exec(`
     item         TEXT NOT NULL,
     priority     TEXT NOT NULL DEFAULT 'medium',
     submitted_by TEXT NOT NULL,
-    submitted_at TEXT NOT NULL
+    submitted_at TEXT NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'not started'
   );
 
   CREATE TABLE IF NOT EXISTS member_notes (

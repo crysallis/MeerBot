@@ -4,6 +4,7 @@ const { pickColor } = require('../utils/colors');
 
 const PRIORITY_ORDER = { high: 1, medium: 2, low: 3 };
 const PRIORITY_EMOJI = { high: '🔴', medium: '🟡', low: '🟢' };
+const STATUS_EMOJI = { 'not started': '⏳', 'in progress': '🔧', 'completed': '✅', 'abandoned': '🚫' };
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -29,6 +30,22 @@ module.exports = {
             .setDescription('View all wishlist items')
         )
         .addSubcommand(s => s
+            .setName('update')
+            .setDescription('Update the status of a wishlist item')
+            .addIntegerOption(o => o.setName('id').setDescription('Item ID (shown in /wishlist list)').setRequired(true))
+            .addStringOption(o => o
+                .setName('status')
+                .setDescription('New status')
+                .setRequired(true)
+                .addChoices(
+                    { name: '⏳ Not Started', value: 'not started' },
+                    { name: '🔧 In Progress', value: 'in progress' },
+                    { name: '✅ Completed', value: 'completed' },
+                    { name: '🚫 Abandoned', value: 'abandoned' },
+                )
+            )
+        )
+        .addSubcommand(s => s
             .setName('remove')
             .setDescription('Remove a wishlist item by ID')
             .addIntegerOption(o => o.setName('id').setDescription('Item ID (shown in /wishlist list)').setRequired(true))
@@ -49,9 +66,23 @@ module.exports = {
             });
         }
 
+        if (sub === 'update') {
+            const id = interaction.options.getInteger('id');
+            const status = interaction.options.getString('status');
+            const row = db.prepare('SELECT id, item FROM wishlist WHERE id = ?').get(id);
+            if (!row) {
+                return interaction.reply({ content: `Item #${id} not found.`, flags: MessageFlags.Ephemeral });
+            }
+            db.prepare('UPDATE wishlist SET status = ? WHERE id = ?').run(status, id);
+            return interaction.reply({
+                content: `${STATUS_EMOJI[status]} #${id} *${row.item}* marked as **${status}**.`,
+                flags: MessageFlags.Ephemeral,
+            });
+        }
+
         if (sub === 'list') {
             const rows = db.prepare(`
-                SELECT id, item, priority, submitted_by, submitted_at
+                SELECT id, item, priority, submitted_by, submitted_at, status
                 FROM wishlist
                 ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, submitted_at ASC
             `).all();
@@ -60,11 +91,14 @@ module.exports = {
                 return interaction.reply({ content: 'The wishlist is empty.', flags: MessageFlags.Ephemeral });
             }
 
-            const fields = rows.map(r => ({
-                name: `#${r.id} · ${PRIORITY_EMOJI[r.priority]} ${r.priority.charAt(0).toUpperCase() + r.priority.slice(1)}`,
-                value: `${r.item}\n*Submitted by <@${r.submitted_by}> on ${r.submitted_at.slice(0, 10)}*`,
-                inline: false,
-            }));
+            const fields = rows.map(r => {
+                const status = r.status || 'not started';
+                return {
+                    name: `#${r.id} · ${PRIORITY_EMOJI[r.priority]} ${r.priority.charAt(0).toUpperCase() + r.priority.slice(1)} · ${STATUS_EMOJI[status]} ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+                    value: `${r.item}\n*Submitted by <@${r.submitted_by}> on ${r.submitted_at.slice(0, 10)}*`,
+                    inline: false,
+                };
+            });
 
             return interaction.reply({
                 embeds: [
