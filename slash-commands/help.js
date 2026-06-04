@@ -41,8 +41,9 @@ const COMMANDS = {
     link: {
         description: 'Link a Discord account to an in-game name.',
         subcommands: [
-            { name: '/link ingame_name:',       desc: 'Link yourself. Name autocompletes from latest snapshot.' },
-            { name: '/link ingame_name: user:', desc: 'Link a different Discord user.', perm: 'admin' },
+            { name: '/link ingame_name:',                desc: 'Link yourself. Warns if a link already exists on either side.' },
+            { name: '/link ingame_name: user:',          desc: 'Link a different Discord user.', perm: 'admin' },
+            { name: '/link ingame_name: confirm:True',   desc: 'Overwrite an existing conflicting link after reviewing the warning.' },
         ],
     },
     scan: {

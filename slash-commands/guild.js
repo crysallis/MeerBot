@@ -305,7 +305,7 @@ async function handleStatus(interaction, snapshot) {
     const s = db.prepare(`
         SELECT COUNT(*) AS total,
                SUM(combat_power_value) AS total_power,
-               SUM(CASE WHEN last_seen_approx >= datetime('now', '-1 day') THEN 1 ELSE 0 END) AS active_today,
+               SUM(CASE WHEN ms.last_active = 'Online' OR ms.last_active LIKE '%h ago' OR ms.last_active LIKE '%m ago' THEN 1 ELSE 0 END) AS active_today,
                SUM(CASE WHEN activeness > 0 THEN 1 ELSE 0 END) AS active_week
         FROM member_snapshots ms
         JOIN members m ON m.id = ms.member_id AND m.active = 1

@@ -56,6 +56,11 @@ module.exports = {
             opt.setName('user')
                 .setDescription('(Admin) Link a different member')
                 .setRequired(false)
+        )
+        .addBooleanOption(opt =>
+            opt.setName('confirm')
+                .setDescription('Confirm overwriting an existing link')
+                .setRequired(false)
         ),
 
     async execute(interaction) {
@@ -75,6 +80,25 @@ module.exports = {
             }
 
             const linkTarget = targetUser ?? interaction.user;
+
+            // Check for existing links that would be overwritten
+            const existingByDiscord = db.prepare('SELECT ingame_name FROM members WHERE discord_id = ?').get(linkTarget.id);
+            const existingByName = db.prepare('SELECT discord_id FROM members WHERE ingame_name = ?').get(ingameName);
+
+            const conflicts = [];
+            if (existingByDiscord && existingByDiscord.ingame_name !== ingameName) {
+                conflicts.push(`<@${linkTarget.id}> is currently linked to **${existingByDiscord.ingame_name}**`);
+            }
+            if (existingByName?.discord_id && existingByName.discord_id !== linkTarget.id) {
+                conflicts.push(`**${ingameName}** is currently linked to <@${existingByName.discord_id}>`);
+            }
+
+            if (conflicts.length > 0 && !interaction.options.getBoolean('confirm')) {
+                return interaction.reply({
+                    content: `⚠️ **Existing link conflict:**\n${conflicts.map(c => `· ${c}`).join('\n')}\n\nRe-run with \`confirm:True\` to overwrite.`,
+                    flags: MessageFlags.Ephemeral,
+                });
+            }
 
             // Warn if name not found in latest snapshot (but still allow)
             const knownNames = getLatestIngameNames();
