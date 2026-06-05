@@ -127,17 +127,18 @@ module.exports = {
         }
 
         switch (interaction.options.getSubcommand()) {
-            case 'power':      return handlePower(interaction, snapshot);
-            case 'top':        return handleTop(interaction, snapshot);
-            case 'inactive':   return handleInactive(interaction, snapshot);
-            case 'activeness': return handleActiveness(interaction, snapshot);
-            case 'growth':     return handleGrowth(interaction, snapshot);
-            case 'status':     return handleStatus(interaction, snapshot);
-            case 'newcomers':  return handleNewcomers(interaction, snapshot);
-            case 'nogrowth':   return handleNoGrowth(interaction, snapshot);
-            case 'chart':      return handleChart(interaction, snapshot);
-            case 'warbands':   return handleWarbands(interaction, snapshot);
+            case 'power':      await handlePower(interaction, snapshot); return;
+            case 'top':        await handleTop(interaction, snapshot); break;
+            case 'inactive':   await handleInactive(interaction, snapshot); break;
+            case 'activeness': await handleActiveness(interaction, snapshot); break;
+            case 'growth':     await handleGrowth(interaction, snapshot); break;
+            case 'status':     await handleStatus(interaction, snapshot); break;
+            case 'newcomers':  await handleNewcomers(interaction, snapshot); break;
+            case 'nogrowth':   await handleNoGrowth(interaction, snapshot); break;
+            case 'chart':      await handleChart(interaction, snapshot); break;
+            case 'warbands':   await handleWarbands(interaction, snapshot); break;
         }
+        autoDelete(interaction);
     },
 };
 
@@ -166,7 +167,6 @@ async function handlePower(interaction, snapshot) {
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
     ]});
-    autoDelete(interaction);
 }
 
 async function handleTop(interaction, snapshot) {
@@ -196,7 +196,6 @@ async function handleTop(interaction, snapshot) {
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
     ]});
-    autoDelete(interaction);
 }
 
 async function handleInactive(interaction, snapshot) {
@@ -224,7 +223,6 @@ async function handleInactive(interaction, snapshot) {
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
     ]});
-    autoDelete(interaction);
 }
 
 async function handleActiveness(interaction, snapshot) {
@@ -252,7 +250,6 @@ async function handleActiveness(interaction, snapshot) {
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
     ]});
-    autoDelete(interaction);
 }
 
 async function handleGrowth(interaction, snapshot) {
@@ -296,7 +293,6 @@ async function handleGrowth(interaction, snapshot) {
     });
 
     await interaction.reply({ embeds: [embed] });
-    autoDelete(interaction);
 }
 
 async function handleStatus(interaction, snapshot) {
@@ -325,7 +321,6 @@ async function handleStatus(interaction, snapshot) {
             )
             .setColor(pickColor()),
     ]});
-    autoDelete(interaction);
 }
 
 async function handleNoGrowth(interaction, snapshot) {
@@ -354,7 +349,6 @@ async function handleNoGrowth(interaction, snapshot) {
 
     if (rows.length === 0) {
         await interaction.reply({ content: '✅ Everyone grew this week!' });
-        autoDelete(interaction);
         return;
     }
 
@@ -372,7 +366,6 @@ async function handleNoGrowth(interaction, snapshot) {
             .setFooter({ text: 'Compared to previous snapshot' })
             .setColor(pickColor()),
     ]});
-    autoDelete(interaction);
 }
 
 const CHART_COLORS = [
@@ -401,7 +394,7 @@ async function handleChart(interaction, snapshot) {
     `).all(snapshot.id, ...extra, n);
 
     if (topMembers.length === 0) {
-        return interaction.reply({ content: 'No snapshot data yet · run `/scan` first.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: 'No active members found for that filter.', flags: MessageFlags.Ephemeral });
     }
 
     const allSnapshots = db.prepare(
@@ -456,7 +449,6 @@ async function handleChart(interaction, snapshot) {
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
     ]});
-    autoDelete(interaction);
 }
 
 async function handleNewcomers(interaction, snapshot) {
@@ -483,7 +475,6 @@ async function handleNewcomers(interaction, snapshot) {
 
     if (rows.length === 0) {
         await interaction.reply({ content: '✅ No new members since the previous snapshot.' });
-        autoDelete(interaction);
         return;
     }
 
@@ -497,7 +488,6 @@ async function handleNewcomers(interaction, snapshot) {
             .setFooter({ text: snapshotDate(snapshot) })
             .setColor(pickColor()),
     ]});
-    autoDelete(interaction);
 }
 
 async function handleWarbands(interaction, snapshot) {
@@ -530,6 +520,5 @@ async function handleWarbands(interaction, snapshot) {
         });
     }
 
-    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-    autoDelete(interaction);
+    await interaction.reply({ embeds: [embed] });
 }
