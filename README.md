@@ -85,7 +85,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/guild top [number]` | Top N members by power (default 10, max 50) |
 | `/guild inactive` | Members ranked by last active (longest offline first) |
 | `/guild activeness` | Members ranked by activeness score (lowest first) |
-| `/guild growth` | Top 5 members by power increase vs previous snapshot |
+| `/guild growth` | Top 5 members by power increase vs previous snapshot · shows `prev → current (+delta)` · excludes members with no prior record |
 | `/guild nogrowth` | Members with zero or negative power growth |
 | `/guild status` | Guild summary: member count, total power, active counts |
 | `/guild newcomers` | Members not present in the previous snapshot |

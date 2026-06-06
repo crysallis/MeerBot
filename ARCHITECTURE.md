@@ -163,7 +163,7 @@ All ten `/guild` subcommands in one file. Shared helpers:
 
 Every list command (`power`, `top`, `inactive`, `activeness`, `nogrowth`) calls both `newMemberIds` and `afkMemberIds` and appends the result of `badge()` to each member's line.
 
-**Growth comparison** uses a `LEFT JOIN` so members with no prior snapshot still appear (showing their full current power as growth). **NoGrowth** uses an `INNER JOIN` to exclude newcomers — a member with no prior snapshot hasn't "not grown," they just joined.
+**Growth comparison** and **NoGrowth** both use an `INNER JOIN` against the previous snapshot, so members with no prior record are excluded entirely. Growth display format: `prev → current (+delta)`.
 
 ### member.js
 

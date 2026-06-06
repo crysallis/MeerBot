@@ -275,10 +275,10 @@ async function handleGrowth(interaction, snapshot) {
         SELECT COALESCE(m.ingame_name, ms2.name) AS name,
                ms2.combat_power_value  AS current_power,
                ms1.combat_power_value  AS prev_power,
-               (ms2.combat_power_value - COALESCE(ms1.combat_power_value, 0)) AS growth
+               (ms2.combat_power_value - ms1.combat_power_value) AS growth
         FROM member_snapshots ms2
         JOIN members m ON m.id = ms2.member_id AND m.active = 1
-        LEFT JOIN member_snapshots ms1 ON ms1.member_id = ms2.member_id AND ms1.snapshot_id = ?
+        JOIN member_snapshots ms1 ON ms1.member_id = ms2.member_id AND ms1.snapshot_id = ?
         WHERE ms2.snapshot_id = ? ${warbandClause}
         ORDER BY growth DESC
         LIMIT 5
@@ -296,7 +296,7 @@ async function handleGrowth(interaction, snapshot) {
         const growthStr = g > 0 ? `+${fmtPower(g)}` : g < 0 ? `-${fmtPower(Math.abs(g))}` : '+0';
         embed.addFields({
             name: `${medals[i]} ${r.name}`,
-            value: `${growthStr}  →  **${fmtPower(r.current_power)}**`,
+            value: `${fmtPower(r.prev_power)} → **${fmtPower(r.current_power)}** (${growthStr})`,
             inline: false,
         });
     });
