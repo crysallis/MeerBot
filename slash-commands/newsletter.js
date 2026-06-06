@@ -202,9 +202,9 @@ async function handleGenerate(interaction) {
     // ── Build material section (shown at top of file for Kit to review) ──
     const sinceLabel = since === '1970-01-01T00:00:00.000Z' ? 'the beginning' : since.slice(0, 10);
     const materialLines = [
-        '════════════════════════════════',
+        '================================',
         '  NEWSLETTER MATERIAL',
-        '════════════════════════════════',
+        '================================',
         `Issue:          #${issueCount}`,
         `Generated:      ${today.toISOString().slice(0, 10)}`,
         `Period covered: since ${sinceLabel}`,
@@ -213,17 +213,17 @@ async function handleGenerate(interaction) {
         '',
         `NEW MEMBERS (${newMembers.length})`,
         newMembers.length > 0
-            ? newMembers.map(m => `  · ${m.ingame_name} (joined ${m.first_seen.slice(0, 10)})`).join('\n')
+            ? newMembers.map(m => `  - ${m.ingame_name} (joined ${m.first_seen.slice(0, 10)})`).join('\n')
             : '  None',
         '',
         `DEPARTURES (${departed.length})`,
         departed.length > 0
-            ? departed.map(m => `  · ${m.ingame_name}`).join('\n')
+            ? departed.map(m => `  - ${m.ingame_name}`).join('\n')
             : '  None',
         '',
         `ANNIVERSARIES (${anniversaries.length})`,
         anniversaries.length > 0
-            ? anniversaries.map(a => `  · ${a.name}: ${a.milestone} (${a.date})`).join('\n')
+            ? anniversaries.map(a => `  - ${a.name}: ${a.milestone} (${a.date})`).join('\n')
             : '  None',
         '',
         `NOTES (${notes.length})`,
@@ -231,9 +231,9 @@ async function handleGenerate(interaction) {
             ? notes.map(n => `  [${n.category}] ${n.note_text}`).join('\n')
             : '  No notes added',
         '',
-        '════════════════════════════════',
+        '================================',
         '  DRAFT',
-        '════════════════════════════════',
+        '================================',
         '',
     ];
 
