@@ -235,6 +235,21 @@ try {
     console.warn('[DB warband migration deferred]', e.message);
 }
 
+migrate(`CREATE TABLE IF NOT EXISTS newsletters (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    volume    TEXT,
+    title     TEXT,
+    content   TEXT NOT NULL,
+    posted_at TEXT NOT NULL DEFAULT (datetime('now'))
+)`);
+
+migrate(`CREATE TABLE IF NOT EXISTS newsletter_notes (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_text  TEXT NOT NULL,
+    category   TEXT NOT NULL DEFAULT 'other',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)`);
+
 /**
  * Merge duplicate members: repoint all of dropId's data onto keepId, alias the
  * dropped name, and delete the dropped row. Used to collapse OCR phantom dupes

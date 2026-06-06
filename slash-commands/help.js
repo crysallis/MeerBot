@@ -23,6 +23,8 @@ const COMMANDS = {
             { name: '/guild status',       desc: 'Guild summary: member count, total power, active counts, last scan time' },
             { name: '/guild newcomers',    desc: 'Members who were not in the previous snapshot' },
             { name: '/guild chart number:', desc: 'Power growth line chart for current members over the last 10 scans. Optional N to limit to top N by power.' },
+            { name: '/guild warbands',     desc: 'All warbands with member counts, total power, and average activeness.' },
+            { name: '/guild unlinked',     desc: 'Active members not yet linked to a Discord account.' },
         ],
     },
     ping: {
@@ -135,6 +137,16 @@ const COMMANDS = {
             { name: '/wishlist remove id:',          desc: 'Remove a wishlist item by its ID.' },
         ],
     },
+    newsletter: {
+        description: 'Guild newsletter tools. Generate Claude-drafted issues using notes and live DB context.',
+        subcommands: [
+            { name: '/newsletter note add text: category:',  desc: 'Log a note or event for the next newsletter (category: event / member / season / other).' },
+            { name: '/newsletter note list',                  desc: 'Show all notes logged since the last newsletter.' },
+            { name: '/newsletter note remove id:',            desc: 'Delete a note by ID.' },
+            { name: '/newsletter generate',                   desc: 'Generate a draft newsletter. Returns a .txt file with a material summary (new members, departures, anniversaries, notes) followed by a Claude-written draft. Does not sign off -- Kit edits before posting.' },
+            { name: '/newsletter seed',                       desc: 'Import past newsletters from the newsletter channel into the DB. Re-runnable -- safe to run after each new issue is posted.' },
+        ],
+    },
 };
 
 function visibleCommands(interaction) {
@@ -203,7 +215,7 @@ module.exports = {
         const visible = visibleCommands(interaction);
         const summaries = {
             birthday: 'Register · list · remove birthdays',
-            guild: 'power · top · inactive · activeness · growth · nogrowth · status · newcomers · chart',
+            guild: 'power · top · inactive · activeness · growth · nogrowth · status · newcomers · chart · warbands · unlinked',
             member: 'Look up a member by name or @mention',
             link: 'Link your Discord to your in-game name',
             anniversary: 'list · upcoming',
@@ -218,6 +230,7 @@ module.exports = {
             season: 'add · activate · inactivate · allyadd · allyremove · allylist',
             recruitment: 'add · list · update · remove prospects',
             wishlist: 'add · list · remove wishlist items',
+            newsletter: 'note add/list/remove · generate · seed',
         };
 
         const fields = visible.map(k => {

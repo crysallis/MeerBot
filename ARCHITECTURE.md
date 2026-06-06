@@ -105,6 +105,10 @@ remindme_jobs       Sub-table for type='remindme'. Holds user_id, channel_id, me
 script_jobs         Sub-table for type='script_job'. Holds handler_path to module.
                     ON DELETE CASCADE from scheduled_jobs.
 scheduler_log       Audit log of all job executions. UNIQUE(name, sent_date) for dedup.
+newsletters         Archived newsletter issues. Seeded from Discord channel via /newsletter seed.
+                    posted_at is the authoritative anchor for the "since last newsletter" window.
+newsletter_notes    Running memory for the next issue (events, member news, season notes).
+                    created_at > MAX(newsletters.posted_at) = relevant to next generate call.
 ```
 
 The `members` table is the join hub. It links:
@@ -148,7 +152,7 @@ The loader in `index.js` checks for both `data` and `execute` before registering
 
 ### guild.js
 
-All eight `/guild` subcommands in one file. Shared helpers:
+All ten `/guild` subcommands in one file. Shared helpers:
 
 - `getLatestSnapshot()` · fetches the most recent snapshot row
 - `getPrevSnapshotId(latestId)` · fetches the snapshot before the latest (for growth/nogrowth comparisons)
@@ -207,6 +211,14 @@ async autocomplete(interaction) {
 ```
 
 The `execute` handler also checks permissions before showing admin command detail, so even if someone types a command name manually they get a clean rejection rather than documentation for a command they can't use.
+
+### newsletter.js
+
+Handles `/newsletter note add/list/remove`, `/newsletter generate`, and `/newsletter seed`.
+
+The temporal anchor for all queries is `MAX(posted_at) FROM newsletters` -- the "since last newsletter" window. `generate` queries new members, departures (`active=0, last_scanned_at > since`), anniversaries (daily milestone walk from `sinceDate` to today using `milestoneFor()` inlined from `anniversaryCheck.js`), the active season, and all pending notes. It then pulls all past newsletters from the DB as style reference and calls the Claude API (`claude-sonnet-4-6`, `max_tokens: 1500`) to produce a draft. Output is a `.txt` attachment with a material summary at the top followed by the Claude draft. No sign-off is generated -- Kit adds that before posting.
+
+`seed` paginates through the newsletter channel (`channel.messages.fetch({ limit: 100, before: lastId })`) until the batch is empty, filtering for human-authored messages > 300 chars and deduplicating against existing `posted_at` timestamps. Re-running seed after a new newsletter is posted is the intended workflow for updating the anchor.
 
 ### birthday.js
 

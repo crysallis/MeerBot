@@ -110,7 +110,10 @@ module.exports = {
             .addStringOption(WARBAND_OPTION))
         .addSubcommand(s => s
             .setName('warbands')
-            .setDescription('List all warbands with member counts and stats')),
+            .setDescription('List all warbands with member counts and stats'))
+        .addSubcommand(s => s
+            .setName('unlinked')
+            .setDescription('Active members not yet linked to a Discord account')),
 
     async autocomplete(interaction) {
         const focused = interaction.options.getFocused().toLowerCase();
@@ -121,6 +124,12 @@ module.exports = {
     },
 
     async execute(interaction) {
+        if (interaction.options.getSubcommand() === 'unlinked') {
+            await handleUnlinked(interaction);
+            autoDelete(interaction);
+            return;
+        }
+
         const snapshot = getLatestSnapshot();
         if (!snapshot) {
             return interaction.reply({ content: 'No snapshot data yet · run `/scan` first.', flags: MessageFlags.Ephemeral });
@@ -486,6 +495,28 @@ async function handleNewcomers(interaction, snapshot) {
             .setTitle(`🆕 ${scope}New Members`)
             .setDescription(lines.join('\n'))
             .setFooter({ text: snapshotDate(snapshot) })
+            .setColor(pickColor()),
+    ]});
+}
+
+async function handleUnlinked(interaction) {
+    const rows = db.prepare(`
+        SELECT ingame_name FROM members
+        WHERE active = 1 AND (discord_id IS NULL OR discord_id = '')
+        ORDER BY ingame_name COLLATE NOCASE
+    `).all();
+
+    if (rows.length === 0) {
+        return interaction.reply({ content: '✅ All active members are linked to a Discord account.' });
+    }
+
+    const lines = rows.map((r, i) => `\`${String(i + 1).padStart(2)}.\` **${r.ingame_name}**`);
+
+    await interaction.reply({ embeds: [
+        new EmbedBuilder()
+            .setTitle(`🔗 Unlinked Members (${rows.length})`)
+            .setDescription(lines.join('\n'))
+            .setFooter({ text: 'Use /link to connect a Discord account' })
             .setColor(pickColor()),
     ]});
 }

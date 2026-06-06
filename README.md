@@ -71,6 +71,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `INACTIVITY_ALERT_CHANNEL_ID` | Channel for post-scan inactivity alerts | — |
 | `GENERAL_CHANNEL_ID` | Channel for scheduled auto-posts | — |
 | `COMMAND_LOG_CHANNEL_ID` | Channel for slash command audit log | — |
+| `NEWSLETTER_CHANNEL_ID` | Channel to seed past newsletters from | `1303788137876684931` |
 
 ---
 
@@ -89,6 +90,8 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/guild status` | Guild summary: member count, total power, active counts |
 | `/guild newcomers` | Members not present in the previous snapshot |
 | `/guild chart [number]` | Power growth line chart for current members over the last 10 scans |
+| `/guild warbands` | All warbands with member counts, total power, and average activeness |
+| `/guild unlinked` | Active members not yet linked to a Discord account |
 | `/member name:` | Stats and up to 8 weeks of history for a member |
 | `/member user:` | Same, but look up by @mention if the user is linked |
 | `/link ingame_name:` | Link your Discord account to your in-game name |
@@ -119,6 +122,11 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/afk set name:` | Mark a member AFK, exempts from inactivity alerts |
 | `/afk clear name:` | Remove AFK status |
 | `/afk list` | List all currently AFK members |
+| `/newsletter note add text: [category:]` | Log a note or event for the next newsletter |
+| `/newsletter note list` | Show all notes since the last newsletter |
+| `/newsletter note remove id:` | Delete a note by ID |
+| `/newsletter generate` | Generate a draft newsletter via Claude. Returns a .txt with material summary + draft. No sign-off included. |
+| `/newsletter seed` | Import past newsletters from the newsletter channel. Re-runnable after each new issue. |
 
 > **Permissions:** `/afk`, `/rename`, and `/note` have no code-enforced role gate — set access via Discord's **Server Settings → Integrations → Command Permissions** (point them at your guild-leader roles). `/review` is locked in code to the authorized scan user (same as `/scan`), since it's part of the scan/cleanup workflow.
 
@@ -157,7 +165,8 @@ MeerBot/
         server.js               Express admin panel server (localhost:3001).
         public/index.html       Plain HTML admin UI — edit config without touching code.
     slash-commands/
-        guild.js                All /guild subcommands incl. chart.
+        guild.js                All /guild subcommands incl. chart, warbands, unlinked.
+        newsletter.js           /newsletter note/generate/seed · Claude-drafted newsletters.
         member.js               /member lookup with autocomplete.
         link.js                 /link with autocomplete.
         scan.js                 /scan + post-scan inactivity alert.

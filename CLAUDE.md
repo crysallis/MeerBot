@@ -45,6 +45,7 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `/scan` | Runs Python scraper, posts results · then posts inactivity alert (active members only, AFK excluded) · authorized user only |
 | `/member` | Member stats + power growth line chart (QuickChart GET URL) |
 | `/guild chart` | Multi-line power growth for all members (QuickChart POST → short URL) |
+| `/guild unlinked` | Active members with no Discord account linked |
 | `/afk set/clear/list` | AFK management · set_by stores Discord user ID (not username) |
 | `/link` | Links a Discord user to an in-game name |
 | `/rename` | Corrects an in-game name · merges into the target via `mergeMembers` if that name already exists |
@@ -56,6 +57,9 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `/wishlist` | add / list / remove · guild feature wishlist · permissions managed via Discord |
 | `/season` | add / activate / inactivate / allyadd / allyremove / allylist · ally season + server management |
 | `/recruitment` | add / list / update / remove · prospect tracking · 2-day follow-up reminder via job scheduler |
+| `/newsletter note add/list/remove` | Capture notes/events between issues for the next newsletter |
+| `/newsletter generate` | Claude-drafted newsletter using notes + DB context (new members, anniversaries, season) since last newsletter |
+| `/newsletter seed` | Import past newsletters from the Discord newsletter channel into DB (re-runnable) |
 
 ## Database Tables (key ones)
 - `members` · ingame_name (canonical, UNIQUE), discord_id, first_seen, `active` (latest-scan-only · 1 iff read in the most recent scan, else 0 · re-found = auto-reactivated), `last_scanned_at` (when last actually read by a scan), `pending` (scanner couldn't match read → awaiting /review), `warband_id` (current warband · synced from scan, manually overridable)
