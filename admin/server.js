@@ -521,6 +521,136 @@ app.post('/api/warbands/:id/archive', (req, res) => {
     }
 });
 
+// ── Seasons ──────────────────────────────────────────────────────────────────
+
+// GET /api/seasons — list with server counts
+app.get('/api/seasons', (req, res) => {
+    try {
+        const rows = db.prepare(`
+            SELECT s.id, s.name, s.active,
+                   COUNT(sv.id) AS server_count
+            FROM ally_seasons s
+            LEFT JOIN ally_servers sv ON sv.season_id = s.id
+            GROUP BY s.id
+            ORDER BY s.id DESC
+        `).all();
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/seasons — create
+app.post('/api/seasons', (req, res) => {
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Season name required' });
+    try {
+        const r = db.prepare('INSERT INTO ally_seasons (name, active) VALUES (?, 0)').run(name);
+        res.json({ ok: true, id: r.lastInsertRowid });
+    } catch (err) {
+        res.status(err.message.includes('UNIQUE') ? 400 : 500)
+           .json({ error: err.message.includes('UNIQUE') ? 'That season already exists' : err.message });
+    }
+});
+
+// PUT /api/seasons/:id — rename or toggle active
+app.put('/api/seasons/:id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { name, active } = req.body;
+    try {
+        const season = db.prepare('SELECT id FROM ally_seasons WHERE id = ?').get(id);
+        if (!season) return res.status(404).json({ error: 'Season not found' });
+        if (name !== undefined) {
+            const n = name.trim();
+            if (!n) return res.status(400).json({ error: 'Name cannot be empty' });
+            db.prepare('UPDATE ally_seasons SET name = ? WHERE id = ?').run(n, id);
+        }
+        if (active !== undefined) {
+            db.prepare('UPDATE ally_seasons SET active = ? WHERE id = ?').run(active ? 1 : 0, id);
+        }
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(err.message.includes('UNIQUE') ? 400 : 500)
+           .json({ error: err.message.includes('UNIQUE') ? 'That season name already exists' : err.message });
+    }
+});
+
+// DELETE /api/seasons/:id — nullify recruitment refs first, then cascade-delete
+app.delete('/api/seasons/:id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+        const season = db.prepare('SELECT id FROM ally_seasons WHERE id = ?').get(id);
+        if (!season) return res.status(404).json({ error: 'Season not found' });
+        db.transaction(() => {
+            db.prepare(`
+                UPDATE recruitment SET server_id = NULL
+                WHERE server_id IN (SELECT id FROM ally_servers WHERE season_id = ?)
+            `).run(id);
+            db.prepare('DELETE FROM ally_seasons WHERE id = ?').run(id);
+        })();
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/seasons/:id/servers — sorted list of server numbers
+app.get('/api/seasons/:id/servers', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+        const season = db.prepare('SELECT id FROM ally_seasons WHERE id = ?').get(id);
+        if (!season) return res.status(404).json({ error: 'Season not found' });
+        const rows = db.prepare('SELECT server_number FROM ally_servers WHERE season_id = ? ORDER BY server_number').all(id);
+        res.json(rows.map(r => r.server_number));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/seasons/:id/servers — bulk add { numbers: [1,2,3,...] }
+app.post('/api/seasons/:id/servers', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const numbers = req.body.numbers;
+    if (!Array.isArray(numbers) || numbers.length === 0) {
+        return res.status(400).json({ error: 'numbers must be a non-empty array' });
+    }
+    try {
+        const season = db.prepare('SELECT id FROM ally_seasons WHERE id = ?').get(id);
+        if (!season) return res.status(404).json({ error: 'Season not found' });
+        const insert = db.prepare('INSERT OR IGNORE INTO ally_servers (server_number, season_id) VALUES (?, ?)');
+        let added = 0;
+        db.transaction(() => {
+            for (const n of numbers) {
+                added += insert.run(n, id).changes;
+            }
+        })();
+        res.json({ ok: true, added, skipped: numbers.length - added });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/seasons/:id/servers — bulk remove { numbers: [1,2,...] }
+app.delete('/api/seasons/:id/servers', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const numbers = req.body.numbers;
+    if (!Array.isArray(numbers) || numbers.length === 0) {
+        return res.status(400).json({ error: 'numbers must be a non-empty array' });
+    }
+    try {
+        const del = db.prepare('DELETE FROM ally_servers WHERE server_number = ? AND season_id = ?');
+        let removed = 0;
+        db.transaction(() => {
+            for (const n of numbers) {
+                removed += del.run(n, id).changes;
+            }
+        })();
+        res.json({ ok: true, removed });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ────────────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, '127.0.0.1', () => {

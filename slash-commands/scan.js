@@ -20,25 +20,28 @@ async function postInactivityAlert(client) {
 	const snapshot = getLatestSnapshot();
 	if (!snapshot) return;
 
-	const cutoff = new Date();
-	cutoff.setUTCDate(cutoff.getUTCDate() - INACTIVITY_DAYS);
-	const cutoffStr = cutoff.toISOString().slice(0, 19);
-
-	const inactive = db
+	const rows = db
 		.prepare(
 			`
-        SELECT ms.name, ms.last_active, ms.last_seen_approx, m.discord_id
+        SELECT ms.name, ms.last_active, m.discord_id
         FROM member_snapshots ms
         LEFT JOIN members m ON m.id = ms.member_id
         LEFT JOIN member_afk afk ON afk.member_id = ms.member_id
         WHERE ms.snapshot_id = ?
           AND m.active = 1
           AND afk.member_id IS NULL
-          AND ms.last_seen_approx < ?
-        ORDER BY ms.last_seen_approx ASC
     `,
 		)
-		.all(snapshot.id, cutoffStr);
+		.all(snapshot.id);
+
+	const inactive = rows.filter(r => {
+		const m = r.last_active && r.last_active.match(/^(\d+)d\s*ago$/i);
+		return m && parseInt(m[1], 10) >= INACTIVITY_DAYS;
+	}).sort((a, b) => {
+		const daysA = parseInt(a.last_active.match(/^(\d+)/)[1], 10);
+		const daysB = parseInt(b.last_active.match(/^(\d+)/)[1], 10);
+		return daysB - daysA;
+	});
 
 	if (inactive.length === 0) return;
 
