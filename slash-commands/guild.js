@@ -538,8 +538,21 @@ async function handleWarbands(interaction, snapshot) {
         return interaction.reply({ content: 'No warband data in latest snapshot · run `/scan` first.', flags: MessageFlags.Ephemeral });
     }
 
+    const { total, unassigned } = db.prepare(`
+        SELECT COUNT(*) AS total,
+               SUM(CASE WHEN ms.warband = '' OR ms.warband IS NULL THEN 1 ELSE 0 END) AS unassigned
+        FROM member_snapshots ms
+        JOIN members m ON m.id = ms.member_id AND m.active = 1
+        WHERE ms.snapshot_id = ?
+    `).get(snapshot.id);
+
+    const summary = unassigned > 0
+        ? `${total} members · ${unassigned} not yet assigned to a warband`
+        : `${total} members · all assigned`;
+
     const embed = new EmbedBuilder()
         .setTitle('⚔️ Warbands')
+        .setDescription(summary)
         .setFooter({ text: snapshotDate(snapshot) })
         .setColor(pickColor());
 

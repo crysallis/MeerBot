@@ -86,25 +86,43 @@ WAL mode is set on every connection. This is idempotent and ensures the setting 
 All tables are created on startup via `CREATE TABLE IF NOT EXISTS`:
 
 ```sql
-birthdays           Discord user birthdays. UNIQUE(user_id, guild_id).
+birthdays           Discord user birthday registrations. UNIQUE(user_id, guild_id).
 members             Guild members. Linked by discord_id to Discord users.
                     ingame_name is the primary key (UNIQUE). active = in latest scan.
                     pending = 1 when the scanner could not confidently match the read
                     to an existing member (awaiting /review).
                     warband_id = current warband (synced from scan, manually overridable).
+                    last_scanned_at = when the member was last read by a scan (set by scraper).
 warbands            Canonical warband list (id, name UNIQUE, sort_order, archived).
                     Rename here propagates everywhere via renameWarband().
-member_name_history Audit log of name changes from /rename.
-name_corrections    OCR correction map. Written by scraper, readable by bot.
-member_notes        Admin notes on members. Multiple notes per member.
+member_name_history Audit log of name changes from /rename and admin panel.
+name_corrections    OCR correction map. Written by scraper and /rename, readable by bot.
+member_notes        Admin notes on members. Multiple notes per member (/note command).
 member_afk          AFK status. One row per member (UNIQUE on member_id).
 scheduled_jobs      Unified job queue. One row per pending or recurring job.
-                    type = 'script_job' | 'remindme'. fire_at is next execution time.
+                    type = 'script_job' | 'remindme' | 'recruitment_followup'.
+                    fire_at is next execution time.
 remindme_jobs       Sub-table for type='remindme'. Holds user_id, channel_id, message.
                     ON DELETE CASCADE from scheduled_jobs.
 script_jobs         Sub-table for type='script_job'. Holds handler_path to module.
                     ON DELETE CASCADE from scheduled_jobs.
+recruitment_followups Sub-table for type='recruitment_followup'. 2-day follow-up reminder
+                    for /recruitment add. Holds user_id, recruitment_id, channel_id.
+                    ON DELETE CASCADE from scheduled_jobs.
 scheduler_log       Audit log of all job executions. UNIQUE(name, sent_date) for dedup.
+bot_config          DB-backed config store. key/value overrides editable via admin panel.
+                    Lookup order: DB > ENV > hardcoded default in CONFIG_META.
+message_reactions   Configurable auto-response rules. Pattern matching (contains/exact/
+                    regex/@mention), response type (reply/message/emoji/DM), per-user
+                    cooldown, optional channel filter, optional embed fields.
+ally_seasons        Ally season registry. id, name UNIQUE, active (0/1).
+                    Multiple seasons can be inactive; only one is typically active.
+ally_servers        Ally server numbers per season. UNIQUE(server_number, season_id).
+                    ON DELETE CASCADE when a season is deleted.
+recruitment         Prospect tracking. Stores power, server, rank columns, interest,
+                    response, status (scouting/invited/joined/declined).
+wishlist            Guild feature wishlist. priority (high/medium/low),
+                    status (not started/in progress/done), submitted_by Discord user ID.
 newsletters         Archived newsletter issues. Seeded from Discord channel via /newsletter seed.
                     posted_at is the authoritative anchor for the "since last newsletter" window.
 newsletter_notes    Running memory for the next issue (events, member news, season notes).
@@ -152,7 +170,7 @@ The loader in `index.js` checks for both `data` and `execute` before registering
 
 ### guild.js
 
-All ten `/guild` subcommands in one file. Shared helpers:
+All eleven `/guild` subcommands in one file. Shared helpers:
 
 - `getLatestSnapshot()` · fetches the most recent snapshot row
 - `getPrevSnapshotId(latestId)` · fetches the snapshot before the latest (for growth/nogrowth comparisons)
@@ -291,6 +309,9 @@ REST API:
 | `PUT` | `/api/config/:key` | Write a DB override for a key |
 | `DELETE` | `/api/config/:key` | Remove DB override, revert to ENV or DEFAULT |
 | `GET` | `/api/channels` | Flattened channel list from `data/discord-channels.json` |
+| `GET` | `/api/roles` | Role list from `data/discord-roles.json` |
+| `POST` | `/api/refresh-discord-data` | Re-run `list-channels.js` + `list-roles.js` scripts |
+| `GET` | `/api/bot-status` | PM2 status for the `meerbot` process (status, CPU, memory, uptime) |
 | `POST` | `/api/bot/restart` | Runs `pm2 restart meerbot --update-env` |
 | `GET` | `/api/scheduled-jobs` | All system jobs with display name, `fire_at`, `recurrence` |
 | `PUT` | `/api/scheduled-jobs/:id` | Update `fire_at` and/or `recurrence` for a job |
@@ -305,8 +326,20 @@ REST API:
 | `POST` | `/api/warbands` | `{ name }` · add a warband |
 | `PUT` | `/api/warbands/:id` | Rename (propagates everywhere via `renameWarband`) |
 | `POST` | `/api/warbands/:id/archive` | `{ archived }` · hide from scans/filters, keep history |
+| `GET` | `/api/seasons` | Season list with server counts |
+| `POST` | `/api/seasons` | `{ name }` · create a season (inactive by default) |
+| `PUT` | `/api/seasons/:id` | Update name and/or active status |
+| `DELETE` | `/api/seasons/:id` | Delete season + cascade servers (nullifies recruitment refs first) |
+| `GET` | `/api/seasons/:id/servers` | Sorted list of server numbers for a season |
+| `POST` | `/api/seasons/:id/servers` | `{ numbers: [...] }` · bulk add server numbers |
+| `DELETE` | `/api/seasons/:id/servers` | `{ numbers: [...] }` · bulk remove server numbers |
+| `GET` | `/api/message-reactions` | All configured message reaction rules |
+| `POST` | `/api/message-reactions` | Create a new reaction rule |
+| `PUT` | `/api/message-reactions/:id` | Update a reaction rule |
+| `DELETE` | `/api/message-reactions/:id` | Delete a reaction rule |
+| `POST` | `/api/message-reactions/reload` | No-op acknowledgement (cache auto-refreshes every 5 min) |
 
-The Members and Warbands routes power the admin panel's **Members** and **Warbands** tabs.
+The admin panel UI has tabs for: **Channels**, **Job Timing**, **Thresholds**, **Permissions** (all DB-backed config), **Reactions**, **Scheduled Jobs**, **Job Runs**, **Members**, **Warbands**, and **Seasons**.
 
 The config PUT endpoint validates the key against `CONFIG_META` before writing, preventing arbitrary DB writes. The scheduled-jobs PUT validates that `recurrence` matches `daily:N` or `weekly:N` and that `fire_at` is a valid datetime.
 
@@ -359,6 +392,8 @@ Every 30 seconds, the tick queries `WHERE fire_at <= datetime('now')`. For each 
   ```
 
 - **`remindme`**: deliver via DM (fallback to channel mention), then `DELETE` the row. `ON DELETE CASCADE` cleans `remindme_jobs` automatically.
+
+- **`recruitment_followup`**: post a 2-day follow-up embed to the channel (and DM the creator). Then `DELETE` the row. `ON DELETE CASCADE` cleans `recruitment_followups` automatically.
 
 The immediate `tick(client)` call on startup catches any jobs that fired while the bot was offline.
 
