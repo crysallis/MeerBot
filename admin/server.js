@@ -14,6 +14,27 @@ const VALID_RESPONSE_TYPES = ['reply', 'message', 'emoji', 'dm'];
 const PORT = process.env.ADMIN_PORT || 3001;
 const app = express();
 
+// Localhost-only guard. The server binds to 127.0.0.1, but a webpage open in a
+// local browser can still fire cross-origin POSTs at it (CSRF) and DNS rebinding
+// can spoof the address — so verify the Host and (when present) Origin headers
+// actually point at this machine before touching anything.
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+app.use((req, res, next) => {
+    const host = (req.headers.host || '').replace(/:\d+$/, '');
+    if (!LOCAL_HOSTS.has(host)) return res.status(403).json({ error: 'Forbidden' });
+    const origin = req.headers.origin;
+    if (origin) {
+        try {
+            if (!LOCAL_HOSTS.has(new URL(origin).hostname)) {
+                return res.status(403).json({ error: 'Forbidden' });
+            }
+        } catch {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+    }
+    next();
+});
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 

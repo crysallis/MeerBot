@@ -5,3 +5,5 @@ node_modules/
 *.log
 data/permission-map.md
 data/permission-map.mermaid
+data/discord-channels.json
+data/discord-roles.json

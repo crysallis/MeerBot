@@ -103,6 +103,7 @@ Global late warning threshold: `LATE_WARNING_MINUTES` in `bot_config` table (def
 
 Full role list (with IDs, member counts, hoist/managed flags) lives at `data/discord-roles.json`.
 Refresh with `node scripts/list-roles.js` whenever roles change.
+Local-only (gitignored) · the repo is public, server layout stays out of it.
 
 Key roles for code references:
 
@@ -123,6 +124,7 @@ Key roles for code references:
 
 Full channel list (with IDs, categories, types) lives at `data/discord-channels.json`.
 Refresh with `node scripts/list-channels.js` whenever the server adds/renames channels.
+Local-only (gitignored) · the repo is public, server layout stays out of it.
 
 Channels referenced by env vars (snapshot · check the JSON for everything else):
 

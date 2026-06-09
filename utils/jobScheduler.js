@@ -4,13 +4,18 @@ const db = require('./db');
 const { pickColor } = require('./colors');
 const { logJobRun } = require('./jobLog');
 
-// Compute next fire_at from current fire_at + recurrence interval (prevents clock drift)
+// Compute next fire_at from current fire_at + recurrence interval (prevents clock
+// drift). Fast-forwards past any intervals missed while the bot was down, so a
+// multi-day outage yields one catch-up fire instead of one per tick.
 function nextFire(job) {
     const [unit, n] = (job.recurrence || 'daily:1').split(':');
     const count = parseInt(n || '1', 10);
-    const base = new Date(job.fire_at).getTime();
     const days = unit === 'weekly' ? count * 7 : count;
-    return new Date(base + days * 24 * 60 * 60 * 1000).toISOString();
+    const intervalMs = days * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    let next = new Date(job.fire_at).getTime() + intervalMs;
+    while (next <= now) next += intervalMs;
+    return new Date(next).toISOString();
 }
 
 // Bootstrap helpers -- used only once on first startup per job
@@ -138,13 +143,16 @@ async function tick(client) {
     for (const job of due) {
         try {
             if (job.type === 'script_job') {
+                // Advance fire_at BEFORE running the handler: a persistently
+                // throwing handler waits for its next scheduled run instead of
+                // retrying every 30s tick forever.
+                db.prepare('UPDATE scheduled_jobs SET fire_at = ? WHERE id = ?')
+                    .run(nextFire(job), job.id);
+
                 const handlerPath = path.join(__dirname, job.handler_path);
                 const handlerModule = require(handlerPath);
                 const handler = typeof handlerModule === 'function' ? handlerModule : handlerModule.default;
                 await handler(client, job);
-
-                db.prepare('UPDATE scheduled_jobs SET fire_at = ? WHERE id = ?')
-                    .run(nextFire(job), job.id);
             } else if (job.type === 'remindme') {
                 await handleRemindme(client, job);
                 db.prepare('DELETE FROM scheduled_jobs WHERE id = ?').run(job.id);
