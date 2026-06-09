@@ -3,3 +3,5 @@ node_modules/
 .DS_Store
 .vscode/
 *.log
+data/permission-map.md
+data/permission-map.mermaid
