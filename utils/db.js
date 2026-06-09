@@ -8,6 +8,19 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.pragma('busy_timeout = 5000');
 
+// Schema ownership: the bot owns its BOT-ONLY tables below. The shared scan +
+// member-identity tables (members, snapshots, member_snapshots, warbands,
+// name_corrections, member_name_history) are owned and created by the miner
+// (AFKDataMining/src/db.py) · the bot reads and writes them but never defines
+// them. CREATE statements always reflect the CURRENT shape: when the schema
+// changes, run the ALTER once against guild.db and fold the column in here ·
+// no migration trail replayed on startup.
+const sharedReady = db.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'members'").get();
+if (!sharedReady) {
+    console.warn('[DB] Shared schema missing (members/snapshots/warbands) · it is owned by the AFKDataMining scraper · run a scan (or db.py init_db) to create it.');
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS birthdays (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,6 +30,7 @@ db.exec(`
     day           INTEGER NOT NULL,
     guild_id      TEXT NOT NULL,
     registered_at TEXT NOT NULL,
+    set_by        TEXT,
     UNIQUE(user_id, guild_id)
   );
   CREATE INDEX IF NOT EXISTS idx_bd_guild     ON birthdays(guild_id);
@@ -28,7 +42,6 @@ db.exec(`
     fire_at       TEXT NOT NULL,
     recurrence    TEXT,
     created_at    TEXT NOT NULL,
-    last_fired_at TEXT,
     enabled       INTEGER NOT NULL DEFAULT 1
   );
   CREATE INDEX IF NOT EXISTS idx_sj_fire_at ON scheduled_jobs(fire_at);
@@ -47,29 +60,6 @@ db.exec(`
     job_id       INTEGER NOT NULL REFERENCES scheduled_jobs(id) ON DELETE CASCADE,
     handler_path TEXT NOT NULL,
     args         TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS members (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    ingame_name   TEXT NOT NULL UNIQUE,
-    discord_id    TEXT UNIQUE,
-    discord_name  TEXT,
-    first_seen    TEXT NOT NULL,
-    notes         TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS member_name_history (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    member_id   INTEGER NOT NULL REFERENCES members(id),
-    old_name    TEXT NOT NULL,
-    new_name    TEXT NOT NULL,
-    changed_at  TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS name_corrections (
-    ocr_name     TEXT PRIMARY KEY,
-    correct_name TEXT NOT NULL,
-    source       TEXT NOT NULL DEFAULT 'ocr'
   );
 
   CREATE TABLE IF NOT EXISTS ally_seasons (
@@ -99,7 +89,8 @@ db.exec(`
     response       TEXT NOT NULL DEFAULT 'first_contact',
     contacted_at   TEXT NOT NULL,
     created_by     TEXT NOT NULL,
-    created_at     TEXT NOT NULL
+    created_at     TEXT NOT NULL,
+    status         TEXT NOT NULL DEFAULT 'scouting'
   );
 
   CREATE TABLE IF NOT EXISTS recruitment_followups (
@@ -145,26 +136,14 @@ db.exec(`
     late      INTEGER NOT NULL DEFAULT 0,
     UNIQUE(name, sent_date)
   );
-`);
 
-function migrate(sql) {
-    try { db.exec(sql); }
-    catch (e) { if (!e.message.includes('duplicate column') && !e.message.includes('no such column')) console.warn('[DB migration]', e.message); }
-}
-
-// Idempotent migrations
-migrate('ALTER TABLE members ADD COLUMN active INTEGER NOT NULL DEFAULT 0');
-migrate('ALTER TABLE birthdays DROP COLUMN year');
-migrate('ALTER TABLE birthdays ADD COLUMN set_by TEXT');
-migrate('ALTER TABLE scheduled_jobs DROP COLUMN last_fired_at');
-
-migrate(`CREATE TABLE IF NOT EXISTS bot_config (
+  CREATE TABLE IF NOT EXISTS bot_config (
     key        TEXT PRIMARY KEY,
     value      TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-)`);
+  );
 
-migrate(`CREATE TABLE IF NOT EXISTS message_reactions (
+  CREATE TABLE IF NOT EXISTS message_reactions (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     name             TEXT NOT NULL,
     pattern          TEXT NOT NULL DEFAULT '',
@@ -177,78 +156,28 @@ migrate(`CREATE TABLE IF NOT EXISTS message_reactions (
     response_channel TEXT,
     cooldown_seconds INTEGER NOT NULL DEFAULT 60,
     enabled          INTEGER NOT NULL DEFAULT 1,
-    created_at       TEXT NOT NULL DEFAULT (datetime('now'))
-)`);
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    embed_title      TEXT,
+    embed_description TEXT,
+    embed_color      TEXT
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_mr_one_mention ON message_reactions(pattern_type) WHERE pattern_type = 'mention';
 
-migrate(`CREATE UNIQUE INDEX IF NOT EXISTS idx_mr_one_mention ON message_reactions(pattern_type) WHERE pattern_type = 'mention'`);
-
-migrate('ALTER TABLE scheduled_jobs ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1');
-migrate('ALTER TABLE message_reactions ADD COLUMN embed_title TEXT');
-migrate('ALTER TABLE message_reactions ADD COLUMN embed_description TEXT');
-migrate('ALTER TABLE message_reactions ADD COLUMN embed_color TEXT');
-
-migrate('ALTER TABLE scheduler_log ADD COLUMN id INTEGER');
-migrate("ALTER TABLE scheduler_log ADD COLUMN sent_at TEXT NOT NULL DEFAULT ''");
-migrate('ALTER TABLE scheduler_log ADD COLUMN late INTEGER NOT NULL DEFAULT 0');
-
-migrate('ALTER TABLE members ADD COLUMN pending INTEGER NOT NULL DEFAULT 0');
-
-// ── Warbands (canonical, normalized) ────────────────────────────────────────
-migrate(`CREATE TABLE IF NOT EXISTS warbands (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL UNIQUE,
-    sort_order  INTEGER NOT NULL DEFAULT 0,
-    archived    INTEGER NOT NULL DEFAULT 0
-)`);
-migrate('ALTER TABLE members ADD COLUMN warband_id INTEGER REFERENCES warbands(id)');
-migrate('ALTER TABLE member_snapshots ADD COLUMN warband_id INTEGER REFERENCES warbands(id)');
-migrate("ALTER TABLE recruitment ADD COLUMN status TEXT NOT NULL DEFAULT 'scouting'");
-
-// Seed the known warbands + backfill ids from existing text. Guarded so normal
-// startups stay read-only (no write-lock contention) and a transient lock never
-// crashes boot — the one-time migration just runs on a later start instead.
-try {
-    if (db.prepare('SELECT COUNT(*) AS n FROM warbands').get().n === 0) {
-        const seed = db.prepare('INSERT OR IGNORE INTO warbands (name, sort_order) VALUES (?, ?)');
-        ['RKF RiffRaff', 'RKF Kings', 'Sobaquitos'].forEach((n, i) => seed.run(n, i));
-    }
-    // Only backfill while unmigrated rows exist (no-op — and no writes — once done)
-    const needsBackfill = db.prepare(
-        "SELECT 1 FROM member_snapshots WHERE warband_id IS NULL AND warband <> '' LIMIT 1").get();
-    if (needsBackfill) {
-        db.prepare(`INSERT OR IGNORE INTO warbands (name)
-                    SELECT DISTINCT warband FROM member_snapshots
-                    WHERE warband <> '' AND warband NOT IN (SELECT name FROM warbands)`).run();
-        db.prepare(`UPDATE member_snapshots
-                    SET warband_id = (SELECT id FROM warbands WHERE name = member_snapshots.warband)
-                    WHERE warband_id IS NULL AND warband <> ''`).run();
-        db.prepare(`UPDATE members
-                    SET warband_id = (
-                        SELECT ms.warband_id FROM member_snapshots ms
-                        WHERE ms.member_id = members.id AND ms.warband_id IS NOT NULL
-                        ORDER BY ms.snapshot_id DESC LIMIT 1)
-                    WHERE warband_id IS NULL
-                      AND EXISTS (SELECT 1 FROM member_snapshots ms
-                                  WHERE ms.member_id = members.id AND ms.warband_id IS NOT NULL)`).run();
-    }
-} catch (e) {
-    console.warn('[DB warband migration deferred]', e.message);
-}
-
-migrate(`CREATE TABLE IF NOT EXISTS newsletters (
+  CREATE TABLE IF NOT EXISTS newsletters (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     volume    TEXT,
     title     TEXT,
     content   TEXT NOT NULL,
     posted_at TEXT NOT NULL DEFAULT (datetime('now'))
-)`);
+  );
 
-migrate(`CREATE TABLE IF NOT EXISTS newsletter_notes (
+  CREATE TABLE IF NOT EXISTS newsletter_notes (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     note_text  TEXT NOT NULL,
     category   TEXT NOT NULL DEFAULT 'other',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
-)`);
+  );
+`);
 
 /**
  * Merge duplicate members: repoint all of dropId's data onto keepId, alias the

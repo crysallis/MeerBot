@@ -24,7 +24,7 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 |---|---|
 | `index.js` | Entry point, command loader, rate limiter |
 | `config.js` | Rate limit + ping tier constants (static code config only) |
-| `utils/db.js` | DB connection + all table CREATE/migrations · exports `mergeMembers`, `getWarbands`, `renameWarband`, `setMemberWarband` |
+| `utils/db.js` | DB connection + bot-only table CREATEs (shared scan/identity tables are owned by the miner's `db.py`) · exports `mergeMembers`, `getWarbands`, `renameWarband`, `setMemberWarband` |
 | `utils/botConfig.js` | DB-backed config store · `get(key)` reads DB → ENV → default · `set(key,val)` writes DB · `getAll()` for admin UI |
 | `utils/scheduledMessages.js` | Timed auto-posts · add new messages to MESSAGES array here |
 | `utils/afkExpiry.js` | Daily midnight UTC · clears expired AFK records, posts to inactivity channel |
@@ -62,6 +62,8 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `/newsletter seed` | Import past newsletters from the Discord newsletter channel into DB (re-runnable) |
 
 ## Database Tables (key ones)
+
+Schema ownership: the miner (`AFKDataMining/src/db.py`) owns the shared scan/identity tables (members, snapshots, member_snapshots, warbands, name_corrections, member_name_history); the bot owns everything else. CREATE statements always reflect the current shape · schema changes are ALTERed once against guild.db then folded into the owner's CREATE, no migration trail on startup.
 - `members` · ingame_name (canonical, UNIQUE), discord_id, first_seen, `active` (latest-scan-only · 1 iff read in the most recent scan, else 0 · re-found = auto-reactivated), `last_scanned_at` (when last actually read by a scan), `pending` (scanner couldn't match read → awaiting /review), `warband_id` (current warband · synced from scan, manually overridable)
 - `warbands` · canonical warband list (id, name UNIQUE, sort_order, archived) · rename here propagates everywhere
 - `snapshots` · one row per scan run

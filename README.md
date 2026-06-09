@@ -181,7 +181,7 @@ MeerBot/
         schedule.js             /schedule view all system jobs with last/next runs.
         anniversary.js          /anniversary list / upcoming.
     utils/
-        db.js                   SQLite connection, schema creation, idempotent migrations.
+        db.js                   SQLite connection + bot-only table creation (shared scan tables owned by the miner).
         botConfig.js            DB-backed config store. get(key) reads DB > ENV > default.
         jobScheduler.js         Unified job queue. Single 30s poller dispatches all job types.
         jobLog.js               Shared helper for scheduled jobs to record runs to scheduler_log.
