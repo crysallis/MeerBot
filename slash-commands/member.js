@@ -47,7 +47,7 @@ module.exports = {
         let current;
         if (mentionedUser) {
             current = db.prepare(`
-                SELECT m.ingame_name, m.discord_id, m.first_seen,
+                SELECT m.id AS member_id, m.ingame_name, m.discord_id, m.first_seen,
                        ms.last_active, ms.combat_power, ms.combat_power_value, ms.warband,
                        afk.return_date AS afk_until
                 FROM member_snapshots ms
@@ -62,7 +62,7 @@ module.exports = {
             }
         } else {
             current = db.prepare(`
-                SELECT m.ingame_name, m.discord_id, m.first_seen,
+                SELECT m.id AS member_id, m.ingame_name, m.discord_id, m.first_seen,
                        ms.last_active, ms.combat_power, ms.combat_power_value, ms.warband,
                        afk.return_date AS afk_until
                 FROM member_snapshots ms
@@ -100,10 +100,48 @@ module.exports = {
             if (delta !== 0) powerGrowth = `${delta >= 0 ? '▲' : '▼'} ${fmtPower(Math.abs(delta))}`;
         }
 
-        const afkValue = current.afk_until ? `AFK until ${current.afk_until}` : '·';
+        const mid = current.member_id;
 
+        const afkStages = db.prepare(`
+            SELECT phase, progress, rank FROM afk_stage_rankings
+            WHERE member_id = ?
+              AND scanned_at = (SELECT MAX(scanned_at) FROM afk_stage_rankings WHERE member_id = ?)
+            ORDER BY phase
+        `).all(mid, mid);
+        const supremeArena = db.prepare(`
+            SELECT rank FROM supreme_arena_rankings WHERE member_id = ?
+            ORDER BY scanned_at DESC LIMIT 1
+        `).get(mid);
+        const arena = db.prepare(`
+            SELECT rank FROM arena_rankings WHERE member_id = ?
+            ORDER BY scanned_at DESC LIMIT 1
+        `).get(mid);
+        const honor = db.prepare(`
+            SELECT rank FROM honor_duel_rankings WHERE member_id = ?
+            ORDER BY scanned_at DESC LIMIT 1
+        `).get(mid);
+        const arcaneLab = db.prepare(`
+            SELECT rank FROM arcane_lab_rankings WHERE member_id = ?
+            ORDER BY scanned_at DESC LIMIT 1
+        `).get(mid);
+        const dreamRealm = db.prepare(`
+            SELECT ds.boss_name, ds.rank, MAX(ds.scanned_at) AS scanned_at
+            FROM dream_realm_scores ds
+            LEFT JOIN dream_realm_bosses b ON b.name = ds.boss_name
+            WHERE ds.member_id = ?
+            GROUP BY ds.boss_name
+            ORDER BY COALESCE(b.sort_order, 999), ds.boss_name
+        `).all(mid);
+
+        const afkStagesValue = afkStages.length
+            ? afkStages.map(s => `P${s.phase} ${s.progress || '·'}${s.rank != null ? ` (#${s.rank})` : ''}`).join('\n')
+            : '·';
+
+        const afkValue = current.afk_until ? `Until ${current.afk_until}` : 'Not AF AFK';
+
+        const lastScanned = history[0]?.scraped_at?.slice(0, 10);
         const embed = new EmbedBuilder()
-            .setTitle(`👤 ${current.ingame_name} (in game name)`)
+            .setTitle(`👤 ${current.ingame_name} (in game name)${lastScanned ? ` · last scanned: ${lastScanned}` : ''}`)
             .addFields(
                 { name: 'Combat Power', value: current.combat_power || '·', inline: true },
                 { name: 'Warband',      value: current.warband || '·',       inline: true },
@@ -111,9 +149,29 @@ module.exports = {
                 { name: 'Discord',      value: current.discord_id ? `<@${current.discord_id}>` : 'Not linked', inline: true },
                 { name: 'First Seen',   value: current.first_seen?.slice(0, 10) || '·', inline: true },
                 { name: 'Power Growth', value: powerGrowth, inline: true },
-                { name: 'AFK',          value: afkValue, inline: true },
+                { name: 'AF AFK',       value: afkValue, inline: true },
             )
             .setColor(color);
+
+        const rankStr = (row) => (row && row.rank != null) ? `#${row.rank}` : '·';
+
+        embed.addFields(
+            { name: '🏔️ AFK Stages',    value: afkStagesValue,        inline: true },
+            { name: '⚔️ Supreme Arena',  value: rankStr(supremeArena), inline: true },
+            { name: '🥊 Arena',          value: rankStr(arena),        inline: true },
+            { name: '🎖️ Honor Duel',     value: rankStr(honor),        inline: true },
+            { name: '🧪 Arcane Lab',     value: rankStr(arcaneLab),    inline: true },
+            { name: '​',            value: '​',              inline: true },
+        );
+
+        if (dreamRealm.length) {
+            const drLines = dreamRealm.map(d => `${d.boss_name.padEnd(20)} ${d.rank != null ? '#' + d.rank : '·'}`);
+            embed.addFields({
+                name: '🐲 Dream Realm',
+                value: '```\n' + drLines.join('\n') + '\n```',
+                inline: false,
+            });
+        }
 
         if (histLines.length) {
             const header = `${'Date'.padEnd(10)} | ${'Power'.padStart(6)} | Warband`;
