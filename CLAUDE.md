@@ -7,11 +7,10 @@ They share `C:\vscode\AFKDataMining\guild.db`. Neither repo is standalone.
 
 On the first message of every conversation, before responding, read these memory files from the shared memory store:
 
-- `C:\Users\crysa\.claude\projects\c--vscode-AFKDataMining\memory\project_afk_datamining.md`
-- `C:\Users\crysa\.claude\projects\c--vscode-AFKDataMining\memory\project_consensus_scan.md`
 - `C:\Users\crysa\.claude\projects\c--vscode-AFKDataMining\memory\project_mode_scans.md`
 - `C:\Users\crysa\.claude\projects\c--vscode-AFKDataMining\memory\project_scraper_stdout_contract.md`
-- `C:\Users\crysa\.claude\projects\c--vscode-AFKDataMining\memory\project_afk_stages_phase_nav.md`
+
+These two are stable guardrails (hard-won scan quirks + the stdout contract the bot parses) · force-read because they're costly to miss and don't go stale. Broader project context (overview, consensus-scan history, AFK Stages phase nav) lives in the memory palace and is recalled on demand, not force-read.
 
 Then give a brief what's-done / what's-pending summary before starting the task.
 
