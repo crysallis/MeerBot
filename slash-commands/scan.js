@@ -8,6 +8,21 @@ const botConfig = require("../utils/botConfig");
 const PYTHON = process.env.SCRAPER_PYTHON || "python";
 const SCRAPER = process.env.SCRAPER_SCRIPT;
 
+const MODE_FLAGS = {
+	SCAN_DREAM_REALM: "--dream-realm",
+	SCAN_AFK_STAGES: "--afk-stages",
+	SCAN_ARENA: "--arena",
+	SCAN_SUPREME_ARENA: "--supreme-arena",
+	SCAN_HONOR_DUEL: "--honor-duel",
+	SCAN_ARCANE_LAB: "--arcane-lab",
+};
+
+function enabledModeFlags() {
+	return Object.entries(MODE_FLAGS)
+		.filter(([key]) => botConfig.get(key) === "true")
+		.map(([, flag]) => flag);
+}
+
 function getLatestSnapshot() {
 	return db.prepare("SELECT id FROM snapshots ORDER BY id DESC LIMIT 1").get();
 }
@@ -78,8 +93,6 @@ module.exports = {
 			});
 		}
 
-		await interaction.deferReply();
-
 		await new Promise((resolve) => {
 			exec("adb devices", (_err, stdout) => {
 				if (stdout && stdout.includes("127.0.0.1:5555\tdevice")) return resolve();
@@ -87,23 +100,36 @@ module.exports = {
 			});
 		});
 
-		execFile(PYTHON, [SCRAPER], { cwd: require("path").dirname(SCRAPER) }, async (error, stdout) => {
+		const modeFlags = enabledModeFlags();
+		const modeList = modeFlags.length ? ` + ${modeFlags.length} mode scan(s)` : "";
+		await interaction.reply(`⏳ Scan started (guild${modeList}) · results will be posted here when done.`);
+
+		execFile(PYTHON, [SCRAPER, ...modeFlags], { cwd: require("path").dirname(SCRAPER) }, async (error, stdout) => {
 			if (error) {
 				console.error("Scan error:", error);
-				return interaction.editReply(`❌ Scan failed:\n\`\`\`${error.message.slice(0, 500)}\`\`\``);
+				return interaction.channel.send(`❌ Scan failed:\n\`\`\`${error.message.slice(0, 500)}\`\`\``);
 			}
 
 			const lines = stdout.split("\n");
 			const done = lines.find((l) => l.includes("Done."));
 			const saved = lines.find((l) => l.includes("Saved to DB as snapshot"));
-			const reviewLine = lines.find((l) => l.startsWith("REVIEW_NAMES:"));
-			const reviewNames = reviewLine ? reviewLine.replace("REVIEW_NAMES:", "").trim() : null;
+			const reviewNames = [...new Set(
+				lines.filter((l) => l.startsWith("REVIEW_NAMES:"))
+					.flatMap((l) => l.replace("REVIEW_NAMES:", "").split(","))
+					.map((n) => n.trim())
+					.filter(Boolean),
+			)].join(", ");
+			const modeResults = lines.filter((l) =>
+				/^(DREAM_REALM|AFK_STAGES|ARENA|SUPREME_ARENA|HONOR_DUEL|ARCANE_LAB|MODE_FAILED):/.test(l));
 
 			let reply = `✅ Scan complete!\n${done || saved || "Snapshot saved."}`;
+			if (modeResults.length) {
+				reply += `\n${modeResults.map((l) => `· ${l.trim()}`).join("\n")}`;
+			}
 			if (reviewNames) {
 				reply += `\n\n⚠️ **Name review needed** · these were saved as-is (ambiguous OCR characters, no history match):\n\`${reviewNames}\`\nUse \`/rename\` to correct if any look wrong.`;
 			}
-			await interaction.editReply(reply);
+			await interaction.channel.send(reply);
 
 			await postInactivityAlert(interaction.client);
 		});

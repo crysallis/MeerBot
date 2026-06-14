@@ -1,5 +1,22 @@
 # Discord Bot · MeerBot
 
+## Connected Repo
+
+This bot is one half of a two-repo system. The other half is the Python scraper at `C:\vscode\AFKDataMining`.
+They share `C:\vscode\AFKDataMining\guild.db`. Neither repo is standalone.
+
+On the first message of every conversation, before responding, read these memory files from the shared memory store:
+
+- `C:\Users\crysa\.claude\projects\c--vscode-AFKDataMining\memory\project_afk_datamining.md`
+- `C:\Users\crysa\.claude\projects\c--vscode-AFKDataMining\memory\project_consensus_scan.md`
+- `C:\Users\crysa\.claude\projects\c--vscode-AFKDataMining\memory\project_mode_scans.md`
+- `C:\Users\crysa\.claude\projects\c--vscode-AFKDataMining\memory\project_scraper_stdout_contract.md`
+- `C:\Users\crysa\.claude\projects\c--vscode-AFKDataMining\memory\project_afk_stages_phase_nav.md`
+
+Then give a brief what's-done / what's-pending summary before starting the task.
+
+
+
 discord.js v14 · better-sqlite3 · PM2 · Node.js
 
 Companion to `C:\vscode\AFKDataMining`. Reads the shared guild DB.

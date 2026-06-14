@@ -17,6 +17,13 @@ const CONFIG_META = {
     LATE_WARNING_MINUTES:        { label: 'Late Warning Minutes',      description: 'Minutes late before adding a late footer',category: 'thresholds',  default: '30' },
     // --- Permissions ---
     SCAN_AUTHORIZED_USER:        { label: 'Scan Authorized User',      description: 'Discord user ID allowed to run /scan',    category: 'permissions', default: '' },
+    // --- Scan Modes ---
+    SCAN_DREAM_REALM:            { label: 'Dream Realm Scan',          description: 'Include Dream Realm rankings in /scan',   category: 'scan_modes',  default: 'false' },
+    SCAN_AFK_STAGES:             { label: 'AFK Stages Scan',           description: 'Include AFK Stage rankings in /scan',     category: 'scan_modes',  default: 'false' },
+    SCAN_ARENA:                  { label: 'Arena Scan',                description: 'Include Arena rankings in /scan',         category: 'scan_modes',  default: 'false' },
+    SCAN_SUPREME_ARENA:          { label: 'Supreme Arena Scan',        description: 'Include Supreme Arena rankings in /scan', category: 'scan_modes',  default: 'false' },
+    SCAN_HONOR_DUEL:             { label: 'Honor Duel Scan',           description: 'Include Honor Duel rankings in /scan',    category: 'scan_modes',  default: 'false' },
+    SCAN_ARCANE_LAB:             { label: 'Arcane Lab Scan',           description: 'Include Arcane Labyrinth rankings in /scan', category: 'scan_modes', default: 'false' },
 };
 
 function get(key, fallback = '') {

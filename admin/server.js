@@ -542,6 +542,61 @@ app.post('/api/warbands/:id/archive', (req, res) => {
     }
 });
 
+// ── Dream Realm Bosses ───────────────────────────────────────────────────────
+
+app.get('/api/dream-realm-bosses', (req, res) => {
+    try {
+        const rows = db.prepare(`
+            SELECT b.id, b.name, b.sort_order, b.season,
+                   s.name AS season_name
+            FROM dream_realm_bosses b
+            LEFT JOIN ally_seasons s ON s.id = b.season
+            ORDER BY b.season, b.sort_order, b.name COLLATE NOCASE
+        `).all();
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/dream-realm-bosses', (req, res) => {
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Boss name required' });
+    const sort_order = req.body.sort_order != null ? parseInt(req.body.sort_order, 10) : null;
+    const season = req.body.season != null ? parseInt(req.body.season, 10) : null;
+    try {
+        const r = db.prepare(
+            'INSERT INTO dream_realm_bosses (name, sort_order, season) VALUES (?, ?, ?)'
+        ).run(name, sort_order, season);
+        res.json({ ok: true, id: r.lastInsertRowid });
+    } catch (err) {
+        res.status(err.message.includes('UNIQUE') ? 400 : 500)
+           .json({ error: err.message.includes('UNIQUE') ? 'That boss already exists for this season' : err.message });
+    }
+});
+
+app.put('/api/dream-realm-bosses/:id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const name = (req.body.name || '').trim() || null;
+    const sort_order = req.body.sort_order != null ? parseInt(req.body.sort_order, 10) : undefined;
+    const season = req.body.season != null ? parseInt(req.body.season, 10) : undefined;
+    try {
+        const existing = db.prepare('SELECT id FROM dream_realm_bosses WHERE id = ?').get(id);
+        if (!existing) return res.status(404).json({ error: 'Boss not found' });
+        if (name) db.prepare('UPDATE dream_realm_bosses SET name = ? WHERE id = ?').run(name, id);
+        if (sort_order !== undefined) db.prepare('UPDATE dream_realm_bosses SET sort_order = ? WHERE id = ?').run(sort_order, id);
+        if (season !== undefined) db.prepare('UPDATE dream_realm_bosses SET season = ? WHERE id = ?').run(season, id);
+        res.json({ ok: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/dream-realm-bosses/:id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+        const r = db.prepare('DELETE FROM dream_realm_bosses WHERE id = ?').run(id);
+        if (r.changes === 0) return res.status(404).json({ error: 'Boss not found' });
+        res.json({ ok: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Seasons ──────────────────────────────────────────────────────────────────
 
 // GET /api/seasons — list with server counts
@@ -673,6 +728,9 @@ app.delete('/api/seasons/:id/servers', (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────────────────
+
+// Ensure dream_realm_bosses.sort_order exists (added after initial schema creation)
+try { db.exec('ALTER TABLE dream_realm_bosses ADD COLUMN sort_order INTEGER'); } catch {}
 
 app.listen(PORT, '127.0.0.1', () => {
     console.log(`MeerBot admin panel running at http://127.0.0.1:${PORT}`);

@@ -10,7 +10,7 @@
 
 <header>
   <div style="display:flex; align-items:center; gap:12px;">
-  <img src="./images/meerbot_logo.jpg" alt="MeerBot Logo" style="width: 50px; height: auto; display: flex;"><h1>Meer<span>Bot</span> Admin</h1>
+  <img src="./images/meerbot_logo.png" alt="MeerBot Logo" style="width: 50px; height: auto; display: flex;"><h1>Meer<span>Bot</span> Admin</h1>
   </div>
   <div class="header-right">
     <span class="restart-status" id="restartStatus"></span>
@@ -19,7 +19,7 @@
 </header>
 
 <main>
-  <div class="meerbot_header"><img src="./images/meerbot_header.jpg" alt="MeerBot Header" style="width: 400px; height: auto; display: block; margin: 0 auto;"></div>
+  <div class="meerbot_header"><img src="./images/meerbot_header.png" alt="MeerBot Header" style="width: 400px; height: auto; display: block; margin: 0 auto;"></div>
 
   <div class="bot-status-bar" id="botStatusBar">
     <div class="status-dot status-other" id="statusDot"></div>
@@ -258,6 +258,36 @@
     </div>
   </div>
 
+  <div class="section" id="section-dreambosses">
+    <div class="section-title">Dream Realm Bosses</div>
+    <div style="margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Boss Name</label>
+        <input id="newBossName" placeholder="e.g. Gloommaw" style="max-width:200px">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Order in Season</label>
+        <input id="newBossOrder" type="number" min="1" placeholder="1" style="width:80px">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Season</label>
+        <select id="newBossSeason" style="max-width:160px"><option value="">— none —</option></select>
+      </div>
+      <button class="save-btn" style="background:#2f9e44" onclick="addDreamBoss()">+ Add Boss</button>
+    </div>
+    <p style="color:var(--muted); font-size:12px; margin-bottom:12px">
+      Add bosses in their rotation order for each season. The scraper uses order + today's boss to determine which boss was on past scan days.
+    </p>
+    <div class="card">
+      <table class="jobs-table">
+        <thead>
+          <tr class="jobs-header-row"><th>#</th><th>Boss</th><th>Season</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="dreamBossesBody"><tr><td colspan="4" style="color:var(--muted)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="section" id="section-seasons">
     <div class="section-title">Seasons</div>
     <div style="margin-bottom:16px; display:flex; gap:8px">
@@ -284,6 +314,7 @@ const CATEGORY_LABELS = {
   timing:      'Job Timing',
   thresholds:  'Thresholds',
   permissions: 'Permissions',
+  scan_modes:  'Scan Modes',
 };
 
 let allConfig = [];
@@ -316,6 +347,7 @@ async function init() {
   await loadReactions();
   await loadMembers();
   await loadSeasons();
+  await loadDreamBosses().catch(e => console.warn('DR Bosses load failed:', e));
   loadBotStatus();
 }
 
@@ -367,6 +399,13 @@ function renderTabs() {
   wbTab.onclick = () => switchTab('warbands');
   tabsEl.appendChild(wbTab);
 
+  // Dream Realm Bosses tab
+  const drTab = document.createElement('button');
+  drTab.className = 'tab' + (activeTab === 'dreambosses' ? ' active' : '');
+  drTab.textContent = 'DR Bosses';
+  drTab.onclick = () => switchTab('dreambosses');
+  tabsEl.appendChild(drTab);
+
   // Seasons tab
   const seasTab = document.createElement('button');
   seasTab.className = 'tab' + (activeTab === 'seasons' ? ' active' : '');
@@ -378,7 +417,7 @@ function renderTabs() {
 function switchTab(cat) {
   activeTab = cat;
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const cats = [...new Set(allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'seasons'];
+    const cats = [...new Set(allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'dreambosses', 'seasons'];
     t.classList.toggle('active', cats[i] === cat);
   });
   document.querySelectorAll('.section').forEach(s => {
@@ -443,6 +482,12 @@ function buildRow(entry, cat) {
       </select>`;
   } else if (cat === 'timing') {
     inputHtml = `<input type="time" id="${inputId}" value="${entry.value || ''}" data-key="${entry.key}">`;
+  } else if (cat === 'scan_modes') {
+    inputHtml = `
+      <select id="${inputId}" data-key="${entry.key}">
+        <option value="false"${entry.value !== 'true' ? ' selected' : ''}>Off</option>
+        <option value="true"${entry.value === 'true' ? ' selected' : ''}>On</option>
+      </select>`;
   } else if (cat === 'thresholds') {
     inputHtml = `<input type="number" id="${inputId}" value="${entry.value || ''}" min="1" data-key="${entry.key}" style="width:80px">`;
   } else {
@@ -1508,6 +1553,67 @@ async function removeServer(seasonId, serverNum) {
   }).then(r => r.json());
   if (res.error) { alert(res.error); return; }
   await loadSeasons();
+}
+
+// ── Dream Realm Bosses ───────────────────────────────────────────────────────
+
+let dreamSeasonList = [];
+
+async function loadDreamBosses() {
+  const [bosses, seasons] = await Promise.all([
+    fetch('/api/dream-realm-bosses').then(r => r.json()),
+    fetch('/api/seasons').then(r => r.json()),
+  ]);
+  // Populate season dropdown first — always, even if boss list has an error
+  dreamSeasonList = Array.isArray(seasons) ? seasons : [];
+  const sel = document.getElementById('newBossSeason');
+  sel.innerHTML = '<option value="">— none —</option>' +
+    dreamSeasonList.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+  const tbody = document.getElementById('dreamBossesBody');
+  const bossList = Array.isArray(bosses) ? bosses : [];
+  if (!bossList.length) { tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted)">No bosses yet.</td></tr>'; return; }
+  tbody.innerHTML = bossList.map(b => `
+    <tr id="dr-row-${b.id}">
+      <td><input type="number" min="1" value="${b.sort_order ?? ''}" style="width:60px" onchange="updateDreamBoss(${b.id},{sort_order:this.value?parseInt(this.value):null})"></td>
+      <td><input type="text" value="${escHtml(b.name)}" style="max-width:200px" onchange="updateDreamBoss(${b.id},{name:this.value})"></td>
+      <td>
+        <select onchange="updateDreamBoss(${b.id},{season:this.value?parseInt(this.value):null})">
+          <option value="">— none —</option>
+          ${seasons.map(s => `<option value="${s.id}"${s.id === b.season ? ' selected' : ''}>${escHtml(s.name)}</option>`).join('')}
+        </select>
+      </td>
+      <td><button class="reset-btn" onclick="deleteDreamBoss(${b.id},'${escHtml(b.name)}')" style="color:var(--red)">Delete</button></td>
+    </tr>`).join('');
+}
+
+async function addDreamBoss() {
+  const name = document.getElementById('newBossName').value.trim();
+  if (!name) { alert('Boss name required'); return; }
+  const order = document.getElementById('newBossOrder').value;
+  const season = document.getElementById('newBossSeason').value;
+  const res = await fetch('/api/dream-realm-bosses', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, sort_order: order ? parseInt(order) : null, season: season ? parseInt(season) : null }),
+  }).then(r => r.json());
+  if (res.error) { alert(res.error); return; }
+  document.getElementById('newBossName').value = '';
+  document.getElementById('newBossOrder').value = '';
+  await loadDreamBosses();
+}
+
+async function updateDreamBoss(id, fields) {
+  const res = await fetch(`/api/dream-realm-bosses/${id}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  }).then(r => r.json());
+  if (res.error) alert(res.error);
+}
+
+async function deleteDreamBoss(id, name) {
+  if (!confirm(`Delete boss "${name}"?`)) return;
+  const res = await fetch(`/api/dream-realm-bosses/${id}`, { method: 'DELETE' }).then(r => r.json());
+  if (res.error) { alert(res.error); return; }
+  await loadDreamBosses();
 }
 
 // ────────────────────────────────────────────────────────────────────────────
