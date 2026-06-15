@@ -12,6 +12,8 @@ const CONFIG_META = {
     SCAN_REMINDER_CHANNEL_ID:    { label: 'Scan Reminder Channel',     description: 'Channel for daily scan reminder',         category: 'channels',    default: '' },
     WEEKLY_SUMMARY_CHANNEL_ID:          { label: 'Weekly Summary Channel',          description: 'Channel for Monday power summary',               category: 'channels',    default: '' },
     RECRUITMENT_REMINDER_CHANNEL_ID:    { label: 'Recruitment Reminder Channel',    description: 'Channel for 2-day recruit follow-up pings',     category: 'channels',    default: '' },
+    ROSTER_WELCOME_RIFFRAFF_CHANNEL_ID: { label: 'Roster Welcome - RiffRaff',       description: 'Channel for new RiffRaff member welcome posts',  category: 'channels',    default: '' },
+    ROSTER_WELCOME_FROP_CHANNEL_ID:     { label: 'Roster Welcome - Frop',           description: 'Channel for new Frop member welcome posts',      category: 'channels',    default: '' },
     // --- Thresholds ---
     INACTIVITY_DAYS:             { label: 'Inactivity Days',           description: 'Days before flagging a member inactive',  category: 'thresholds',  default: '3' },
     LATE_WARNING_MINUTES:        { label: 'Late Warning Minutes',      description: 'Minutes late before adding a late footer',category: 'thresholds',  default: '30' },
