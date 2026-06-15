@@ -392,6 +392,7 @@ app.get('/api/members', (req, res) => {
         const rows = db.prepare(`
             SELECT m.id, m.ingame_name, m.discord_id, m.discord_name, m.active, m.pending,
                    m.warband_id, w.name AS warband,
+                   m.ingame_id,
                    ms.combat_power, ms.last_active
             FROM members m
             LEFT JOIN warbands w ON w.id = m.warband_id
@@ -470,6 +471,24 @@ app.post('/api/members/merge', (req, res) => {
         res.json({ ok: true });
     } catch (err) {
         res.status(400).json({ error: err.message });
+    }
+});
+
+// POST /api/members/:id/ingame-id — set or clear the in-game User ID
+app.post('/api/members/:id/ingame-id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const raw = req.body.ingame_id;
+    const ingame_id = (raw != null && raw !== '') ? parseInt(raw, 10) : null;
+    if (ingame_id !== null && (isNaN(ingame_id) || ingame_id <= 0)) {
+        return res.status(400).json({ error: 'ingame_id must be a positive integer' });
+    }
+    try {
+        const member = db.prepare('SELECT id FROM members WHERE id = ?').get(id);
+        if (!member) return res.status(404).json({ error: 'Member not found' });
+        db.prepare('UPDATE members SET ingame_id = ? WHERE id = ?').run(ingame_id, id);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 

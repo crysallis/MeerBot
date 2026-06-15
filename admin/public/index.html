@@ -1265,8 +1265,12 @@ function renderMembers() {
       .map(w => `<option value="${w.id}"${m.warband_id === w.id ? ' selected' : ''}>${escapeHtml(w.name)}</option>`).join('');
     const wbSelect = `<select onchange="setWarband(${m.id}, this.value)" style="background:#1e1f22;color:#dbdee1;border:1px solid #3a3c41;border-radius:4px;padding:2px 4px">`
       + `<option value=""${m.warband_id ? '' : ' selected'}>— none —</option>${wbOptions}</select>`;
+    const ingameIdInput = `<input type="number" value="${m.ingame_id || ''}" placeholder="no ID" min="1"
+      title="In-game User ID · type and press Enter or Tab to save"
+      style="width:90px;font-size:11px;margin-top:3px;background:#1e1f22;color:#dbdee1;border:1px solid #3a3c41;border-radius:4px;padding:2px 4px"
+      onchange="setIngameId(${m.id}, this.value)">`;
     return `<tr>
-      <td><b>${escapeHtml(m.ingame_name)}</b></td>
+      <td><b>${escapeHtml(m.ingame_name)}</b><br>${ingameIdInput}</td>
       <td>${wbSelect}</td>
       <td>${escapeHtml(m.combat_power || '')}</td>
       <td>${discord}</td>
@@ -1347,6 +1351,15 @@ async function setWarband(id, value) {
   const data = await res.json();
   if (!data.ok) { alert('Failed: ' + data.error); }
   await loadMembers();
+}
+
+async function setIngameId(id, value) {
+  const res = await fetch(`/api/members/${id}/ingame-id`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ingame_id: value || null }),
+  });
+  const data = await res.json();
+  if (!data.ok) alert('Failed: ' + data.error);
 }
 
 // ── Warbands ────────────────────────────────────────────────────────────────
