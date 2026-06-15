@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const db = require('../utils/db');
 const { milestoneFor } = require('../utils/handlers/anniversaryCheck');
 const { pickColor } = require('../utils/colors');
+const { enforcePermissions } = require('../utils/permissions');
 
 /**
  * Returns the next upcoming milestone for a member, or null if first_seen
@@ -77,6 +78,7 @@ module.exports = {
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
+        if (!(await enforcePermissions(interaction, 'anniversary', sub))) return;
 
         if (sub === 'list') {
             const count = interaction.options.getInteger('count') ?? 5;

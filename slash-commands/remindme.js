@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { pickColor } = require('../utils/colors');
+const { enforcePermissions } = require('../utils/permissions');
 
 const MIN_MS = 60 * 60 * 1000;             // 1 hour
 const MAX_MS = 90 * 24 * 60 * 60 * 1000;  // 90 days
@@ -67,6 +68,7 @@ module.exports = {
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
+        if (!(await enforcePermissions(interaction, 'remindme', sub))) return;
 
         if (sub === 'set') {
             const timeStr  = interaction.options.getString('time');

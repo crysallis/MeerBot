@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const db = require('../utils/db');
 const { pickColor, toRgba } = require('../utils/colors');
 const { autoDelete } = require('../utils/autoDelete');
+const { enforcePermissions } = require('../utils/permissions');
 
 function fmtPower(val) {
     if (!val) return '·';
@@ -36,6 +37,7 @@ module.exports = {
     },
 
     async execute(interaction) {
+        if (!(await enforcePermissions(interaction, 'member', null))) return;
         const color = pickColor();
         const name = interaction.options.getString('name');
         const mentionedUser = interaction.options.getUser('user');

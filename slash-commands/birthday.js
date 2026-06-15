@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { pickColor } = require('../utils/colors');
+const { enforcePermissions } = require('../utils/permissions');
 
 const DAYS_IN_MONTH = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
@@ -35,6 +36,7 @@ module.exports = {
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
+        if (!(await enforcePermissions(interaction, 'birthday', sub))) return;
 
         if (sub === 'register') {
             const month = interaction.options.getInteger('month');

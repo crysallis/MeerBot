@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const db = require('../utils/db');
 const botConfig = require('../utils/botConfig');
 const { pickColor } = require('../utils/colors');
+const { enforcePermissions } = require('../utils/permissions');
 
 const INTEREST_EMOJI = { possible: '🟢', undecided: '🟡', unknown: '❓', none: '🔴' };
 const STATUS_EMOJI   = { scouting: '🔍', invited: '📨', joined: '✅', declined: '❌' };
@@ -120,6 +121,7 @@ module.exports = {
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
+        if (!(await enforcePermissions(interaction, 'recruitment', sub))) return;
 
         if (sub === 'add') {
             const name     = interaction.options.getString('name').trim();

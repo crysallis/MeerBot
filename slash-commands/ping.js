@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { ping: pingConfig } = require('../config');
+const { enforcePermissions } = require('../utils/permissions');
 
 const COMMENTS = {
     godlike: [
@@ -55,6 +56,7 @@ module.exports = {
     .setName('ping')
     .setDescription('Replies with Pong and shows latency'),
   async execute(interaction) {
+    if (!(await enforcePermissions(interaction, 'ping', null))) return;
     try {
       const before = Date.now();
       await interaction.reply({ content: 'Pinging...' });

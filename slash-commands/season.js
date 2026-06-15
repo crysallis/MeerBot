@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { pickColor } = require('../utils/colors');
+const { enforcePermissions } = require('../utils/permissions');
 
 function allSeasonNames() {
     return db.prepare('SELECT name FROM ally_seasons ORDER BY id DESC').all().map(r => r.name);
@@ -61,6 +62,7 @@ module.exports = {
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
+        if (!(await enforcePermissions(interaction, 'season', sub))) return;
 
         if (sub === 'add') {
             const name = interaction.options.getString('name').trim();

@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { mergeMembers } = db;
+const { enforcePermissions } = require('../utils/permissions');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -29,6 +30,7 @@ module.exports = {
     },
 
     async execute(interaction) {
+        if (!(await enforcePermissions(interaction, 'rename', null))) return;
         const oldName = interaction.options.getString('old_name');
         const newName = interaction.options.getString('new_name').trim();
 

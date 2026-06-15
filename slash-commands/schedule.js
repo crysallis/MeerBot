@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { pickColor } = require('../utils/colors');
+const { enforcePermissions } = require('../utils/permissions');
 
 const JOB_META = {
     './handlers/dailyReset':       { display: '📅 Daily Reset Message', logName: 'daily_reset'       },
@@ -46,6 +47,7 @@ module.exports = {
         .setDescription('View scheduled jobs, last runs, and next runs'),
 
     async execute(interaction) {
+        if (!(await enforcePermissions(interaction, 'schedule', null))) return;
         const systemJobs = db.prepare(`
             SELECT sj.fire_at, sj.recurrence, scj.handler_path
             FROM scheduled_jobs sj

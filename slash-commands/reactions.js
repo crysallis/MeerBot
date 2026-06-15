@@ -2,6 +2,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { pickColor } = require('../utils/colors');
+const { enforcePermissions } = require('../utils/permissions');
 
 const PATTERN_LABELS = {
     contains: 'contains',
@@ -23,6 +24,7 @@ module.exports = {
         .setDescription('List configured message reaction rules'),
 
     async execute(interaction) {
+        if (!(await enforcePermissions(interaction, 'reactions', null))) return;
         const rules = db.prepare(
             'SELECT * FROM message_reactions ORDER BY enabled DESC, id'
         ).all();

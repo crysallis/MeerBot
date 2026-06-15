@@ -76,4 +76,36 @@ function requireRole(roleId, label) {
     };
 }
 
-module.exports = { PERMS, getPerm, enforce, requireRole };
+async function enforcePermissions(interaction, command, subcommand = null) {
+    const db = require('./db');
+
+    const roleRows = db.prepare(
+        `SELECT value_id FROM command_permissions
+         WHERE command = ? AND subcommand IS ? AND type = 'role'`
+    ).all(command, subcommand);
+
+    if (roleRows.length > 0) {
+        const memberRoles = interaction.member?.roles?.cache;
+        const hasRole = roleRows.some(r => memberRoles?.has(r.value_id));
+        if (!hasRole) {
+            await interaction.reply({ content: "You don't have permission to use this command.", flags: MessageFlags.Ephemeral });
+            return false;
+        }
+    }
+
+    const channelRows = db.prepare(
+        `SELECT value_id FROM command_permissions
+         WHERE command = ? AND subcommand IS ? AND type = 'channel'`
+    ).all(command, subcommand);
+
+    if (channelRows.length > 0) {
+        if (!channelRows.some(r => r.value_id === interaction.channelId)) {
+            await interaction.reply({ content: "This command can't be used in this channel.", flags: MessageFlags.Ephemeral });
+            return false;
+        }
+    }
+
+    return true;
+}
+
+module.exports = { PERMS, getPerm, enforce, requireRole, enforcePermissions };

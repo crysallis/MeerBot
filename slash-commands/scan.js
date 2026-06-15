@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js"
 const { execFile, exec } = require("child_process");
 const db = require("../utils/db");
 const { pickColor } = require("../utils/colors");
-const { enforce } = require("../utils/permissions");
+const { enforce, enforcePermissions } = require("../utils/permissions");
 const botConfig = require("../utils/botConfig");
 
 const PYTHON = process.env.SCRAPER_PYTHON || "python";
@@ -85,6 +85,7 @@ module.exports = {
 		.setDescription("Trigger a guild member scan (requires game open on BlueStacks)"),
 
 	async execute(interaction) {
+		if (!(await enforcePermissions(interaction, 'scan', null))) return;
 		if (!(await enforce(interaction, "scanUser"))) return;
 		if (!SCRAPER) {
 			return interaction.reply({
@@ -104,7 +105,7 @@ module.exports = {
 		const modeList = modeFlags.length ? ` + ${modeFlags.length} mode scan(s)` : "";
 		await interaction.reply(`⏳ Scan started (guild${modeList}) · results will be posted here when done.`);
 
-		execFile(PYTHON, [SCRAPER, ...modeFlags], { cwd: require("path").dirname(SCRAPER) }, async (error, stdout) => {
+		execFile(PYTHON, [SCRAPER, "--guild", ...modeFlags], { cwd: require("path").dirname(SCRAPER) }, async (error, stdout) => {
 			if (error) {
 				console.error("Scan error:", error);
 				return interaction.channel.send(`❌ Scan failed:\n\`\`\`${error.message.slice(0, 500)}\`\`\``);

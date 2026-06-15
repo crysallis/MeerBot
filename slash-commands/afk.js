@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { pickColor } = require('../utils/colors');
+const { enforcePermissions } = require('../utils/permissions');
 
 function getMemberByName(name) {
     return db.prepare('SELECT id, ingame_name FROM members WHERE ingame_name LIKE ?').get(name);
@@ -46,6 +47,7 @@ module.exports = {
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
+        if (!(await enforcePermissions(interaction, 'afk', sub))) return;
 
         if (sub === 'set') {
             const name = interaction.options.getString('name').trim();

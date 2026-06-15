@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
-const { getPerm } = require('../utils/permissions');
+const { getPerm, enforcePermissions } = require('../utils/permissions');
 const { pickColor } = require('../utils/colors');
 
 const COMMANDS = {
@@ -147,6 +147,15 @@ const COMMANDS = {
             { name: '/newsletter seed',                       desc: 'Import past newsletters from the newsletter channel into the DB. Re-runnable -- safe to run after each new issue is posted.' },
         ],
     },
+    roster: {
+        description: 'Manage guild membership roles (RKF RiffRaff · RKR Frop).',
+        perm: 'riffOrRaff',
+        subcommands: [
+            { name: '/roster add guild: user:',      desc: 'Add a member to a guild. Removes the Who Dis? role if present and sends a welcome message.' },
+            { name: '/roster remove guild: user:',   desc: 'Remove a member from a guild.' },
+            { name: '/roster transfer user: to_guild:', desc: 'Move a member from one guild to the other, removing all existing guild roles first.' },
+        ],
+    },
 };
 
 function visibleCommands(interaction) {
@@ -180,6 +189,7 @@ module.exports = {
         ),
 
     async execute(interaction) {
+        if (!(await enforcePermissions(interaction, 'help', null))) return;
         const cmd = interaction.options.getString('command');
 
         if (cmd) {
@@ -231,6 +241,7 @@ module.exports = {
             recruitment: 'add · list · update · remove prospects',
             wishlist: 'add · list · remove wishlist items',
             newsletter: 'note add/list/remove · generate · seed',
+            roster: 'add · remove · transfer guild members',
         };
 
         const fields = visible.map(k => {
