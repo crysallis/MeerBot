@@ -177,6 +177,17 @@ db.exec(`
     category   TEXT NOT NULL DEFAULT 'other',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS command_permissions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    command    TEXT NOT NULL,
+    subcommand TEXT,
+    type       TEXT NOT NULL CHECK(type IN ('role', 'channel')),
+    value_id   TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(command, subcommand, type, value_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_cp_lookup ON command_permissions(command, subcommand, type);
 `);
 
 /**

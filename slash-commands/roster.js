@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
-const { enforce } = require('../../utils/permissions');
-const { pickColor } = require('../../utils/colors');
-const botConfig = require('../../utils/botConfig');
+const { enforcePermissions } = require('../utils/permissions');
+const { pickColor } = require('../utils/colors');
+const botConfig = require('../utils/botConfig');
 
 const GUILDS = {
     riffraff: { id: '1401783863960666143', name: 'RiffRaffians', label: 'RKF RiffRaff', welcomeKey: 'ROSTER_WELCOME_RIFFRAFF_CHANNEL_ID' },
@@ -45,9 +45,9 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        if (!(await enforce(interaction, 'riffOrRaff'))) return;
+        const sub = interaction.options.getSubcommand();
+        if (!(await enforcePermissions(interaction, 'roster', sub))) return;
 
-        const sub    = interaction.options.getSubcommand();
         const target = interaction.options.getMember('user');
 
         if (!target) {

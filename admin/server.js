@@ -75,32 +75,73 @@ app.delete('/api/config/:key', (req, res) => {
     }
 });
 
-// GET /api/roles — role list from discord-roles.json
-app.get('/api/roles', (req, res) => {
+const DISCORD_API = 'https://discord.com/api/v10';
+
+// GET /api/roles — live from Discord
+app.get('/api/roles', async (req, res) => {
     try {
-        const data = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/discord-roles.json'), 'utf8'));
-        res.json({ roles: data.roles ?? [], fetched_at: data.fetched_at ?? null });
+        const r = await fetch(`${DISCORD_API}/guilds/${process.env.GUILD_ID}/roles`, {
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+        });
+        const roles = await r.json();
+        const filtered = roles
+            .filter(role => !role.managed && role.id !== process.env.GUILD_ID)
+            .sort((a, b) => b.position - a.position)
+            .map(({ id, name, color, position }) => ({ id, name, color, position }));
+        res.json({ roles: filtered });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// GET /api/channels — flattened text channel list from discord-channels.json
-app.get('/api/channels', (req, res) => {
+// GET /api/channels — live from Discord (text channels only)
+app.get('/api/channels', async (req, res) => {
     try {
-        const data = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/discord-channels.json'), 'utf8'));
-        const flat = [];
-        for (const cat of data.categories ?? []) {
-            for (const ch of cat.channels ?? []) {
-                if (ch.type === 'text' || ch.type === 'announce') {
-                    flat.push({ id: ch.id, name: ch.name, category: cat.name });
-                }
-            }
-        }
-        res.json({ channels: flat, fetched_at: data.fetched_at ?? null });
+        const r = await fetch(`${DISCORD_API}/guilds/${process.env.GUILD_ID}/channels`, {
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+        });
+        const channels = await r.json();
+        const filtered = channels
+            .filter(ch => ch.type === 0)
+            .sort((a, b) => a.position - b.position)
+            .map(({ id, name, position, parent_id }) => ({ id, name, position, parent_id }));
+        res.json({ channels: filtered });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+// GET /api/permissions — all rules, optionally filtered by command
+app.get('/api/permissions', (req, res) => {
+    const { command } = req.query;
+    const rows = command
+        ? db.prepare('SELECT * FROM command_permissions WHERE command = ? ORDER BY command, subcommand, type').all(command)
+        : db.prepare('SELECT * FROM command_permissions ORDER BY command, subcommand, type').all();
+    res.json(rows);
+});
+
+// POST /api/permissions — add a rule
+app.post('/api/permissions', (req, res) => {
+    const { command, subcommand, type, value_id } = req.body;
+    if (!command?.trim()) return res.status(400).json({ error: 'command is required' });
+    if (!['role', 'channel'].includes(type)) return res.status(400).json({ error: 'type must be role or channel' });
+    if (!value_id?.trim()) return res.status(400).json({ error: 'value_id is required' });
+    try {
+        const r = db.prepare(
+            `INSERT INTO command_permissions (command, subcommand, type, value_id) VALUES (?, ?, ?, ?)`
+        ).run(command.trim(), subcommand?.trim() || null, type, value_id.trim());
+        res.json({ ok: true, id: r.lastInsertRowid });
+    } catch (err) {
+        if (err.message.includes('UNIQUE')) return res.status(400).json({ error: 'That rule already exists' });
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/permissions/:id — remove a rule
+app.delete('/api/permissions/:id', (req, res) => {
+    const r = db.prepare('DELETE FROM command_permissions WHERE id = ?').run(parseInt(req.params.id, 10));
+    if (r.changes === 0) return res.status(404).json({ error: 'Rule not found' });
+    res.json({ ok: true });
 });
 
 // POST /api/refresh-discord-data — re-run list-channels + list-roles scripts

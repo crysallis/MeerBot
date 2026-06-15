@@ -5,14 +5,7 @@
 This bot is one half of a two-repo system. The other half is the Python scraper at `C:\vscode\AFKDataMining`.
 They share `C:\vscode\AFKDataMining\guild.db`. Neither repo is standalone.
 
-On the first message of every conversation, before responding, read these memory files from the shared memory store:
-
-- `C:\Users\crysa\.claude\projects\c--vscode-AFKDataMining\memory\project_mode_scans.md`
-- `C:\Users\crysa\.claude\projects\c--vscode-AFKDataMining\memory\project_scraper_stdout_contract.md`
-
-These two are stable guardrails (hard-won scan quirks + the stdout contract the bot parses) · force-read because they're costly to miss and don't go stale. Broader project context (overview, consensus-scan history, AFK Stages phase nav) lives in the memory palace and is recalled on demand, not force-read.
-
-Then give a brief what's-done / what's-pending summary before starting the task.
+On the first message of every conversation, before responding, search the mempalace `gotchas` room for scan quirks and the stdout contract the bot parses -- these are the hard-won guardrails that are costly to miss. Then give a brief what's-done / what's-pending summary before starting the task.
 
 
 

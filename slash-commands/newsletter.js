@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, MessageFlags } = r
 const Anthropic = require('@anthropic-ai/sdk');
 const db = require('../utils/db');
 const { pickColor } = require('../utils/colors');
+const { enforcePermissions } = require('../utils/permissions');
 
 const NEWSLETTER_CHANNEL_ID = process.env.NEWSLETTER_CHANNEL_ID || '1303788137876684931';
 
@@ -94,6 +95,7 @@ module.exports = {
     async execute(interaction) {
         const group = interaction.options.getSubcommandGroup(false);
         const sub = interaction.options.getSubcommand();
+        if (!(await enforcePermissions(interaction, 'newsletter', sub))) return;
 
         if (group === 'note') {
             if (sub === 'add') return handleNoteAdd(interaction);

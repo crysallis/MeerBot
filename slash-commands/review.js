@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { mergeMembers } = db;
-const { enforce } = require('../utils/permissions');
+const { enforce, enforcePermissions } = require('../utils/permissions');
 const { pickColor } = require('../utils/colors');
 
 const pendingRows = db.prepare(`
@@ -73,8 +73,9 @@ module.exports = {
     },
 
     async execute(interaction) {
-        if (!(await enforce(interaction, 'scanUser'))) return;
         const sub = interaction.options.getSubcommand();
+        if (!(await enforcePermissions(interaction, 'review', sub))) return;
+        if (!(await enforce(interaction, 'scanUser'))) return;
 
         if (sub === 'list') {
             const rows = pendingRows.all();

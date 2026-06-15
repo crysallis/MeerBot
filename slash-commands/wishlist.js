@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { pickColor } = require('../utils/colors');
+const { enforcePermissions } = require('../utils/permissions');
 
 const PRIORITY_ORDER = { high: 1, medium: 2, low: 3 };
 const PRIORITY_EMOJI = { high: '🔴', medium: '🟡', low: '🟢' };
@@ -53,6 +54,7 @@ module.exports = {
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
+        if (!(await enforcePermissions(interaction, 'wishlist', sub))) return;
 
         if (sub === 'add') {
             const item = interaction.options.getString('item').trim();

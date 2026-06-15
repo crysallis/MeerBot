@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const db = require('../utils/db');
 const { pickColor } = require('../utils/colors');
 const { autoDelete } = require('../utils/autoDelete');
+const { enforcePermissions } = require('../utils/permissions');
 
 function fmtPower(val) {
     if (!val) return '0';
@@ -124,7 +125,9 @@ module.exports = {
     },
 
     async execute(interaction) {
-        if (interaction.options.getSubcommand() === 'unlinked') {
+        const sub = interaction.options.getSubcommand();
+        if (!(await enforcePermissions(interaction, 'guild', sub))) return;
+        if (sub === 'unlinked') {
             await handleUnlinked(interaction);
             autoDelete(interaction);
             return;
@@ -135,7 +138,7 @@ module.exports = {
             return interaction.reply({ content: 'No snapshot data yet · run `/scan` first.', flags: MessageFlags.Ephemeral });
         }
 
-        switch (interaction.options.getSubcommand()) {
+        switch (sub) {
             case 'power':      await handlePower(interaction, snapshot); return;
             case 'top':        await handleTop(interaction, snapshot); break;
             case 'inactive':   await handleInactive(interaction, snapshot); break;

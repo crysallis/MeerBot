@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MeerBot Admin</title>
 <link rel="stylesheet" href="style.css">
+<script>(function(){var t=localStorage.getItem('meerbot-theme')||'jewel',m=localStorage.getItem('meerbot-mode')||'dark';document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-mode',m);})()</script>
 </head>
 <body>
 
@@ -13,6 +14,16 @@
   <img src="./images/meerbot_logo.png" alt="MeerBot Logo" style="width: 50px; height: auto; display: flex;"><h1>Meer<span>Bot</span> Admin</h1>
   </div>
   <div class="header-right">
+    <div class="theme-controls">
+      <select id="theme-select" class="theme-picker" onchange="setTheme(this.value)">
+        <option value="jewel">✦ Jewel</option>
+        <option value="chili">🌶 Chili</option>
+        <option value="tigereye">🌿 Tigereye</option>
+        <option value="plum">🔮 Plum</option>
+        <option value="lapis">💎 Lapis</option>
+      </select>
+      <button id="mode-toggle" class="mode-btn" onclick="toggleMode()" title="Toggle light/dark mode">🌙</button>
+    </div>
     <span class="restart-status" id="restartStatus"></span>
     <button class="restart-btn" id="restartBtn" onclick="restartBot()">⟳ Restart Bot</button>
   </div>
@@ -306,9 +317,84 @@
       </table>
     </div>
   </div>
+
+  <div class="section" id="section-permissions">
+    <div class="section-title">Command Permissions</div>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:12px">
+      Role and channel restrictions per command/subcommand. Empty table = no restrictions (everyone/anywhere).
+      Leave Subcommand blank to apply to the whole command.
+    </p>
+    <div class="card" style="padding:16px 20px;margin-bottom:16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Command *</label>
+          <select id="perm-command" onchange="permCommandChanged()">
+            <option value="">-- select command --</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Subcommand</label>
+          <select id="perm-subcommand">
+            <option value="">— whole command —</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Roles <span style="font-weight:normal;text-transform:none;letter-spacing:0">(pick to restrict)</span></label>
+          <select id="perm-role-pick" onchange="permPickRole()"><option value="">-- add role --</option></select>
+          <div id="perm-role-chips" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;min-height:20px"></div>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Channels <span style="font-weight:normal;text-transform:none;letter-spacing:0">(pick to restrict)</span></label>
+          <select id="perm-channel-pick" onchange="permPickChannel()"><option value="">-- add channel --</option></select>
+          <div id="perm-channel-chips" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;min-height:20px"></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button id="perm-add-btn" class="save-btn" style="background:#2f9e44" onclick="addPermRule()">+ Add Rules</button>
+        <button id="perm-cancel-btn" class="reset-btn" style="display:none" onclick="cancelPermEdit()">Cancel</button>
+        <span id="perm-error" style="color:var(--red);font-size:12px"></span>
+      </div>
+    </div>
+    <div class="card">
+      <table class="jobs-table">
+        <thead><tr class="jobs-header-row">
+          <th>Command</th><th>Subcommand</th><th>Roles</th><th>Channels</th><th></th>
+        </tr></thead>
+        <tbody id="permTableBody"><tr><td colspan="5" style="color:var(--muted)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 </main>
 
 <script>
+// ── Theme system ──
+function applyTheme(theme, mode) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.documentElement.setAttribute('data-mode', mode);
+  const btn = document.getElementById('mode-toggle');
+  if (btn) btn.textContent = mode === 'dark' ? '☀️' : '🌙';
+  localStorage.setItem('meerbot-theme', theme);
+  localStorage.setItem('meerbot-mode', mode);
+}
+function setTheme(theme) {
+  applyTheme(theme, document.documentElement.getAttribute('data-mode') || 'dark');
+}
+function toggleMode() {
+  const cur = document.documentElement.getAttribute('data-mode') || 'dark';
+  applyTheme(document.documentElement.getAttribute('data-theme') || 'jewel', cur === 'dark' ? 'light' : 'dark');
+}
+// Sync controls to saved preference
+(function() {
+  const t = localStorage.getItem('meerbot-theme') || 'jewel';
+  const m = localStorage.getItem('meerbot-mode')  || 'dark';
+  const sel = document.getElementById('theme-select');
+  if (sel) sel.value = t;
+  const btn = document.getElementById('mode-toggle');
+  if (btn) btn.textContent = m === 'dark' ? '☀️' : '🌙';
+})();
+
 const CATEGORY_LABELS = {
   channels:    'Channels',
   timing:      'Job Timing',
@@ -347,6 +433,9 @@ async function init() {
   await loadReactions();
   await loadMembers();
   await loadSeasons();
+  await loadPermissions();
+  populatePermCommands();
+  populatePermCheckboxes();
   await loadDreamBosses().catch(e => console.warn('DR Bosses load failed:', e));
   loadBotStatus();
 }
@@ -412,12 +501,19 @@ function renderTabs() {
   seasTab.textContent = 'Seasons';
   seasTab.onclick = () => switchTab('seasons');
   tabsEl.appendChild(seasTab);
+
+  // Permissions tab
+  const permTab = document.createElement('button');
+  permTab.className = 'tab' + (activeTab === 'permissions' ? ' active' : '');
+  permTab.textContent = 'Permissions';
+  permTab.onclick = () => switchTab('permissions');
+  tabsEl.appendChild(permTab);
 }
 
 function switchTab(cat) {
   activeTab = cat;
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const cats = [...new Set(allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'dreambosses', 'seasons'];
+    const cats = [...new Set(allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'dreambosses', 'seasons', 'permissions'];
     t.classList.toggle('active', cats[i] === cat);
   });
   document.querySelectorAll('.section').forEach(s => {
@@ -1627,6 +1723,222 @@ async function deleteDreamBoss(id, name) {
   const res = await fetch(`/api/dream-realm-bosses/${id}`, { method: 'DELETE' }).then(r => r.json());
   if (res.error) { alert(res.error); return; }
   await loadDreamBosses();
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
+const COMMAND_SUBS = {
+  afk:         ['set', 'clear', 'list'],
+  anniversary: ['list', 'upcoming'],
+  birthday:    ['register', 'list', 'remove'],
+  guild:       ['power', 'top', 'inactive', 'activeness', 'growth', 'nogrowth', 'status', 'newcomers', 'chart', 'warbands', 'unlinked'],
+  help:        [],
+  link:        [],
+  member:      [],
+  newsletter:  ['add', 'list', 'remove', 'generate', 'seed'],
+  note:        ['add', 'view', 'delete'],
+  ping:        [],
+  recruitment: ['add', 'list', 'update', 'remove'],
+  remindme:    ['set', 'list', 'cancel'],
+  rename:      [],
+  review:      ['list', 'approve', 'merge', 'remove', 'return'],
+  roster:      ['add', 'remove', 'transfer'],
+  scan:        [],
+  schedule:    [],
+  season:      ['add', 'activate', 'inactivate', 'allyadd', 'allyremove', 'allylist'],
+  wishlist:    ['add', 'list', 'remove'],
+};
+
+function populatePermCommands() {
+  const sel = document.getElementById('perm-command');
+  Object.keys(COMMAND_SUBS).sort().forEach(cmd => {
+    const opt = document.createElement('option');
+    opt.value = cmd;
+    opt.textContent = '/' + cmd;
+    sel.appendChild(opt);
+  });
+}
+
+function permCommandChanged() {
+  const cmd = document.getElementById('perm-command').value;
+  const subSel = document.getElementById('perm-subcommand');
+  subSel.innerHTML = '<option value="">— whole command —</option>';
+  const subs = COMMAND_SUBS[cmd] || [];
+  subs.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s;
+    opt.textContent = s;
+    subSel.appendChild(opt);
+  });
+  subSel.disabled = subs.length === 0;
+}
+
+let selectedPermRoles    = [];
+let selectedPermChannels = [];
+
+function populatePermCheckboxes() {
+  const roleSel = document.getElementById('perm-role-pick');
+  const chSel   = document.getElementById('perm-channel-pick');
+  if (!roleSel || !chSel) return;
+  roleSel.innerHTML = '<option value="">-- add role --</option>' +
+    roleList.map(r => `<option value="${r.id}">${escHtml(r.name)}</option>`).join('');
+  chSel.innerHTML = '<option value="">-- add channel --</option>' +
+    channelList.map(c => `<option value="${c.id}">#${escHtml(c.name)}</option>`).join('');
+}
+
+function permPickRole() {
+  const sel = document.getElementById('perm-role-pick');
+  const id = sel.value;
+  if (!id || selectedPermRoles.some(r => r.id === id)) { sel.value = ''; return; }
+  selectedPermRoles.push({ id, name: roleList.find(r => r.id === id)?.name ?? id });
+  sel.value = '';
+  renderPermChips();
+}
+
+function permPickChannel() {
+  const sel = document.getElementById('perm-channel-pick');
+  const id = sel.value;
+  if (!id || selectedPermChannels.some(c => c.id === id)) { sel.value = ''; return; }
+  selectedPermChannels.push({ id, name: channelList.find(c => c.id === id)?.name ?? id });
+  sel.value = '';
+  renderPermChips();
+}
+
+function permRemoveRole(id) {
+  selectedPermRoles = selectedPermRoles.filter(r => r.id !== id);
+  renderPermChips();
+}
+
+function permRemoveChannel(id) {
+  selectedPermChannels = selectedPermChannels.filter(c => c.id !== id);
+  renderPermChips();
+}
+
+const CHIP_STYLE = 'background:var(--border);border-radius:3px;padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px';
+const X_STYLE   = 'background:none;border:none;color:var(--muted);cursor:pointer;padding:0;font-size:14px;line-height:1';
+
+function renderPermChips() {
+  document.getElementById('perm-role-chips').innerHTML = selectedPermRoles
+    .map(r => `<span style="${CHIP_STYLE}">${escHtml(r.name)}<button style="${X_STYLE}" onclick="permRemoveRole('${r.id}')">×</button></span>`)
+    .join('');
+  document.getElementById('perm-channel-chips').innerHTML = selectedPermChannels
+    .map(c => `<span style="${CHIP_STYLE}">#${escHtml(c.name)}<button style="${X_STYLE}" onclick="permRemoveChannel('${c.id}')">×</button></span>`)
+    .join('');
+}
+
+async function loadPermissions() {
+  const rows = await fetch('/api/permissions').then(r => r.json());
+  const tbody = document.getElementById('permTableBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted)">No rules configured.</td></tr>';
+    return;
+  }
+  const groups = new Map();
+  for (const r of rows) {
+    const key = `${r.command}|||${r.subcommand ?? ''}`;
+    if (!groups.has(key)) groups.set(key, { command: r.command, subcommand: r.subcommand, roles: [], channels: [] });
+    (r.type === 'role' ? groups.get(key).roles : groups.get(key).channels).push(r);
+  }
+  const tinyChip = (label, id) =>
+    `<span style="${CHIP_STYLE}">${escHtml(label)}<button style="${X_STYLE}" onclick="deletePermRule(${id})">×</button></span>`;
+  tbody.innerHTML = [...groups.values()].map(g => {
+    const subcmd = g.subcommand ?? `<span style="color:var(--muted)">— whole command —</span>`;
+    const roleChips    = g.roles.map(r => tinyChip(roleList.find(x => x.id === r.value_id)?.name ?? r.value_id, r.id)).join(' ');
+    const channelChips = g.channels.map(c => tinyChip('#' + (channelList.find(x => x.id === c.value_id)?.name ?? c.value_id), c.id)).join(' ');
+    const rIds   = '[' + g.roles.map(r => `'${r.value_id}'`).join(',') + ']';
+    const cIds   = '[' + g.channels.map(c => `'${c.value_id}'`).join(',') + ']';
+    const dbIds  = '[' + [...g.roles, ...g.channels].map(r => r.id).join(',') + ']';
+    const sub    = g.subcommand ? `'${g.subcommand}'` : 'null';
+    return `<tr>
+      <td><code>${escHtml(g.command)}</code></td>
+      <td>${subcmd}</td>
+      <td style="white-space:normal">${roleChips    || '<span style="color:var(--muted)">—</span>'}</td>
+      <td style="white-space:normal">${channelChips || '<span style="color:var(--muted)">—</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="reset-btn" onclick="editPermGroup('${g.command}',${sub},${rIds},${cIds},${dbIds})">Edit</button>
+        <button class="reset-btn" style="margin-left:4px" onclick="removePermGroup(${dbIds})">Remove</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function addPermRule() {
+  const command    = document.getElementById('perm-command').value.trim();
+  const subcommand = document.getElementById('perm-subcommand').value.trim() || null;
+  const errEl      = document.getElementById('perm-error');
+  errEl.textContent = '';
+  if (!command) { errEl.textContent = 'Command is required'; return; }
+  if (!selectedPermRoles.length && !selectedPermChannels.length) {
+    errEl.textContent = 'Select at least one role or channel'; return;
+  }
+  if (editingPermRuleIds.length) {
+    for (const id of editingPermRuleIds) {
+      await fetch('/api/permissions/' + id, { method: 'DELETE' });
+    }
+    editingPermRuleIds = [];
+  }
+  const toPost = [
+    ...selectedPermRoles.map(r => ({ command, subcommand, type: 'role', value_id: r.id })),
+    ...selectedPermChannels.map(c => ({ command, subcommand, type: 'channel', value_id: c.id })),
+  ];
+  for (const body of toPost) {
+    const res = await fetch('/api/permissions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!data.ok) { errEl.textContent = data.error; return; }
+  }
+  document.getElementById('perm-command').value = '';
+  permCommandChanged();
+  selectedPermRoles = [];
+  selectedPermChannels = [];
+  renderPermChips();
+  document.getElementById('perm-add-btn').textContent = '+ Add Rules';
+  document.getElementById('perm-cancel-btn').style.display = 'none';
+  await loadPermissions();
+}
+
+async function deletePermRule(id) {
+  await fetch('/api/permissions/' + id, { method: 'DELETE' });
+  await loadPermissions();
+}
+
+async function removePermGroup(dbIds) {
+  if (!confirm('Remove all rules for this command/subcommand?')) return;
+  for (const id of dbIds) {
+    await fetch('/api/permissions/' + id, { method: 'DELETE' });
+  }
+  await loadPermissions();
+}
+
+let editingPermRuleIds = [];
+
+async function editPermGroup(command, subcommand, roleValueIds, channelValueIds, dbIds) {
+  document.getElementById('perm-command').value = command;
+  permCommandChanged();
+  const subSel = document.getElementById('perm-subcommand');
+  if (subcommand) subSel.value = subcommand;
+  selectedPermRoles    = roleValueIds.map(id => ({ id, name: roleList.find(r => r.id === id)?.name ?? id }));
+  selectedPermChannels = channelValueIds.map(id => ({ id, name: channelList.find(c => c.id === id)?.name ?? id }));
+  renderPermChips();
+  editingPermRuleIds = dbIds;
+  document.getElementById('perm-add-btn').textContent = 'Save Changes';
+  document.getElementById('perm-cancel-btn').style.display = '';
+  document.getElementById('perm-error').textContent = '';
+  document.getElementById('section-permissions').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelPermEdit() {
+  editingPermRuleIds = [];
+  document.getElementById('perm-command').value = '';
+  permCommandChanged();
+  selectedPermRoles = [];
+  selectedPermChannels = [];
+  renderPermChips();
+  document.getElementById('perm-add-btn').textContent = '+ Add Rules';
+  document.getElementById('perm-cancel-btn').style.display = 'none';
+  document.getElementById('perm-error').textContent = '';
 }
 
 // ────────────────────────────────────────────────────────────────────────────

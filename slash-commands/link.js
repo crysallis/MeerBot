@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
+const { enforcePermissions } = require('../utils/permissions');
 
 const upsertCorrection = db.prepare(`
     INSERT OR REPLACE INTO name_corrections (ocr_name, correct_name, source)
@@ -64,6 +65,7 @@ module.exports = {
         ),
 
     async execute(interaction) {
+        if (!(await enforcePermissions(interaction, 'link', null))) return;
         try {
             const ingameName = interaction.options.getString('ingame_name').trim();
             const targetUser = interaction.options.getUser('user');
