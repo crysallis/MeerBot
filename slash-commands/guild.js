@@ -215,14 +215,14 @@ async function handleInactive(interaction, snapshot) {
         FROM member_snapshots ms
         JOIN members m ON m.id = ms.member_id AND m.active = 1
         WHERE ms.snapshot_id = ? ${clause}
-        ORDER BY ms.last_seen_approx ASC
+        ORDER BY ms.last_seen_approx IS NULL, ms.last_seen_approx ASC
     `).all(snapshot.id, ...extra);
 
     const newIds = newMemberIds(snapshot.id);
     const afkIds = afkMemberIds();
     const scope = warband ? `${warband} · ` : '';
     const lines = rows.map((r, i) =>
-        `\`${String(i + 1).padStart(2)}.\` **${r.name}**${badge(r.member_id, newIds, afkIds)} · ${r.last_active} · ${r.activeness} act`
+        `\`${String(i + 1).padStart(2)}.\` **${r.name}**${badge(r.member_id, newIds, afkIds)} · ${r.last_active || 'unknown'} · ${r.activeness} act`
     );
 
     await interaction.reply({ embeds: [
@@ -249,7 +249,7 @@ async function handleActiveness(interaction, snapshot) {
     const afkIds = afkMemberIds();
     const scope = warband ? `${warband} · ` : '';
     const lines = rows.map((r, i) =>
-        `\`${String(i + 1).padStart(2)}.\` **${r.name}**${badge(r.member_id, newIds, afkIds)} · ${r.activeness} act · ${r.last_active}`
+        `\`${String(i + 1).padStart(2)}.\` **${r.name}**${badge(r.member_id, newIds, afkIds)} · ${r.activeness} act · ${r.last_active || 'unknown'}`
     );
 
     await interaction.reply({ embeds: [
