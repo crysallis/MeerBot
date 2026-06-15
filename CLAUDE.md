@@ -4,17 +4,15 @@
 
 This bot is one half of a two-repo system. The other half is the Python scraper at `C:\vscode\AFKDataMining`.
 They share `C:\vscode\AFKDataMining\guild.db`. Neither repo is standalone.
+See global context at `C:\Users\crysa\.claude\CLAUDE.md`.
 
-On the first message of every conversation, before responding, read these memory files from the shared memory store:
+## Session Start
 
-- `C:\Users\crysa\.claude\projects\c--vscode-AFKDataMining\memory\project_mode_scans.md`
-- `C:\Users\crysa\.claude\projects\c--vscode-AFKDataMining\memory\project_scraper_stdout_contract.md`
+1. `mempalace wake-up` (global CLAUDE.md step 1) loads recent context.
+2. Search `afkdatamining/gotchas` and `discordbotafkj/gotchas` -- always, every session. These are the landmine rooms: hard-won constraints that silently break things when missed.
+3. Give a brief what's-done / what's-pending summary before starting the task.
 
-These two are stable guardrails (hard-won scan quirks + the stdout contract the bot parses) · force-read because they're costly to miss and don't go stale. Broader project context (overview, consensus-scan history, AFK Stages phase nav) lives in the memory palace and is recalled on demand, not force-read.
-
-Then give a brief what's-done / what's-pending summary before starting the task.
-
-
+Project knowledge: `afkdatamining` wing (rooms: status, src, decisions, gotchas, pending) · `discordbotafkj` wing (rooms: data, general, admin, scripts, slash_commands, gotchas, pending). Search `src` for mode-scan parser internals, `pending` for blocked/deferred work.
 
 discord.js v14 · better-sqlite3 · PM2 · Node.js
 

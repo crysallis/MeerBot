@@ -7,7 +7,8 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "deploy-commands": "node deploy-commands.js",
-    "check-updates": "node scripts/check-updates.js"
+    "check-updates": "node scripts/check-updates.js",
+    "refresh": "node scripts/list-channels.js && node scripts/list-roles.js && node scripts/sync-join-dates.js"
   },
   "keywords": [],
   "author": "",
