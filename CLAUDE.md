@@ -46,7 +46,8 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `utils/weeklySummary.js` | Monday 09:00 UTC · power growth summary embed |
 | `utils/scanReminder.js` | Daily 20:00 UTC · pings authorized user to run /scan |
 | `utils/birthdayCheck.js` | Daily at midnight · checks birthday table, posts embed |
-| `utils/commandLogger.js` | Posts a Dyno-style audit embed for every slash command to `COMMAND_LOG_CHANNEL_ID` |
+| `utils/commandLogger.js` | Posts a Dyno-style audit embed for every slash command to `COMMAND_LOG_CHANNEL_ID` · uses cache.get (not fetch) |
+| `utils/handlers/translationRoleHandler.js` | `guildMemberUpdate` handler · detects translation role gain (ID `1516271538217943131`) · DMs bilingual embed, then removes the role · fallback to general channel if DMs off |
 | `utils/jobLog.js` | Shared helper · scheduled jobs call `logJobRun(name)` to record runs in `scheduler_log` |
 | `admin/server.js` | Express admin panel server (port 3001, localhost only) · PM2 process `meerbot-admin` |
 | `admin/public/index.html` | Plain HTML admin UI · channel IDs, timing, thresholds + **Members** tab (rename/link/merge/approve/warband) + **Warbands** tab (add/rename/archive) |
@@ -66,8 +67,7 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `/review` | list / approve / merge / remove / return · manage `pending` members + mark members left (`remove` → inactive) or reactivate (`return`) · scan user only |
 | `/note` | Adds/views notes on a member |
 | `/birthday` | Birthday registration (register / list / remove) |
-| `/schedule` | View scheduled jobs with last/next runs · ephemeral, no hardcoded restriction (use Discord role permissions if needed) |
-| `/anniversary` | list / upcoming · upcoming guild anniversaries (ephemeral) |
+| `/anniversary` | list / upcoming / set · upcoming guild anniversaries (ephemeral) · `set` overrides a member's first_seen date |
 | `/wishlist` | add / list / remove · guild feature wishlist · permissions managed via Discord |
 | `/season` | add / activate / inactivate / allyadd / allyremove / allylist · ally season + server management |
 | `/recruitment` | add / list / update / remove · prospect tracking · 2-day follow-up reminder via job scheduler |
@@ -135,6 +135,7 @@ Key roles for code references:
 | `1269053550156058634` | Junior | 4 | Tenure tier |
 | `1269053789239771187` | Newbie | 6 | Tenure tier |
 | `1269052266682519582` | AFK Forever | 15 | Inactive members |
+| `1516271538217943131` | Translation | — | One-shot trigger · bot DMs instructions then removes it |
 
 ## Discord Channels Reference
 
@@ -161,3 +162,7 @@ Channels referenced by env vars (snapshot · check the JSON for everything else)
 - Charts use QuickChart.io · GET URL for single-member, POST /chart/create for guild (30 lines too long for GET)
 - Rate limit is global sliding window (all users combined), not per-user
 - AFK expiry checked daily at midnight UTC · date-only return_date means no finer precision needed
+- `GatewayIntentBits.GuildMembers` is enabled (privileged · must also be on in Discord Dev Portal → Bot → Server Members Intent) · required for `guildMemberUpdate` events
+- Both slash command interactions and autocomplete drop silently if `interaction.guildId !== GUILD_ID` (foreign guild guard in index.js)
+- `enforcePermissions` fails closed on DB error · returns false + "temporarily unavailable" message · never fails open
+- Translation role (`1516271538217943131`) is a one-shot trigger · bot DMs the member then removes the role immediately · not a persistent role

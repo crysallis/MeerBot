@@ -125,7 +125,8 @@ async function handleMessage(message, client) {
             } else if (rule.response_type === 'message') {
                 let channel = message.channel;
                 if (rule.response_channel) {
-                    const fetched = await client.channels.fetch(rule.response_channel).catch(() => null);
+                    const fetched = client.channels.cache.get(rule.response_channel)
+                        ?? await client.channels.fetch(rule.response_channel).catch(() => null);
                     if (fetched) channel = fetched;
                 }
                 await channel.send(payload);

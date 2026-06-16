@@ -74,7 +74,31 @@ module.exports = {
                 .setMaxValue(365)
                 .setRequired(false)
             )
+        )
+        .addSubcommand(s => s
+            .setName('set')
+            .setDescription('Override a member\'s join date (first_seen) in the DB')
+            .addStringOption(o => o
+                .setName('member')
+                .setDescription('In-game name')
+                .setRequired(true)
+                .setAutocomplete(true)
+            )
+            .addStringOption(o => o
+                .setName('date')
+                .setDescription('New join date (YYYY-MM-DD)')
+                .setRequired(true)
+            )
         ),
+
+    async autocomplete(interaction) {
+        const focused = interaction.options.getFocused().toLowerCase();
+        const names = db.prepare(
+            `SELECT ingame_name FROM members WHERE active = 1 ORDER BY ingame_name`
+        ).all().map(r => r.ingame_name);
+        const filtered = names.filter(n => n.toLowerCase().includes(focused)).slice(0, 25);
+        await interaction.respond(filtered.map(n => ({ name: n, value: n })));
+    },
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
@@ -148,6 +172,28 @@ module.exports = {
                         .setDescription(lines.join('\n'))
                         .setColor(pickColor()),
                 ],
+                flags: MessageFlags.Ephemeral,
+            });
+        }
+
+        if (sub === 'set') {
+            const memberName = interaction.options.getString('member');
+            const dateStr = interaction.options.getString('date');
+
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || isNaN(Date.parse(dateStr))) {
+                return interaction.reply({ content: '❌ Invalid date. Use YYYY-MM-DD format.', flags: MessageFlags.Ephemeral });
+            }
+
+            const member = db.prepare(`SELECT ingame_name, first_seen FROM members WHERE ingame_name = ?`).get(memberName);
+            if (!member) {
+                return interaction.reply({ content: `❌ Member not found: **${memberName}**`, flags: MessageFlags.Ephemeral });
+            }
+
+            db.prepare(`UPDATE members SET first_seen = ? WHERE ingame_name = ?`).run(dateStr, memberName);
+
+            const old = member.first_seen ?? '(none)';
+            return interaction.reply({
+                content: `✅ Updated **${memberName}** join date: \`${old}\` → \`${dateStr}\``,
                 flags: MessageFlags.Ephemeral,
             });
         }

@@ -409,13 +409,15 @@ let roleList = [];
 let activeTab = 'channels';
 
 async function init() {
-  const [configRes, channelsRes, rolesRes, jobsRes, sjRes] = await Promise.all([
+  const [configRes, channelsRes, rolesRes, jobsRes, sjRes, commandsRes] = await Promise.all([
     fetch('/api/config').then(r => r.json()),
     fetch('/api/channels').then(r => r.json()),
     fetch('/api/roles').then(r => r.json()),
     fetch('/api/jobs').then(r => r.json()),
     fetch('/api/scheduled-jobs').then(r => r.json()),
+    fetch('/api/commands').then(r => r.json()),
   ]);
+  COMMAND_SUBS = commandsRes;
 
   allConfig    = configRes;
   channelList  = channelsRes.channels ?? [];
@@ -502,18 +504,12 @@ function renderTabs() {
   seasTab.onclick = () => switchTab('seasons');
   tabsEl.appendChild(seasTab);
 
-  // Permissions tab
-  const permTab = document.createElement('button');
-  permTab.className = 'tab' + (activeTab === 'permissions' ? ' active' : '');
-  permTab.textContent = 'Permissions';
-  permTab.onclick = () => switchTab('permissions');
-  tabsEl.appendChild(permTab);
 }
 
 function switchTab(cat) {
   activeTab = cat;
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const cats = [...new Set(allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'dreambosses', 'seasons', 'permissions'];
+    const cats = [...new Set(allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'dreambosses', 'seasons'];
     t.classList.toggle('active', cats[i] === cat);
   });
   document.querySelectorAll('.section').forEach(s => {
@@ -1727,27 +1723,7 @@ async function deleteDreamBoss(id, name) {
 
 // ────────────────────────────────────────────────────────────────────────────
 
-const COMMAND_SUBS = {
-  afk:         ['set', 'clear', 'list'],
-  anniversary: ['list', 'upcoming'],
-  birthday:    ['register', 'list', 'remove'],
-  guild:       ['power', 'top', 'inactive', 'activeness', 'growth', 'nogrowth', 'status', 'newcomers', 'chart', 'warbands', 'unlinked'],
-  help:        [],
-  link:        [],
-  member:      [],
-  newsletter:  ['add', 'list', 'remove', 'generate', 'seed'],
-  note:        ['add', 'view', 'delete'],
-  ping:        [],
-  recruitment: ['add', 'list', 'update', 'remove'],
-  remindme:    ['set', 'list', 'cancel'],
-  rename:      [],
-  review:      ['list', 'approve', 'merge', 'remove', 'return'],
-  roster:      ['add', 'remove', 'transfer'],
-  scan:        [],
-  schedule:    [],
-  season:      ['add', 'activate', 'inactivate', 'allyadd', 'allyremove', 'allylist'],
-  wishlist:    ['add', 'list', 'remove'],
-};
+let COMMAND_SUBS = {};
 
 function populatePermCommands() {
   const sel = document.getElementById('perm-command');

@@ -103,15 +103,18 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/remindme cancel id:` | Cancel a pending reminder by ID |
 | `/ping` | Latency check with a tiered fun comment |
 | `/help` | Show all commands (filtered by your permissions) |
-| `/schedule` | View all scheduled system jobs with last/next runs (ephemeral) |
 | `/anniversary list count:` | Next N upcoming guild anniversaries (default 5, ephemeral) |
 | `/anniversary upcoming days:` | All anniversaries in the next N days (default 30, ephemeral) |
+| `/anniversary set member: date:` | Override a member's join date (first_seen) in the DB |
 
 ### Leader / admin commands
 
 | Command | Description |
 |---|---|
-| `/scan` | Trigger a live guild scrape (authorized user only) |
+| `/scan` | Trigger a live guild scrape (authorized user only) · always runs the roster scan; enabled mode scans run alongside |
+| `/roster add guild: user:` | Add a Discord member to a guild role (RiffRaff or Frop) · removes Who Dis? role |
+| `/roster remove guild: user:` | Remove a Discord member from a guild role |
+| `/roster transfer user: to_guild:` | Move a member from one guild to the other |
 | `/rename old: new:` | Rename a member · merges into the target if that name already exists (dedupe) |
 | `/review list` | List members the scanner flagged as new/unrecognized (`pending`) |
 | `/review approve name:` | Confirm a pending member is real and correctly named |
@@ -128,7 +131,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/newsletter generate` | Generate a draft newsletter via Claude. Returns a .txt with material summary + draft. No sign-off included. |
 | `/newsletter seed` | Import past newsletters from the newsletter channel. Re-runnable after each new issue. |
 
-> **Permissions:** `/afk`, `/rename`, and `/note` have no code-enforced role gate — set access via Discord's **Server Settings → Integrations → Command Permissions** (point them at your guild-leader roles). `/review` is locked in code to the authorized scan user (same as `/scan`), since it's part of the scan/cleanup workflow.
+> **Permissions:** All commands support DB-backed role and channel allowlists, configurable from the admin panel's **Permissions** tab without restarting. Per-command and per-subcommand rules are stored in `command_permissions` and checked at runtime by `enforcePermissions()`. `/review` also has a hardcoded code-level gate to the authorized scan user. Commands with no configured DB rules fall back to their built-in Discord permission level (`ManageGuild` for admin commands, public for everything else).
 
 ### Visual indicators
 
@@ -169,7 +172,9 @@ MeerBot/
         newsletter.js           /newsletter note/generate/seed · Claude-drafted newsletters.
         member.js               /member lookup with autocomplete.
         link.js                 /link with autocomplete.
-        scan.js                 /scan + post-scan inactivity alert.
+        scan.js                 /scan + post-scan inactivity alert. Always passes --guild.
+        roster.js               /roster add/remove/transfer · Discord role management for
+                                RiffRaff and Frop guilds.
         rename.js               /rename with autocomplete · merges on name collision.
         review.js               /review list/approve/merge for scanner-flagged pending members.
         note.js                 /note add/view/delete.
@@ -178,15 +183,21 @@ MeerBot/
         help.js                 /help with permission-aware filtering.
         ping.js                 /ping health check with tiered quips.
         remindme.js             /remindme set / list / cancel personal reminders.
-        schedule.js             /schedule view all system jobs with last/next runs.
-        anniversary.js          /anniversary list / upcoming.
+        anniversary.js          /anniversary list / upcoming / set (override first_seen).
+        reactions.js            /reactions management for message-reaction rules.
+        season.js               /season management.
+        wishlist.js             /wishlist management.
+        recruitment.js          /recruitment prospect tracking.
     utils/
         db.js                   SQLite connection + bot-only table creation (shared scan tables owned by the miner).
         botConfig.js            DB-backed config store. get(key) reads DB > ENV > default.
         jobScheduler.js         Unified job queue. Single 30s poller dispatches all job types.
         jobLog.js               Shared helper for scheduled jobs to record runs to scheduler_log.
         commandLogger.js        Audit log for every slash command invocation.
-        permissions.js          Permission rules + runtime enforcement for slash commands.
+        permissions.js          Permission rules + DB-backed runtime enforcement.
+                                enforce() for code-level checks (scanUser, admin).
+                                enforcePermissions() checks command_permissions table
+                                (role + channel allowlists per command/subcommand).
         handlers/
             scanReminder.js     Daily scan reminder handler.
             weeklySummary.js    Monday weekly power summary handler.
@@ -194,6 +205,10 @@ MeerBot/
             afkExpiry.js        Daily expired AFK record cleanup handler.
             anniversaryCheck.js Daily guild anniversary handler + milestoneFor() export.
             dailyReset.js       Daily reset message handler (max 2h late window).
+            translationRoleHandler.js  guildMemberUpdate handler. Fires when a member
+                                gains the translation role -- DMs a bilingual embed
+                                with instructions, then removes the role. Falls back
+                                to a general channel message if DMs are off.
     scripts/
         merge-dupes.js          One-shot cleanup that collapses OCR phantom duplicate members.
         sync-join-dates.js      One-time backfill of first_seen from Discord join dates.

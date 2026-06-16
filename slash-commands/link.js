@@ -72,8 +72,7 @@ module.exports = {
 
             // Only admins can link other users
             if (targetUser && targetUser.id !== interaction.user.id) {
-                const member = await interaction.guild.members.fetch(interaction.user.id);
-                if (!member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+                if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
                     return interaction.reply({
                         content: 'You need **Manage Server** permission to link other members.',
                         flags: MessageFlags.Ephemeral

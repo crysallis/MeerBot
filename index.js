@@ -5,6 +5,7 @@ const { Client, GatewayIntentBits, MessageFlags, ActivityType } = require('disco
 const { initJobScheduler } = require('./utils/jobScheduler');
 const { logCommand } = require('./utils/commandLogger');
 const { handleMessage } = require('./utils/messageReactions');
+const { handleTranslationRole } = require('./utils/handlers/translationRoleHandler');
 const { rateLimit } = require('./config');
 
 require('./utils/db');
@@ -26,6 +27,7 @@ function isRateLimited() {
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
   ]
@@ -48,14 +50,16 @@ for (const file of fs.readdirSync(slashPath).filter(f => f.endsWith('.js'))) {
 
 client.once('clientReady', () => {
   console.log(`Ready. Logged in as ${client.user?.tag}`);
-  client.user.setActivity('Meerbot Assistance | /help', { type: ActivityType.Playing });
+  client.user.setActivity('github.com/crysallis/MeerBot · /help', { type: ActivityType.Playing });
   initJobScheduler(client);
 });
 
 client.on('messageCreate', message => handleMessage(message, client));
+client.on('guildMemberUpdate', (oldMember, newMember) => handleTranslationRole(oldMember, newMember, client));
 
 client.on('interactionCreate', async interaction => {
   if (interaction.isAutocomplete()) {
+    if (interaction.guildId !== process.env.GUILD_ID) return;
     const cmd = client.slashCommands.get(interaction.commandName);
     if (cmd?.autocomplete) {
       try { await cmd.autocomplete(interaction); } catch (err) {
@@ -66,6 +70,7 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (!interaction.isChatInputCommand()) return;
+  if (interaction.guildId !== process.env.GUILD_ID) return;
   const cmd = client.slashCommands.get(interaction.commandName);
   if (!cmd) return;
 

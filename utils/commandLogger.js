@@ -30,7 +30,7 @@ async function logCommand(interaction) {
     if (!channelId) return;
 
     try {
-        const channel = await interaction.client.channels.fetch(channelId);
+        const channel = interaction.client.channels.cache.get(channelId);
         if (!channel?.isTextBased()) return;
 
         const user = interaction.user;

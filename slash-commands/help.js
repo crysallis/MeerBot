@@ -70,12 +70,6 @@ const COMMANDS = {
             { name: '/remindme cancel id:',         desc: 'Cancel a pending reminder by its ID.' },
         ],
     },
-    schedule: {
-        description: 'View all scheduled system jobs (daily reset, AFK expiry, birthday check, scan reminder, weekly summary, anniversary check) with last/next run times.',
-        subcommands: [
-            { name: '/schedule', desc: 'Ephemeral embed showing all system jobs, when they last ran, and when they next fire.' },
-        ],
-    },
     rename: {
         description: 'Rename a guild member in the database.',
         subcommands: [
@@ -232,7 +226,6 @@ module.exports = {
             remindme: 'Set · list · cancel personal reminders',
             ping: 'Latency check with a quip',
             scan: 'Trigger a guild scan',
-            schedule: 'View scheduled system jobs and last/next runs',
             rename: 'Rename a member in the database',
             note: 'Add · view · delete notes on members',
             review: 'list · approve · merge · remove · return',

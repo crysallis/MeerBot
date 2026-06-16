@@ -79,10 +79,22 @@ function requireRole(roleId, label) {
 async function enforcePermissions(interaction, command, subcommand = null) {
     const db = require('./db');
 
-    const roleRows = db.prepare(
-        `SELECT value_id FROM command_permissions
-         WHERE command = ? AND subcommand IS ? AND type = 'role'`
-    ).all(command, subcommand);
+    let roleRows, channelRows;
+    try {
+        roleRows = db.prepare(
+            `SELECT value_id FROM command_permissions
+             WHERE command = ? AND subcommand IS ? AND type = 'role'`
+        ).all(command, subcommand);
+
+        channelRows = db.prepare(
+            `SELECT value_id FROM command_permissions
+             WHERE command = ? AND subcommand IS ? AND type = 'channel'`
+        ).all(command, subcommand);
+    } catch (err) {
+        console.error(`[permissions] DB read failed for ${command}/${subcommand ?? 'null'}: ${err.message}`);
+        await interaction.reply({ content: 'Bot is temporarily unavailable. Try again in a moment.', flags: MessageFlags.Ephemeral });
+        return false;
+    }
 
     if (roleRows.length > 0) {
         const memberRoles = interaction.member?.roles?.cache;
@@ -92,11 +104,6 @@ async function enforcePermissions(interaction, command, subcommand = null) {
             return false;
         }
     }
-
-    const channelRows = db.prepare(
-        `SELECT value_id FROM command_permissions
-         WHERE command = ? AND subcommand IS ? AND type = 'channel'`
-    ).all(command, subcommand);
 
     if (channelRows.length > 0) {
         if (!channelRows.some(r => r.value_id === interaction.channelId)) {

@@ -59,14 +59,36 @@ This is global across all users. If any combination of users hits 20 commands in
 
 ```javascript
 client.on('interactionCreate', async interaction => {
-    if (interaction.isAutocomplete()) { ... route to cmd.autocomplete() ... return; }
+    if (interaction.isAutocomplete()) {
+        if (interaction.guildId !== GUILD_ID) return;  // foreign guild guard
+        ... route to cmd.autocomplete() ...
+        return;
+    }
     if (!interaction.isChatInputCommand()) return;
+    if (interaction.guildId !== GUILD_ID) return;      // foreign guild guard
     if (isRateLimited()) { ... reject ... return; }
     await cmd.execute(interaction);
 });
 ```
 
 Autocomplete is checked first and short-circuits before the rate limiter. This ensures the autocomplete dropdown stays responsive even if the main rate limit is hit.
+
+Both autocomplete and command interactions are dropped silently if they originate from a guild other than the configured `GUILD_ID`. Without this guard, any server the bot is accidentally invited to would have full access to guild data.
+
+### guildMemberUpdate events
+
+```javascript
+client.on('guildMemberUpdate', (oldMember, newMember) =>
+    handleTranslationRole(oldMember, newMember, client));
+```
+
+The handler in `utils/handlers/translationRoleHandler.js` checks whether the translation role (`1516271538217943131`) was gained in this specific update (present in `newMember.roles.cache` but not in `oldMember.roles.cache`). If so, it:
+
+1. DMs the member a bilingual (English/Spanish) embed with instructions for the interaction-bot.com translation bot.
+2. If the DM fails (user has DMs disabled), posts a lighthearted fallback message in the general channel mentioning them.
+3. Removes the translation role from the member regardless of DM success -- it is a one-shot trigger, not a persistent role.
+
+Requires `GatewayIntentBits.GuildMembers` (privileged intent -- must also be enabled in the Discord Developer Portal under Bot → Server Members Intent).
 
 ---
 
@@ -86,6 +108,10 @@ WAL mode is set on every connection. This is idempotent and ensures the setting 
 All tables are created on startup via `CREATE TABLE IF NOT EXISTS`:
 
 ```sql
+command_permissions Per-command/subcommand allowlists. type = 'role' | 'channel'.
+                    value_id is a Discord role ID or channel ID. Checked by
+                    enforcePermissions() at runtime. Editable from admin Permissions tab.
+                    UNIQUE(command, subcommand, type, value_id).
 birthdays           Discord user birthday registrations. UNIQUE(user_id, guild_id).
 members             Guild members. Linked by discord_id to Discord users.
                     ingame_name is the primary key (UNIQUE). active = in latest scan.
@@ -199,15 +225,27 @@ History is fetched in a separate query joining `member_snapshots -> snapshots ->
 
 ### scan.js
 
-Uses `execFile` (not `exec`) to avoid shell injection — arguments are passed as an array, not a string:
+Uses `execFile` (not `exec`) to avoid shell injection -- arguments are passed as an array, not a string:
 
 ```javascript
-execFile(PYTHON, [SCRAPER], { cwd: path.dirname(SCRAPER) }, callback)
+execFile(PYTHON, [SCRAPER, "--guild", ...modeFlags], { cwd: path.dirname(SCRAPER) }, callback)
 ```
 
-`cwd` is set to the scraper's directory so relative imports within the Python project resolve correctly.
+`--guild` is always included so the roster scan always runs regardless of which mode flags are enabled. `modeFlags` is built from `bot_config` keys (`SCAN_DREAM_REALM`, `SCAN_ARENA`, etc.) at invocation time. `cwd` is set to the scraper's directory so relative imports within the Python project resolve correctly.
 
-The callback runs `postInactivityAlert()` after a successful scan. This queries `member_snapshots` joined against `member_afk` (LEFT JOIN, `afk.member_id IS NULL` to exclude AFK members) where `last_seen_approx < now - 3 days`.
+Permission check order: `enforcePermissions(interaction, 'scan', null)` first (DB-backed role/channel allowlist), then `enforce(interaction, 'scanUser')` (hardcoded scan-user ID check). Both must pass.
+
+The callback runs `postInactivityAlert()` after a successful scan. This queries `member_snapshots` joined against `member_afk` (LEFT JOIN, `afk.member_id IS NULL` to exclude AFK members) and filters by `last_active` text matching `/^\d+d\s*ago$/i` with the day count >= `INACTIVITY_DAYS` (default 3).
+
+### roster.js
+
+Manages Discord role assignment for RiffRaff and Frog guild membership. Three subcommands:
+
+- **`add guild: user:`** -- adds the guild's role to the target member, removes the `Who Dis?` onboarding role if present, and optionally sends a welcome message to the guild's configured welcome channel (keyed by `ROSTER_WELCOME_<GUILD>_CHANNEL_ID` in `bot_config`).
+- **`remove guild: user:`** -- removes the guild role.
+- **`transfer user: to_guild:`** -- removes all guild roles from the member then adds the destination guild's role. `currentGuild()` determines which guild role(s) the member currently holds.
+
+Permission is entirely DB-backed via `enforcePermissions(interaction, 'roster', subcommand)` -- no hardcoded role check. Access is granted by configuring role allowlists in the admin Permissions tab.
 
 ### note.js / afk.js
 
@@ -274,6 +312,23 @@ SQLite's `julianday()` converts dates to a continuous float (Julian Day Number),
 
 ---
 
+## utils/permissions.js
+
+Two complementary permission systems:
+
+**Code-level checks (`enforce`)** -- static rules defined in the `PERMS` map: `everyone`, `admin` (ManageGuild), `scanUser` (matches `SCAN_AUTHORIZED_USER` from botConfig), `scanOrAdmin`, `riffOrRaff`. Called as `await enforce(interaction, 'scanUser')`. Returns `true` and continues, or sends an ephemeral rejection and returns `false`.
+
+**DB-backed checks (`enforcePermissions`)** -- reads `command_permissions` rows for the given `(command, subcommand)` pair. Two constraint types:
+
+- `type = 'role'` -- caller must hold at least one of the listed role IDs.
+- `type = 'channel'` -- command must be invoked in one of the listed channel IDs.
+
+If no rows exist for a command, `enforcePermissions` returns `true` (no restriction). This makes all commands open-by-default until an explicit allowlist is configured. Rules are managed from the admin panel's **Permissions** tab (command/subcommand dropdowns, role and channel chip pickers).
+
+Most commands call `enforcePermissions` first and then an additional `enforce` check if needed (e.g. `/scan` requires both a DB allowlist pass and the scan-user ID check). New commands should call `enforcePermissions` as their first gate.
+
+---
+
 ## utils/botConfig.js (DB-backed config layer)
 
 Channel IDs, thresholds, and permission settings are read through `botConfig.get(key)` rather than `process.env` directly. Job timing is **not** in botConfig -- it lives directly on the `scheduled_jobs` row and is editable from the admin panel's Scheduled Jobs tab. The lookup order is:
@@ -308,9 +363,11 @@ REST API:
 | `GET` | `/api/config` | Full config snapshot with source badges (DB/ENV/DEFAULT) |
 | `PUT` | `/api/config/:key` | Write a DB override for a key |
 | `DELETE` | `/api/config/:key` | Remove DB override, revert to ENV or DEFAULT |
-| `GET` | `/api/channels` | Flattened channel list from `data/discord-channels.json` |
-| `GET` | `/api/roles` | Role list from `data/discord-roles.json` |
-| `POST` | `/api/refresh-discord-data` | Re-run `list-channels.js` + `list-roles.js` scripts |
+| `GET` | `/api/channels` | Live channel list fetched from Discord API via the bot client |
+| `GET` | `/api/roles` | Live role list fetched from Discord API via the bot client |
+| `GET` | `/api/command-permissions` | All `command_permissions` rows grouped by command/subcommand |
+| `POST` | `/api/command-permissions` | Add a role or channel constraint for a command/subcommand |
+| `DELETE` | `/api/command-permissions/:id` | Remove a constraint row |
 | `GET` | `/api/bot-status` | PM2 status for the `meerbot` process (status, CPU, memory, uptime) |
 | `POST` | `/api/bot/restart` | Runs `pm2 restart meerbot --update-env` |
 | `GET` | `/api/scheduled-jobs` | All system jobs with display name, `fire_at`, `recurrence` |
@@ -339,7 +396,9 @@ REST API:
 | `DELETE` | `/api/message-reactions/:id` | Delete a reaction rule |
 | `POST` | `/api/message-reactions/reload` | No-op acknowledgement (cache auto-refreshes every 5 min) |
 
-The admin panel UI has tabs for: **Channels**, **Job Timing**, **Thresholds**, **Permissions** (all DB-backed config), **Reactions**, **Scheduled Jobs**, **Job Runs**, **Members**, **Warbands**, and **Seasons**.
+The admin panel UI has tabs for: **Channels**, **Job Timing**, **Thresholds**, **Config** (DB-backed key/value config), **Permissions** (command_permissions allowlists -- role and channel pickers per command/subcommand), **Reactions**, **Scheduled Jobs**, **Job Runs**, **Members**, **Warbands**, and **Seasons**.
+
+The panel supports 5 themes (Jewel, Chili, Tigereye, Plum, Lapis) in dark and light mode. Theme and mode are persisted to `localStorage`; an anti-FOUC script in `<head>` applies the saved choice before first paint.
 
 The config PUT endpoint validates the key against `CONFIG_META` before writing, preventing arbitrary DB writes. The scheduled-jobs PUT validates that `recurrence` matches `daily:N` or `weekly:N` and that `fire_at` is a valid datetime.
 
@@ -459,11 +518,15 @@ The admin process never needs `--update-env` because it reads all config from th
 
 | Layer | Mechanism |
 |---|---|
-| Admin commands | `setDefaultMemberPermissions(ManageGuild)` · Discord hides from non-admins |
-| /scan | Authorized user ID check in execute(), plus ManageGuild bypass for admins |
+| DB-backed allowlists | `enforcePermissions()` checks `command_permissions` (role + channel) per command/subcommand |
+| Code-level gates | `enforce()` for static rules (scanUser ID, ManageGuild) applied on top of DB check |
+| Admin commands | `setDefaultMemberPermissions(ManageGuild)` -- Discord hides from non-admins as a fallback |
 | Rate limiting | Global sliding window, 20 commands per 60 seconds |
+| Guild ID guard | Both autocomplete and command interactions silently dropped if `interaction.guildId !== GUILD_ID` |
+| Permission fail-closed | `enforcePermissions()` catches DB errors and returns `false` (deny) -- never fails open |
 | SQL injection | All queries use `better-sqlite3` prepared statements with `?` parameters |
 | Token security | `.env` listed in `.gitignore`, never committed |
 | Subprocess | `execFile` with array arguments, no shell interpolation |
 | Ephemeral responses | All admin output uses `MessageFlags.Ephemeral` |
-| Admin panel | Bound to `127.0.0.1` only · not reachable externally · key writes validated against `CONFIG_META` allowlist |
+| Admin panel | Bound to `127.0.0.1` only -- not reachable externally -- key writes validated against `CONFIG_META` allowlist -- Host + Origin headers verified to block CSRF and DNS rebinding |
+| Cache over fetch | `commandLogger` and scheduled handler channel lookups use `channels.cache.get()` not `.fetch()` to avoid unnecessary API calls |

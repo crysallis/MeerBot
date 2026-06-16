@@ -111,6 +111,28 @@ app.get('/api/channels', async (req, res) => {
     }
 });
 
+// GET /api/commands — derive command+subcommand map from slash-command files
+app.get('/api/commands', (req, res) => {
+    const dir = path.join(__dirname, '../slash-commands');
+    const result = {};
+    try {
+        const files = fs.readdirSync(dir).filter(f => f.endsWith('.js'));
+        for (const file of files) {
+            try {
+                const mod = require(path.join(dir, file));
+                if (!mod.data) continue;
+                const json = mod.data.toJSON();
+                result[json.name] = (json.options || [])
+                    .filter(o => o.type === 1 || o.type === 2)
+                    .map(o => o.name);
+            } catch { /* skip malformed command files */ }
+        }
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/permissions — all rules, optionally filtered by command
 app.get('/api/permissions', (req, res) => {
     const { command } = req.query;
