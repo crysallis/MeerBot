@@ -43,13 +43,13 @@ module.exports = {
         // Resolve the target member: explicit name > mentioned user (linked) > caller (linked).
         let member;
         if (name) {
-            member = db.prepare('SELECT ingame_name FROM members WHERE ingame_name LIKE ? LIMIT 1').get(name);
+            member = db.prepare('SELECT ingame_name, ingame_id FROM members WHERE ingame_name LIKE ? LIMIT 1').get(name);
             if (!member) {
                 return interaction.reply({ content: `Member **${name}** not found.`, flags: MessageFlags.Ephemeral });
             }
         } else {
             const targetId = mentionedUser ? mentionedUser.id : interaction.user.id;
-            member = db.prepare('SELECT ingame_name FROM members WHERE discord_id = ? LIMIT 1').get(targetId);
+            member = db.prepare('SELECT ingame_name, ingame_id FROM members WHERE discord_id = ? LIMIT 1').get(targetId);
             if (!member) {
                 const who = mentionedUser ? `<@${targetId}> is` : "You're";
                 return interaction.reply({
@@ -69,6 +69,7 @@ module.exports = {
             .setColor(pickColor())
             .setTitle('🏠 Homestead Invasion!')
             .setDescription(`**${member.ingame_name}**'s Homestead is being invaded 🏠 come help repel the invasion!`);
+        if (member.ingame_id) embed.addFields({ name: 'In game ID', value: `\`${member.ingame_id}\``, inline: true });
 
         await channel.send({
             content: `<@&${HOMESTEAD_ROLE_ID}>`,
