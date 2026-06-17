@@ -319,3 +319,80 @@ button:disabled, input:disabled, select:disabled, textarea:disabled {
   background: var(--surface-alt); border: 1px solid var(--border);
   border-radius: 8px; padding: 8px 16px; font-size: 12px; color: var(--muted);
 }
+
+/* ── Responsive / mobile ─────────────────────────────────────────────────── */
+/* Desktop defaults: hamburger + backdrop hidden; the drawer wrapper is          */
+/* transparent so #tabs lays out exactly as before.                              */
+.nav-toggle {
+  display: none; background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; cursor: pointer; font-size: 18px;
+  line-height: 1; padding: 6px 10px;
+}
+.nav-toggle:hover { border-color: var(--accent); }
+.nav-backdrop { display: none; }
+#drawer { display: contents; }
+
+@media (max-width: 768px) {
+  header { padding: 10px 14px; }
+  header h1 { font-size: 16px; }
+  main { padding: 0 14px; }
+  .header-right { gap: 8px; }
+  .nav-toggle { display: inline-flex; align-items: center; }
+
+  /* Slide-out drawer holds the section nav + relocated header utilities */
+  #drawer {
+    display: flex; flex-direction: column; gap: 8px;
+    position: fixed; top: 0; left: 0; height: 100%; width: 82%; max-width: 320px;
+    z-index: 1100; background: var(--surface); border-right: 1px solid var(--border);
+    box-shadow: var(--card-shadow); padding: 16px; overflow-y: auto;
+    transform: translateX(-100%); transition: transform .25s ease;
+  }
+  body.nav-open #drawer { transform: translateX(0); }
+
+  .nav-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 1090;
+    background: rgba(0,0,0,.5); opacity: 0; pointer-events: none;
+    transition: opacity .25s ease;
+  }
+  body.nav-open .nav-backdrop { opacity: 1; pointer-events: auto; }
+
+  /* Nav tabs stack full-width with bigger tap targets */
+  #tabs { flex-direction: column; gap: 6px; margin-bottom: 0; flex-wrap: nowrap; }
+  #tabs .tab { width: 100%; text-align: left; padding: 12px 14px; font-size: 15px; }
+
+  /* Relocated utilities pinned to the bottom of the drawer */
+  #drawerUtils {
+    display: flex; flex-direction: column; gap: 10px; margin-top: auto;
+    border-top: 1px solid var(--border); padding-top: 14px;
+  }
+  #drawerUtils .theme-controls { justify-content: space-between; }
+  #drawerUtils .theme-picker { flex: 1; }
+  #drawerUtils .restart-btn, #drawerUtils .logout-btn { width: 100%; padding: 10px; font-size: 14px; }
+
+  /* Any table inside a card scrolls sideways cleanly */
+  .card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Prevent iOS zoom-on-focus + roomier controls */
+  input[type=text], input[type=number], input[type=time], input[type=datetime-local],
+  select, textarea { font-size: 16px; }
+  .bot-status-bar { gap: 14px; flex-wrap: wrap; }
+
+  /* Members table reflows into stacked labeled cards (.cards-sm) */
+  .cards-sm, .cards-sm tbody { display: block; width: 100%; }
+  .cards-sm thead { display: none; }
+  .cards-sm tr {
+    display: block; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; margin-bottom: 10px;
+  }
+  .cards-sm tr:hover td { background: transparent; }
+  .cards-sm td {
+    display: block; border: none; padding: 6px 0; font-family: inherit;
+    white-space: normal !important;
+  }
+  .cards-sm td:not(:last-child) { border-bottom: 1px solid var(--border); }
+  .cards-sm td::before {
+    content: attr(data-label); display: block; margin-bottom: 3px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--muted);
+  }
+}

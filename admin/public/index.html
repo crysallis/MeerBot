@@ -30,11 +30,13 @@
       </select>
       <button id="mode-toggle" class="mode-btn" onclick="toggleMode()" title="Toggle light/dark mode">🌙</button>
     </div>
+    <button id="navToggle" class="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   </div>
 </header>
+<div id="navBackdrop" class="nav-backdrop" onclick="closeNav()"></div>
 
 <main>
-  <div class="meerbot_header"><img src="./images/meerbot_header.png" alt="MeerBot Header" style="width: 400px; height: auto; display: block; margin: 0 auto;"></div>
+  <div class="meerbot_header"><img src="./images/meerbot_header.png" alt="MeerBot Header" style="width: 400px; max-width: 100%; height: auto; display: block; margin: 0 auto;"></div>
 
   <div class="bot-status-bar" id="botStatusBar">
     <div class="status-dot status-other" id="statusDot"></div>
@@ -49,7 +51,10 @@
     <span id="channelsFetchedAt"></span>
   </div>
 
-  <div class="tabs" id="tabs"></div>
+  <nav id="drawer">
+    <div class="tabs" id="tabs"></div>
+    <div id="drawerUtils"></div>
+  </nav>
 
   <div id="sections"></div>
 
@@ -242,7 +247,7 @@
              style="max-width:240px">
     </div>
     <div class="card">
-      <table class="jobs-table">
+      <table class="jobs-table cards-sm">
         <thead>
           <tr class="jobs-header-row">
             <th>Name</th><th>Warband</th><th>Power</th><th>Discord</th><th>Status</th><th>Actions</th>
@@ -510,6 +515,36 @@ async function logout() {
   showLogin('Signed out.');
 }
 
+// ── Mobile nav drawer ──
+function toggleNav() { document.body.classList.toggle('nav-open'); }
+function closeNav()  { document.body.classList.remove('nav-open'); }
+
+// On mobile, relocate the header utility controls into the drawer; move them back
+// on desktop. Relocation (not duplication) keeps element IDs intact so theme/
+// restart/logout handlers and lockTiers() keep working.
+const _mobileMQ = matchMedia('(max-width: 768px)');
+function setupMobileChrome(e) {
+  const mobile = e.matches;
+  const headerRight = document.querySelector('.header-right');
+  const drawerUtils = document.getElementById('drawerUtils');
+  const toggleBtn   = document.getElementById('navToggle');
+  const items = [document.querySelector('.theme-controls'),
+                document.getElementById('restartBtn'),
+                document.getElementById('restartStatus'),
+                document.querySelector('.logout-btn')].filter(Boolean);
+  if (mobile) {
+    for (const el of items) drawerUtils.appendChild(el);
+  } else {
+    // Restore original header order: logout, restart-status, restart-btn, theme-controls
+    const order = ['.logout-btn', '#restartStatus', '#restartBtn', '.theme-controls'];
+    for (const sel of order) {
+      const el = drawerUtils.querySelector(sel);
+      if (el) headerRight.insertBefore(el, toggleBtn);
+    }
+    closeNav();
+  }
+}
+
 // Presence · render everyone else currently viewing as overlapping circular avatars
 // that fan out on hover (hover-only, not clickable).
 async function loadPresence() {
@@ -681,6 +716,7 @@ function renderTabs() {
 
 function switchTab(cat) {
   activeTab = cat;
+  closeNav();
   document.querySelectorAll('.tab').forEach((t, i) => {
     const cats = [...new Set(allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'dreambosses', 'seasons', 'access'];
     t.classList.toggle('active', cats[i] === cat);
@@ -1538,12 +1574,12 @@ function renderMembers() {
       style="width:90px;font-size:11px;margin-top:3px;background:#1e1f22;color:#dbdee1;border:1px solid #3a3c41;border-radius:4px;padding:2px 4px"
       onchange="setIngameId(${m.id}, this.value)">`;
     return `<tr>
-      <td><b>${escapeHtml(m.ingame_name)}</b><br>${ingameIdInput}</td>
-      <td>${wbSelect}</td>
-      <td>${escapeHtml(m.combat_power || '')}</td>
-      <td>${discord}</td>
-      <td>${status}</td>
-      <td style="white-space:nowrap">
+      <td data-label="Name"><b>${escapeHtml(m.ingame_name)}</b><br>${ingameIdInput}</td>
+      <td data-label="Warband">${wbSelect}</td>
+      <td data-label="Power">${escapeHtml(m.combat_power || '')}</td>
+      <td data-label="Discord">${discord}</td>
+      <td data-label="Status">${status}</td>
+      <td data-label="Actions" style="white-space:nowrap">
         ${approveBtn}
         <button class="save-btn" style="padding:3px 8px" onclick="renameMember(${m.id})">Rename</button>
         <button class="save-btn" style="padding:3px 8px" onclick="linkMember(${m.id})">Link</button>
@@ -2169,6 +2205,8 @@ async function setRoleTierUI(roleId, tier) {
     me = await res.json();
   } catch { return showLogin('Could not reach the server.'); }
   applyAccess(me);
+  setupMobileChrome(_mobileMQ);
+  _mobileMQ.addEventListener('change', setupMobileChrome);
   init();
 })();
 </script>
