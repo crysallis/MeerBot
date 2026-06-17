@@ -14,6 +14,12 @@
   <img src="./images/meerbot_logo.png" alt="MeerBot Logo" style="width: 50px; height: auto; display: flex;"><h1>Meer<span>Bot</span> Admin</h1>
   </div>
   <div class="header-right">
+    <div class="presence-stack" id="presence"></div>
+    <img class="user-avatar" id="userAvatar" alt="" style="display:none">
+    <span class="whoami" id="whoami"></span>
+    <button class="logout-btn" onclick="logout()" title="Sign out">⎋</button>
+    <span class="restart-status" id="restartStatus"></span>
+    <button class="restart-btn needs-local" id="restartBtn" onclick="restartBot()">⟳ Restart Bot</button>
     <div class="theme-controls">
       <select id="theme-select" class="theme-picker" onchange="setTheme(this.value)">
         <option value="jewel">✦ Jewel</option>
@@ -24,8 +30,6 @@
       </select>
       <button id="mode-toggle" class="mode-btn" onclick="toggleMode()" title="Toggle light/dark mode">🌙</button>
     </div>
-    <span class="restart-status" id="restartStatus"></span>
-    <button class="restart-btn" id="restartBtn" onclick="restartBot()">⟳ Restart Bot</button>
   </div>
 </header>
 
@@ -165,7 +169,7 @@
             <div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
                 <span style="font-size:11px;font-weight:600;color:#fff">Channels</span>
-                <button class="reset-btn" style="font-size:10px;padding:2px 7px" onclick="refreshDiscordData()">⟳ Refresh</button>
+                <button class="reset-btn needs-local" style="font-size:10px;padding:2px 7px" onclick="refreshDiscordData()">⟳ Refresh</button>
               </div>
               <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Click to insert</div>
               <div id="rx-channel-chips" style="display:flex;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto"></div>
@@ -220,9 +224,9 @@
             <th onclick="sortJobs('late')">Late? <span class="sort-arrow" id="sort-late">↕</span></th>
           </tr>
           <tr class="jobs-filter-row">
-            <td><input class="job-filter" placeholder="Filter job name..." oninput="filterJobs('name', this.value)"></td>
-            <td><input class="job-filter" placeholder="Filter date..." oninput="filterJobs('sent_at', this.value)"></td>
-            <td><input class="job-filter" placeholder="yes / —" oninput="filterJobs('late', this.value)"></td>
+            <td><input class="job-filter view-ok" placeholder="Filter job name..." oninput="filterJobs('name', this.value)"></td>
+            <td><input class="job-filter view-ok" placeholder="Filter date..." oninput="filterJobs('sent_at', this.value)"></td>
+            <td><input class="job-filter view-ok" placeholder="yes / —" oninput="filterJobs('late', this.value)"></td>
           </tr>
         </thead>
         <tbody id="jobsBody"><tr><td colspan="3" style="color:var(--muted)">Loading...</td></tr></tbody>
@@ -234,7 +238,7 @@
     <div class="section-title">Members</div>
     <div class="info-bar" style="margin-bottom:12px">
       <span id="membersSummary">Loading...</span>
-      <input id="memberFilter" placeholder="Filter name / warband..." oninput="renderMembers()"
+      <input id="memberFilter" class="view-ok" placeholder="Filter name / warband..." oninput="renderMembers()"
              style="max-width:240px">
     </div>
     <div class="card">
@@ -366,9 +370,171 @@
       </table>
     </div>
   </div>
+
+  <div class="section" id="section-access">
+    <div class="section-title">Access Control</div>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">
+      Configurable only from this PC. <b>local</b> = this machine only · <b>manage</b> =
+      Riff/Raff remotely · <b>read</b> = view only. Role tiers apply at next login.</p>
+
+    <div class="card">
+      <div class="section-title" style="font-size:14px">Operations by tab</div>
+      <table class="jobs-table">
+        <thead><tr class="jobs-header-row"><th>Tab</th><th>Operation</th><th>Required tier</th></tr></thead>
+        <tbody id="accessOpsBody"><tr><td colspan="3" style="color:var(--muted)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="section-title" style="font-size:14px">Roles</div>
+      <table class="jobs-table">
+        <thead><tr class="jobs-header-row"><th>Role</th><th>Access</th></tr></thead>
+        <tbody id="accessRolesBody"><tr><td colspan="2" style="color:var(--muted)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="section-title" style="font-size:14px">Recent changes (audit log)</div>
+      <table class="jobs-table">
+        <thead><tr class="jobs-header-row"><th>When (UTC)</th><th>Who</th><th>Action</th><th>Details</th></tr></thead>
+        <tbody id="accessAuditBody"><tr><td colspan="4" style="color:var(--muted)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 </main>
 
 <script>
+// ── Auth / access tier ──
+// AUTH.tier is one of read|manage|local. AUTH.csrf is the synchronizer token sent
+// back on every mutating request. The body gets a tier-<x> class so CSS can hide
+// controls the current user may not use (the server is the real enforcement).
+const AUTH = { tier: null, csrf: null, user: null };
+
+// Wrap fetch once: attach the CSRF header to mutating /api calls and bounce to the
+// login screen on a 401 so scattered call sites need no changes.
+const _origFetch = window.fetch.bind(window);
+window.fetch = async function (input, init = {}) {
+  const url = typeof input === 'string' ? input : (input && input.url) || '';
+  const method = (init.method || (typeof input !== 'string' && input.method) || 'GET').toUpperCase();
+  if (url.startsWith('/api/') && method !== 'GET' && method !== 'HEAD' && AUTH.csrf) {
+    init.headers = Object.assign({}, init.headers, { 'X-CSRF-Token': AUTH.csrf });
+  }
+  const res = await _origFetch(input, init);
+  if (res.status === 401 && url.startsWith('/api/')) showLogin();
+  return res;
+};
+
+function showLogin(message) {
+  let el = document.getElementById('loginOverlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'loginOverlay';
+    el.className = 'login-overlay';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = '<div class="login-card"><img src="./images/meerbot_logo.png" alt="" style="width:64px">' +
+    '<h2>Meer<span>Bot</span> Admin</h2>' +
+    '<p>' + (message || 'Sign in to continue.') + '</p>' +
+    '<a class="login-btn" href="/auth/login">Log in with Discord</a></div>';
+  el.style.display = 'grid';
+}
+
+function applyAccess(me) {
+  AUTH.tier = me.tier;
+  AUTH.csrf = me.csrf;
+  AUTH.user = me.user;
+  document.body.classList.remove('tier-read', 'tier-manage', 'tier-local');
+  document.body.classList.add('tier-' + me.tier);
+  const who = document.getElementById('whoami');
+  if (who) who.textContent = (me.user?.name || '') + ' · ' + me.tier;
+  const av = document.getElementById('userAvatar');
+  if (av) {
+    if (me.user?.avatar) { av.src = me.user.avatar; av.style.display = ''; }
+    else { av.removeAttribute('src'); av.style.display = 'none'; }
+  }
+
+  const BANNERS = {
+    read:   'Read-only access — you can view everything; editing is disabled.',
+    manage: 'Manage access — some controls are reserved to the host PC and are disabled here.',
+  };
+  const main = document.querySelector('main');
+  let banner = document.getElementById('readonlyBanner');
+  if (BANNERS[me.tier]) {
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'readonlyBanner';
+      banner.className = 'readonly-banner';
+      main.insertBefore(banner, main.firstChild);
+    }
+    banner.textContent = BANNERS[me.tier];
+  } else if (banner) {
+    banner.remove();
+  }
+
+  // Presence heartbeat · poll every 45s; anyone seen in the last 2 min shows up.
+  if (!applyAccess._presence) {
+    applyAccess._presence = true;
+    loadPresence();
+    setInterval(loadPresence, 45000);
+  }
+
+  // Re-lock on every dynamic re-render (tables are rebuilt as tabs load).
+  if (!applyAccess._observing) {
+    new MutationObserver(() => {
+      if (applyAccess._scheduled) return;
+      applyAccess._scheduled = true;
+      requestAnimationFrame(() => { applyAccess._scheduled = false; lockTiers(); });
+    }).observe(document.body, { childList: true, subtree: true });
+    applyAccess._observing = true;
+  }
+  lockTiers();
+}
+
+// Disable controls the current tier may not use · never hides them. The server is
+// the real enforcement; this just prevents pointless clicks that would 403.
+function lockTiers() {
+  const tier = AUTH.tier;
+  if (!tier) return;
+  document.querySelectorAll('input, select, textarea, button').forEach(el => {
+    if (el.closest('.theme-controls') || el.classList.contains('logout-btn') ||
+        el.closest('.login-overlay') || el.classList.contains('view-ok')) return;
+    const localOnly = el.classList.contains('needs-local') || !!el.closest('.needs-local');
+    // Plain tab-nav buttons are always usable; local-only ones (e.g. Access) are gated.
+    if (el.closest('#tabs') && !localOnly) return;
+    el.disabled = localOnly ? (tier !== 'local') : (tier === 'read');
+  });
+}
+
+async function logout() {
+  await _origFetch('/auth/logout', { method: 'POST' });
+  showLogin('Signed out.');
+}
+
+// Presence · render everyone else currently viewing as overlapping circular avatars
+// that fan out on hover (hover-only, not clickable).
+async function loadPresence() {
+  let data;
+  try { data = await _origFetch('/api/presence').then(r => r.ok ? r.json() : null); } catch { return; }
+  if (!data || data.error) return;
+  const el = document.getElementById('presence');
+  if (!el) return;
+  const others = (data.users || []).filter(u => u.discord_id !== data.me);
+  if (!others.length) { el.innerHTML = ''; return; }
+  const MAX = 5;
+  const shown = others.slice(0, MAX);
+  let html = '<span class="presence-label">Viewing</span>';
+  html += shown.map(u => {
+    const inner = u.avatar
+      ? `<img src="${u.avatar}" alt="">`
+      : `<span class="presence-fallback">${escapeHtml((u.name || '?').slice(0, 1).toUpperCase())}</span>`;
+    return `<span class="presence-av" title="${escapeHtml(u.name || '')}">${inner}</span>`;
+  }).join('');
+  if (others.length > MAX) {
+    html += `<span class="presence-av presence-more" title="${others.length - MAX} more">+${others.length - MAX}</span>`;
+  }
+  el.innerHTML = html;
+}
+
 // ── Theme system ──
 function applyTheme(theme, mode) {
   document.documentElement.setAttribute('data-theme', theme);
@@ -504,14 +670,22 @@ function renderTabs() {
   seasTab.onclick = () => switchTab('seasons');
   tabsEl.appendChild(seasTab);
 
+  // Access tab · local-only (CSS hides it off the PC)
+  const accTab = document.createElement('button');
+  accTab.className = 'tab needs-local' + (activeTab === 'access' ? ' active' : '');
+  accTab.textContent = 'Access';
+  accTab.onclick = () => switchTab('access');
+  tabsEl.appendChild(accTab);
+
 }
 
 function switchTab(cat) {
   activeTab = cat;
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const cats = [...new Set(allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'dreambosses', 'seasons'];
+    const cats = [...new Set(allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'dreambosses', 'seasons', 'access'];
     t.classList.toggle('active', cats[i] === cat);
   });
+  if (cat === 'access') loadAccess();
   document.querySelectorAll('.section').forEach(s => {
     s.classList.toggle('visible', s.id === 'section-' + cat);
   });
@@ -553,6 +727,8 @@ function renderAllSections() {
 function buildRow(entry, cat) {
   const tr = document.createElement('tr');
   tr.id = 'row-' + entry.key;
+  // Scan modes + the scan-authorized user are local-only edits (see auth.js OPERATIONS)
+  if (cat === 'scan_modes' || entry.key === 'SCAN_AUTHORIZED_USER') tr.classList.add('needs-local');
 
   const inputId = 'input-' + entry.key;
   let inputHtml = '';
@@ -1549,7 +1725,7 @@ function renderSeasons() {
       <td style="color:var(--muted);font-size:12px">${s.server_count} server${s.server_count !== 1 ? 's' : ''}</td>
       <td class="action-col">
         <button class="save-btn" style="${toggleStyle};margin-right:6px" onclick="toggleSeason(${s.id},${s.active ? 0 : 1})">${toggleLabel}</button>
-        <button class="save-btn" style="background:#1971c2;margin-right:6px" onclick="toggleServerPanel(${s.id})">${isExpanded ? 'Collapse' : 'Servers'}</button>
+        <button class="save-btn view-ok" style="background:#1971c2;margin-right:6px" onclick="toggleServerPanel(${s.id})">${isExpanded ? 'Collapse' : 'Servers'}</button>
         <button class="reset-btn" onclick="deleteSeason(${s.id},'${escHtml(s.name).replace(/'/g, "\\'")}',${s.server_count})">Delete</button>
       </td>`;
     tbody.appendChild(tr);
@@ -1919,7 +2095,82 @@ function cancelPermEdit() {
 
 // ────────────────────────────────────────────────────────────────────────────
 
-init();
+// ── Access tab (local-only) ──
+async function loadAccess() {
+  let data;
+  try { data = await fetch('/api/access').then(r => r.json()); } catch { return; }
+  if (!data || data.error) return;
+
+  const tierMap = Object.fromEntries((data.roles || []).map(r => [r.role_id, r.tier]));
+
+  const opsBody = document.getElementById('accessOpsBody');
+  opsBody.innerHTML = '';
+  for (const op of data.operations) {
+    const sel = ['read', 'manage', 'local'].map(t =>
+      `<option value="${t}"${op.tier === t ? ' selected' : ''}>${t}</option>`).join('');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(op.group)}</td>` +
+      `<td>${escapeHtml(op.label)}${op.overridden ? ' <span style="color:var(--muted)">(custom)</span>' : ''}</td>` +
+      `<td><select onchange="setOpTier('${op.key}', this.value)">${sel}</select></td>`;
+    opsBody.appendChild(tr);
+  }
+
+  const rolesBody = document.getElementById('accessRolesBody');
+  rolesBody.innerHTML = '';
+  const roles = (roleList || []).slice().sort((a, b) => (b.position || 0) - (a.position || 0));
+  for (const role of roles) {
+    const cur = tierMap[role.id] || 'none';
+    const sel = ['none', 'read', 'manage'].map(t =>
+      `<option value="${t}"${cur === t ? ' selected' : ''}>${t}</option>`).join('');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(role.name)}</td>` +
+      `<td><select onchange="setRoleTierUI('${role.id}', this.value)">${sel}</select></td>`;
+    rolesBody.appendChild(tr);
+  }
+
+  const auditBody = document.getElementById('accessAuditBody');
+  auditBody.innerHTML = '';
+  if (!data.audit || !data.audit.length) {
+    auditBody.innerHTML = '<tr><td colspan="4" style="color:var(--muted)">No changes recorded yet.</td></tr>';
+  } else {
+    for (const a of data.audit) {
+      const who = a.discord_id === 'local' ? 'Local PC' : escapeHtml(a.discord_id);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${escapeHtml((a.at || '').replace('T', ' ').slice(0, 19))}</td>` +
+        `<td>${who}</td><td>${escapeHtml(a.action)}</td>` +
+        `<td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.target || '')}</td>`;
+      auditBody.appendChild(tr);
+    }
+  }
+}
+
+async function setOpTier(key, tier) {
+  const res = await fetch('/api/access/op', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ op_key: key, tier }),
+  });
+  if (!res.ok) alert('Failed: ' + ((await res.json().catch(() => ({}))).error || res.status));
+  loadAccess();
+}
+
+async function setRoleTierUI(roleId, tier) {
+  const res = await fetch('/api/access/role', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role_id: roleId, tier }),
+  });
+  if (!res.ok) alert('Failed: ' + ((await res.json().catch(() => ({}))).error || res.status));
+}
+
+(async function bootstrap() {
+  let me;
+  try {
+    const res = await _origFetch('/auth/me');
+    if (!res.ok) return showLogin();
+    me = await res.json();
+  } catch { return showLogin('Could not reach the server.'); }
+  applyAccess(me);
+  init();
+})();
 </script>
 </body>
 </html>

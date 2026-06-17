@@ -188,6 +188,32 @@ db.exec(`
     UNIQUE(command, subcommand, type, value_id)
   );
   CREATE INDEX IF NOT EXISTS idx_cp_lookup ON command_permissions(command, subcommand, type);
+
+  CREATE TABLE IF NOT EXISTS panel_roles (
+    role_id TEXT PRIMARY KEY,
+    tier    TEXT NOT NULL CHECK(tier IN ('read', 'manage', 'local'))
+  );
+
+  CREATE TABLE IF NOT EXISTS panel_audit (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    discord_id TEXT NOT NULL,
+    action     TEXT NOT NULL,
+    target     TEXT,
+    at         TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_panel_audit_at ON panel_audit(at);
+
+  CREATE TABLE IF NOT EXISTS panel_op_access (
+    op_key TEXT PRIMARY KEY,
+    tier   TEXT NOT NULL CHECK(tier IN ('read', 'manage', 'local'))
+  );
+
+  CREATE TABLE IF NOT EXISTS panel_presence (
+    discord_id TEXT PRIMARY KEY,
+    name       TEXT,
+    avatar     TEXT,
+    last_seen  TEXT NOT NULL
+  );
 `);
 
 /**

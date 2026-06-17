@@ -9,7 +9,8 @@ See global context at `C:\Users\crysa\.claude\CLAUDE.md`.
 ## Session Start
 
 1. `mempalace wake-up` (global CLAUDE.md step 1) loads recent context.
-2. Search `afkdatamining/gotchas` and `discordbotafkj/gotchas` -- always, every session. These are the landmine rooms: hard-won constraints that silently break things when missed.
+2. Search `afkdatamining/gotchas` -- always, every session. These are the landmine rooms: hard-won constraints that silently break things when missed.
+3. Search recent updates to the afkdatamining and discordbotafkj wings, each new session so you are up on the last few things discussed, back 2 days should be good enough.
 3. Give a brief what's-done / what's-pending summary before starting the task.
 
 Project knowledge: `afkdatamining` wing (rooms: status, src, decisions, gotchas, pending) · `discordbotafkj` wing (rooms: data, general, admin, scripts, slash_commands, gotchas, pending). Search `src` for mode-scan parser internals, `pending` for blocked/deferred work.
@@ -49,8 +50,10 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `utils/commandLogger.js` | Posts a Dyno-style audit embed for every slash command to `COMMAND_LOG_CHANNEL_ID` · uses cache.get (not fetch) |
 | `utils/handlers/translationRoleHandler.js` | `guildMemberUpdate` handler · detects translation role gain (ID `1516271538217943131`) · DMs bilingual embed, then removes the role · fallback to general channel if DMs off |
 | `utils/jobLog.js` | Shared helper · scheduled jobs call `logJobRun(name)` to record runs in `scheduler_log` |
-| `admin/server.js` | Express admin panel server (port 3001, localhost only) · PM2 process `meerbot-admin` |
-| `admin/public/index.html` | Plain HTML admin UI · channel IDs, timing, thresholds + **Members** tab (rename/link/merge/approve/warband) + **Warbands** tab (add/rename/archive) |
+| `admin/server.js` | Express admin panel server (binds 127.0.0.1:3001) · PM2 process `meerbot-admin` · all `/api/*` gated by `auth.js` |
+| `admin/auth.js` | Admin panel auth/RBAC · Discord OAuth2 login, session, three tiers (read/manage/local), CSRF, audit · `OPERATIONS` registry maps each editable action to a tab + default tier (override via `panel_op_access`) · `panel_roles` = role->tier · new tabs add an `OPERATIONS` entry so they appear in the Access tab automatically |
+| `admin/REMOTE_ACCESS.md` | How to expose the panel via Cloudflare Tunnel (`admin.meerbot.dev`) + OAuth setup · for going beyond localhost |
+| `admin/public/index.html` | Plain HTML admin UI · channel IDs, timing, thresholds + **Members** tab (rename/link/merge/approve/warband) + **Warbands** tab (add/rename/archive) + **Access** tab (local-only · per-op tiers, role->tier, audit log) · login overlay + tier-gated controls |
 | `ecosystem.config.js` | PM2 multi-process config · defines `meerbot` + `meerbot-admin` |
 
 ## Slash Commands
@@ -91,6 +94,11 @@ Schema ownership: the miner (`AFKDataMining/src/db.py`) owns the shared scan/ide
 - `ally_servers` · id, server_number, season_id · UNIQUE(server_number, season_id) · cascades on season delete
 - `recruitment` · id, name, power, server_id, dr_rank, sup_arena_rank, lab_rank, dual_rank, interest, response, status (scouting/invited/joined/declined · default scouting), contacted_at, created_by, created_at
 - `recruitment_followups` · id, job_id (→ scheduled_jobs), user_id, recruitment_id, channel_id · 2-day follow-up reminder
+- `panel_roles` · role_id (PK), tier (read/manage/local) · maps Discord roles to admin-panel access tiers · seeded Riff/Raff→manage, RiffRaffians→read
+- `panel_audit` · id, discord_id, action, target, at · one row per successful admin-panel mutation (actor = Discord ID, or `local`)
+- `panel_op_access` · op_key (PK), tier · per-operation tier override (set via the Access tab) · absent = use the code default in `auth.js` `OPERATIONS`
+- `panel_presence` · discord_id (PK), name, avatar, last_seen · heartbeat for "who's actively viewing the panel" · the page polls `GET /api/presence` every 45s, active = seen within 2 min · header shows other active viewers as a hover-fanning avatar stack · logins also write a `LOGIN` row to `panel_audit`
+- `sessions` · auto-created/managed by `better-sqlite3-session-store` for admin-panel logins
 
 ## Scheduled Messages
 Defined in `utils/scheduledMessages.js` MESSAGES array. Each entry has:
@@ -109,6 +117,7 @@ Global late warning threshold: `LATE_WARNING_MINUTES` in `bot_config` table (def
 ## Environment Notes
 - Node.js v21.7.1 · technically outside better-sqlite3's supported range (20/22/24+) but works fine · don't suggest a Node upgrade just because of the EBADENGINE warning
 - `ADMIN_PORT` env var · port for admin panel server (default `3001`)
+- Admin panel remote access (optional · only when exposed past localhost): `ADMIN_PUBLIC_HOST`, `ADMIN_OAUTH_REDIRECT`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `SESSION_SECRET` · full setup in `admin/REMOTE_ACCESS.md`. Local browser to 127.0.0.1 is always the `local` tier (no login); remote requires Discord OAuth2 and a Riff/Raff/RiffRaffian role.
 - Channel IDs and timing values are now DB-backed via `bot_config` · env vars still work as fallbacks but prefer editing via admin panel
 - `GENERAL_CHANNEL_ID` env var · general channel for scheduled messages (1229548159081123893)
 - `COMMAND_LOG_CHANNEL_ID` env var · bot-chatter channel for command audit log (1343099233045184594)
@@ -166,3 +175,6 @@ Channels referenced by env vars (snapshot · check the JSON for everything else)
 - Both slash command interactions and autocomplete drop silently if `interaction.guildId !== GUILD_ID` (foreign guild guard in index.js)
 - `enforcePermissions` fails closed on DB error · returns false + "temporarily unavailable" message · never fails open
 - Translation role (`1516271538217943131`) is a one-shot trigger · bot DMs the member then removes the role immediately · not a persistent role
+- Admin panel `local` tier is granted by request ORIGIN, not by any role · a request is local iff Host is loopback AND no Cloudflare headers (`cf-connecting-ip`/`cf-ray`) · cloudflared also connects from 127.0.0.1, so the Host (not remoteAddress) is the real discriminator · do NOT "simplify" the Host guard or the local check to just an IP test, it would either lock out the local PC or leak reserved ops to the tunnel
+- Admin panel server-side authorization (`admin/auth.js` `authorize`) is the real enforcement · the frontend `lockTiers()` only DISABLES controls it never hides them (read = all edits disabled except `.view-ok` filters + tab nav; manage = `.needs-local` controls disabled; local = nothing) · a MutationObserver re-runs `lockTiers()` after every dynamic re-render · every `/api/*` mutation still re-checks tier + CSRF and fails closed
+- Admin panel access is data-driven: `OPERATIONS` registry (code defaults, grouped by tab) + `panel_op_access` (UI overrides) decide each action's tier · `/api/access*` is hardwired local-only and non-overridable (no remote lockout) · a role can be granted `read`/`manage` only, never `local` (local = origin), and a remote session is clamped to `manage` even if a role is mis-mapped · default op tiers: restart/refresh/scan-modes/scan-auth-user = local, everything else editable = manage, all GETs = read · CONVENTION: every new admin tab registers its mutations in `OPERATIONS` so they show up in the Access tab

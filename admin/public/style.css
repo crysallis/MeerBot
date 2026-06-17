@@ -268,3 +268,54 @@ input[type=datetime-local]:focus { border-color: var(--accent); }
   --card-shadow: 0 4px 20px rgba(0,96,208,.16), 0 1px 4px rgba(0,0,0,.08);
   color-scheme: light;
 }
+
+/* ── Auth: login overlay, identity, tier-gating ── */
+.whoami { font-size: 12px; color: var(--muted); }
+.user-avatar { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border); object-fit: cover; }
+
+/* Presence · overlapping circular avatars that fan out on hover (ServiceNow style) */
+.presence-stack { display: flex; align-items: center; }
+.presence-label { font-size: 11px; color: var(--muted); margin-right: 8px; }
+.presence-av {
+  width: 24px; height: 24px; border-radius: 50%; overflow: hidden;
+  margin-left: -8px; border: 2px solid var(--surface); background: var(--surface-alt);
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: margin-left .15s ease; flex: 0 0 auto;
+}
+.presence-av:first-of-type { margin-left: 0; }
+.presence-stack:hover .presence-av { margin-left: 2px; }
+.presence-av img { width: 100%; height: 100%; object-fit: cover; }
+.presence-fallback, .presence-more { font-size: 10px; font-weight: 700; color: var(--text); }
+.logout-btn {
+  background: transparent; color: var(--muted); border: 1px solid var(--border);
+  border-radius: 6px; cursor: pointer; padding: 5px 9px; font-size: 13px;
+}
+.logout-btn:hover { color: var(--text); border-color: var(--accent); }
+
+.login-overlay {
+  position: fixed; inset: 0; z-index: 1000; display: none;
+  place-items: center; background: var(--bg);
+}
+.login-card {
+  text-align: center; padding: 36px 40px; border: 1px solid var(--border);
+  border-radius: 12px; background: var(--surface); box-shadow: var(--card-shadow);
+}
+.login-card h2 { color: var(--heading); margin: 12px 0 6px; font-weight: 600; }
+.login-card h2 span { color: var(--accent); }
+.login-card p { color: var(--muted); margin-bottom: 18px; }
+.login-btn {
+  display: inline-block; background: #5865f2; color: #fff; text-decoration: none;
+  padding: 10px 20px; border-radius: 8px; font-weight: 600;
+}
+.login-btn:hover { background: #4752c4; }
+
+/* Tier gating disables controls (JS lockTiers) · nothing is ever hidden.        */
+/* The server enforces tiers regardless of what the UI shows.                    */
+button:disabled, input:disabled, select:disabled, textarea:disabled {
+  opacity: .5; cursor: not-allowed;
+}
+.readonly-banner {
+  margin: 0 auto 16px; max-width: 900px; text-align: center;
+  background: var(--surface-alt); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 16px; font-size: 12px; color: var(--muted);
+}
