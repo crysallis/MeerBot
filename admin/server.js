@@ -2,11 +2,14 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
 const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
 const botConfig = require('../utils/botConfig');
 const db = require('../utils/db');
+const auth = require('./auth');
 
 const VALID_PATTERN_TYPES  = ['contains', 'exact', 'regex', 'mention'];
 const VALID_RESPONSE_TYPES = ['reply', 'message', 'emoji', 'dm'];
@@ -14,18 +17,23 @@ const VALID_RESPONSE_TYPES = ['reply', 'message', 'emoji', 'dm'];
 const PORT = process.env.ADMIN_PORT || 3001;
 const app = express();
 
-// Localhost-only guard. The server binds to 127.0.0.1, but a webpage open in a
-// local browser can still fire cross-origin POSTs at it (CSRF) and DNS rebinding
-// can spoof the address — so verify the Host and (when present) Origin headers
-// actually point at this machine before touching anything.
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+// Behind the Cloudflare tunnel cloudflared connects from loopback and sets
+// x-forwarded-proto · trust that one hop so secure cookies and req.secure work.
+app.set('trust proxy', 1);
+
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// Host/Origin guard · allow loopback plus the public tunnel host, reject everything
+// else. Blocks DNS rebinding and cross-origin POSTs in both local and remote modes.
+const ALLOWED_HOSTS = new Set(auth.LOCAL_HOSTS);
+if (process.env.ADMIN_PUBLIC_HOST) ALLOWED_HOSTS.add(process.env.ADMIN_PUBLIC_HOST.toLowerCase());
 app.use((req, res, next) => {
-    const host = (req.headers.host || '').replace(/:\d+$/, '');
-    if (!LOCAL_HOSTS.has(host)) return res.status(403).json({ error: 'Forbidden' });
+    const host = (req.headers.host || '').replace(/:\d+$/, '').toLowerCase();
+    if (!ALLOWED_HOSTS.has(host)) return res.status(403).json({ error: 'Forbidden' });
     const origin = req.headers.origin;
     if (origin) {
         try {
-            if (!LOCAL_HOSTS.has(new URL(origin).hostname)) {
+            if (!ALLOWED_HOSTS.has(new URL(origin).hostname.toLowerCase())) {
                 return res.status(403).json({ error: 'Forbidden' });
             }
         } catch {
@@ -37,6 +45,16 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Sessions + Discord OAuth · login routes are public, /auth is rate limited.
+app.use(auth.sessionMiddleware());
+app.use('/auth', rateLimit({ windowMs: 15 * 60 * 1000, max: 30 }));
+auth.registerRoutes(app);
+
+// Everything under /api requires authentication, tier authorization, and is audited.
+app.use('/api', rateLimit({ windowMs: 60 * 1000, max: 300 }));
+app.use('/api', auth.authorize);
+app.use('/api', auth.audit);
 
 // GET /api/config — all config values with source badges
 app.get('/api/config', (req, res) => {
@@ -806,6 +824,52 @@ app.delete('/api/seasons/:id/servers', (req, res) => {
         res.json({ ok: true, removed });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/presence — heartbeat + who else is active (read tier · all logged-in users)
+app.get('/api/presence', (req, res) => {
+    try {
+        const me = auth.markPresence(req);
+        res.json({ me, users: auth.activePresence() });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── Access control (local-only · see auth.requiredTier) ───────────────────────
+
+// GET /api/access — operations (grouped by tab) + role->tier map + recent audit log
+app.get('/api/access', (req, res) => {
+    try {
+        res.json({
+            tiers: ['read', 'manage', 'local'],
+            operations: auth.listOperations(),
+            roles: auth.listRoleTiers(),
+            audit: auth.recentAudit(100),
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT /api/access/op — { op_key, tier } (tier '' or default clears the override)
+app.put('/api/access/op', (req, res) => {
+    try {
+        auth.setOperationTier(req.body.op_key, req.body.tier ?? '');
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// PUT /api/access/role — { role_id, tier } (tier 'none'/'' removes the grant)
+app.put('/api/access/role', (req, res) => {
+    try {
+        auth.setRoleTier(req.body.role_id, req.body.tier ?? '');
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
     }
 });
 
