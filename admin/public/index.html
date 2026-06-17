@@ -597,12 +597,42 @@ function toggleMode() {
 })();
 
 const CATEGORY_LABELS = {
-  channels:    'Channels',
+  channels:    'Commands',
   timing:      'Job Timing',
   thresholds:  'Thresholds',
   permissions: 'Permissions',
   scan_modes:  'Scan Modes',
 };
+
+// Channel settings owned by a scheduled job render inside that job's card (below),
+// not in the Commands tab. Map: job handler_path -> the channel config key.
+const JOB_CHANNEL_KEY = {
+  './handlers/scanReminder':     'SCAN_REMINDER_CHANNEL_ID',
+  './handlers/weeklySummary':    'WEEKLY_SUMMARY_CHANNEL_ID',
+  './handlers/anniversaryCheck': 'ANNIVERSARY_CHANNEL_ID',
+  './handlers/birthdayCheck':    'BIRTHDAY_CHANNEL_ID',
+  './handlers/dailyReset':       'GENERAL_CHANNEL_ID',
+};
+const JOB_CHANNEL_KEYS = new Set(Object.values(JOB_CHANNEL_KEY));
+
+// Build channel <option>s with the given id pre-selected (mirrors the channels rows).
+function channelOptions(selectedId) {
+  return '<option value="">— not set —</option>' + channelList.map(ch => {
+    const cleanName = ch.name.replace(/[^\w\s#\-]/gu, '').trim();
+    const sel = ch.id === selectedId ? ' selected' : '';
+    return `<option value="${ch.id}"${sel}>${cleanName} (${ch.id})</option>`;
+  }).join('');
+}
+
+async function setJobChannel(key, value) {
+  const res = await fetch('/api/config/' + key, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+  });
+  if (!res.ok) { alert('Save failed: ' + ((await res.json().catch(() => ({}))).error || res.status)); return; }
+  const e = allConfig.find(c => c.key === key);
+  if (e) { e.value = value; e.source = value ? 'DB' : 'DEFAULT'; }
+}
 
 let allConfig = [];
 let channelList = [];
@@ -733,7 +763,8 @@ function renderAllSections() {
   const categories = [...new Set(allConfig.map(c => c.category))];
 
   for (const cat of categories) {
-    const entries = allConfig.filter(c => c.category === cat);
+    // Job-owned channels live in their Scheduled Jobs card, not the Commands tab.
+    const entries = allConfig.filter(c => c.category === cat && !JOB_CHANNEL_KEYS.has(c.key));
     const section = document.createElement('div');
     section.className = 'section' + (cat === activeTab ? ' visible' : '');
     section.id = 'section-' + cat;
@@ -931,6 +962,13 @@ function renderScheduledJobs(jobs) {
     const [unit, n] = (job.recurrence || 'daily:1').split(':');
     const count = n || '1';
 
+    const chKey = JOB_CHANNEL_KEY[job.handler_path];
+    const chField = chKey ? `
+        <div class="sj-field">
+          <label>Posts to</label>
+          <select onchange="setJobChannel('${chKey}', this.value)">${channelOptions(allConfig.find(c => c.key === chKey)?.value)}</select>
+        </div>` : '';
+
     const card = document.createElement('div');
     card.className = 'sj-card';
     card.style.opacity = job.enabled ? '1' : '0.5';
@@ -956,7 +994,7 @@ function renderScheduledJobs(jobs) {
               <option value="weekly" ${unit === 'weekly' ? 'selected' : ''}>Week(s)</option>
             </select>
           </div>
-        </div>
+        </div>${chField}
         <div class="sj-field" style="justify-content:flex-end">
           <button class="save-btn" onclick="saveScheduledJob(${job.id})">Save</button>
           <span class="saved-flash" id="sj-flash-${job.id}">Saved!</span>
