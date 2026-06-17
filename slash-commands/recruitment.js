@@ -55,6 +55,35 @@ function fmtPower(val) {
     return `${Math.round(val / 1000)}K`;
 }
 
+// Accept common date formats and normalize to YYYY-MM-DD (what storage + SQLite
+// date() comparisons need). Returns null if it can't make a valid calendar date.
+function normalizeDate(input) {
+    if (!input) return null;
+    const s = String(input).trim();
+    const pad = n => String(n).padStart(2, '0');
+    const build = (y, mo, d) => {
+        y = +y; mo = +mo; d = +d;
+        if (y < 100) y += 2000;
+        const dt = new Date(Date.UTC(y, mo - 1, d));
+        if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+        return `${y}-${pad(mo)}-${pad(d)}`;
+    };
+
+    // Year-first: 2026-06-16, 2026/06/16, 2026.06.16
+    let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+    if (m) return build(m[1], m[2], m[3]);
+
+    // Month-first (US): 6/16/2026, 06-16-26, 6.16.2026
+    m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
+    if (m) return build(m[3], m[1], m[2]);
+
+    // Month-name: "June 16 2026", "16 Jun 2026", "Jun 16, 2026"
+    const parsed = new Date(s);
+    if (!isNaN(parsed)) return build(parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate());
+
+    return null;
+}
+
 module.exports = {
     async autocomplete(interaction) {
         const focused = interaction.options.getFocused(true);
@@ -80,7 +109,7 @@ module.exports = {
             .setDescription('Add a new prospect')
             .addStringOption(o => o.setName('name').setDescription('In-game name').setRequired(true).setMaxLength(100))
             .addIntegerOption(o => o.setName('power').setDescription('Combat power (e.g. 85000000)').setRequired(true).setMinValue(1))
-            .addStringOption(o => o.setName('contacted').setDescription('Date of first contact (YYYY-MM-DD)').setRequired(true))
+            .addStringOption(o => o.setName('contacted').setDescription('Date of first contact (e.g. 2026-06-16, 6/16/2026, June 16 2026)').setRequired(true))
             .addIntegerOption(o => o.setName('server').setDescription('Ally server number').setRequired(true).setAutocomplete(true))
             .addIntegerOption(o => o.setName('dr').setDescription('Dream Realm rank (1-100)').setRequired(false).setMinValue(1).setMaxValue(100))
             .addIntegerOption(o => o.setName('sup_arena').setDescription('Supreme Arena rank (1-100)').setRequired(false).setMinValue(1).setMaxValue(100))
@@ -96,7 +125,7 @@ module.exports = {
             .addStringOption(o => o.setName('status').setDescription('Filter by status (default: scouting + invited)').setRequired(false).addChoices(...STATUS_CHOICES))
             .addStringOption(o => o.setName('interest').setDescription('Filter by interest').setRequired(false).addChoices(...INTEREST_CHOICES))
             .addIntegerOption(o => o.setName('server').setDescription('Filter by server number').setRequired(false).setMinValue(1))
-            .addStringOption(o => o.setName('date').setDescription('Filter by contacted date ±14 days (YYYY-MM-DD)').setRequired(false))
+            .addStringOption(o => o.setName('date').setDescription('Filter by contacted date ±14 days (most date formats work)').setRequired(false))
         )
         .addSubcommand(s => s
             .setName('update')
@@ -107,7 +136,7 @@ module.exports = {
             .addStringOption(o => o.setName('response').setDescription('Contact response').setRequired(false).addChoices(...RESPONSE_CHOICES))
             .addIntegerOption(o => o.setName('power').setDescription('Updated combat power').setRequired(false).setMinValue(1))
             .addIntegerOption(o => o.setName('server').setDescription('Updated server number').setRequired(false).setAutocomplete(true))
-            .addStringOption(o => o.setName('contacted').setDescription('Updated contact date (YYYY-MM-DD)').setRequired(false))
+            .addStringOption(o => o.setName('contacted').setDescription('Updated contact date (most date formats work)').setRequired(false))
             .addIntegerOption(o => o.setName('dr').setDescription('Dream Realm rank (1-100)').setRequired(false).setMinValue(1).setMaxValue(100))
             .addIntegerOption(o => o.setName('sup_arena').setDescription('Supreme Arena rank (1-100)').setRequired(false).setMinValue(1).setMaxValue(100))
             .addIntegerOption(o => o.setName('lab').setDescription('Labyrinth rank (1-100)').setRequired(false).setMinValue(1).setMaxValue(100))
@@ -126,7 +155,7 @@ module.exports = {
         if (sub === 'add') {
             const name     = interaction.options.getString('name').trim();
             const power    = interaction.options.getInteger('power');
-            const contacted = interaction.options.getString('contacted').trim();
+            const contacted = normalizeDate(interaction.options.getString('contacted'));
             const serverNum = interaction.options.getInteger('server');
             const dr       = interaction.options.getInteger('dr');
             const supArena = interaction.options.getInteger('sup_arena');
@@ -136,8 +165,8 @@ module.exports = {
             const response = interaction.options.getString('response') ?? 'first_contact';
             const status   = interaction.options.getString('status') ?? 'scouting';
 
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(contacted)) {
-                return interaction.reply({ content: 'Invalid date format. Use YYYY-MM-DD.', flags: MessageFlags.Ephemeral });
+            if (!contacted) {
+                return interaction.reply({ content: "Couldn't read that date. Try YYYY-MM-DD (e.g. 2026-06-16), 6/16/2026, or June 16 2026.", flags: MessageFlags.Ephemeral });
             }
 
             const serverId = getServerIdForNumber(serverNum);
@@ -172,10 +201,11 @@ module.exports = {
             const filterStatus   = interaction.options.getString('status');
             const filterInterest = interaction.options.getString('interest');
             const filterServer   = interaction.options.getInteger('server');
-            const filterDate     = interaction.options.getString('date');
+            const rawDate        = interaction.options.getString('date');
+            const filterDate     = rawDate ? normalizeDate(rawDate) : null;
 
-            if (filterDate && !/^\d{4}-\d{2}-\d{2}$/.test(filterDate)) {
-                return interaction.reply({ content: 'Invalid date format. Use YYYY-MM-DD.', flags: MessageFlags.Ephemeral });
+            if (rawDate && !filterDate) {
+                return interaction.reply({ content: "Couldn't read that date. Try YYYY-MM-DD (e.g. 2026-06-16), 6/16/2026, or June 16 2026.", flags: MessageFlags.Ephemeral });
             }
 
             let query = `
@@ -284,10 +314,11 @@ module.exports = {
             if (status)           updates.status = status;
 
             if (contacted) {
-                if (!/^\d{4}-\d{2}-\d{2}$/.test(contacted)) {
-                    return interaction.reply({ content: 'Invalid date format. Use YYYY-MM-DD.', flags: MessageFlags.Ephemeral });
+                const norm = normalizeDate(contacted);
+                if (!norm) {
+                    return interaction.reply({ content: "Couldn't read that date. Try YYYY-MM-DD (e.g. 2026-06-16), 6/16/2026, or June 16 2026.", flags: MessageFlags.Ephemeral });
                 }
-                updates.contacted_at = contacted;
+                updates.contacted_at = norm;
             }
 
             if (serverNum != null) {
