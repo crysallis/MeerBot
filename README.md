@@ -95,6 +95,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/guild unlinked` | Active members not yet linked to a Discord account |
 | `/member name:` | Stats and up to 8 weeks of history for a member |
 | `/member user:` | Same, but look up by @mention if the user is linked |
+| `/invasion` | Alert the Homestead role of an invasion (optional `name:`/`user:`, defaults to you) |
 | `/link ingame_name:` | Link your Discord account to your in-game name |
 | `/birthday register` | Register your birthday (month/day) |
 | `/birthday list` | List all registered birthdays |
@@ -174,6 +175,7 @@ MeerBot/
         guild.js                All /guild subcommands incl. chart, warbands, unlinked.
         newsletter.js           /newsletter note/generate/seed · Claude-drafted newsletters.
         member.js               /member lookup with autocomplete.
+        invasion.js             /invasion Homestead invasion alert (role ping).
         link.js                 /link with autocomplete.
         scan.js                 /scan + post-scan inactivity alert. Always passes --guild.
         roster.js               /roster add/remove/transfer · Discord role management for

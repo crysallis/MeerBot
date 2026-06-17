@@ -16,6 +16,17 @@ Look up a guild member's stats, power history, and rankings.
 
 ---
 
+### /invasion
+Alert the Homestead role that a homestead is being invaded. Posts an embed in the Homestead channel and pings the Homestead role.
+
+| Usage | Description |
+|---|---|
+| `/invasion` | Alert for your own Homestead (you must be linked) |
+| `/invasion name:` | Alert for a specific in-game member (autocompletes) |
+| `/invasion user:` | Alert for a linked Discord user's Homestead |
+
+---
+
 ### /guild
 Guild-wide statistics. All subcommands use the most recent scan snapshot.
 

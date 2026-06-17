@@ -40,6 +40,14 @@ const COMMANDS = {
             { name: '/member user:',  desc: 'Look up by @mention if the user is linked to an in-game name.' },
         ],
     },
+    invasion: {
+        description: 'Alert the Homestead role that a homestead is being invaded (posts an embed in the Homestead channel).',
+        subcommands: [
+            { name: '/invasion',       desc: 'Alert for your own Homestead and ping the Homestead role.' },
+            { name: '/invasion name:', desc: "Alert for a specific in-game member's Homestead. Name autocompletes." },
+            { name: '/invasion user:', desc: "Alert for a linked Discord user's Homestead." },
+        ],
+    },
     link: {
         description: 'Link a Discord account to an in-game name.',
         subcommands: [
@@ -221,6 +229,7 @@ module.exports = {
             birthday: 'Register · list · remove birthdays',
             guild: 'power · top · inactive · activeness · growth · nogrowth · status · newcomers · chart · warbands · unlinked',
             member: 'Look up a member by name or @mention',
+            invasion: 'Ping Homestead to repel an invasion',
             link: 'Link your Discord to your in-game name',
             anniversary: 'list · upcoming',
             remindme: 'Set · list · cancel personal reminders',

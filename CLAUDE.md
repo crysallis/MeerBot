@@ -62,6 +62,7 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `/ping` | Latency check with tiered quips · tiers in config.js |
 | `/scan` | Runs Python scraper, posts results · then posts inactivity alert (active members only, AFK excluded) · authorized user only |
 | `/member` | Member stats + power growth line chart (QuickChart GET URL) |
+| `/invasion` | Alert the Homestead role that a homestead is being invaded · optional `name` (in-game, autocomplete) or `user` (linked Discord) · defaults to caller · posts an embed + role ping to `HOMESTEAD_CHANNEL_ID` |
 | `/guild chart` | Multi-line power growth for all members (QuickChart POST → short URL) |
 | `/guild unlinked` | Active members with no Discord account linked |
 | `/afk set/clear/list` | AFK management · set_by stores Discord user ID (not username) |
@@ -164,6 +165,7 @@ Channels referenced by env vars (snapshot · check the JSON for everything else)
 | `GENERAL_CHANNEL_ID` | general | 1229548159081123893 |
 | `ANNIVERSARY_CHANNEL_ID` | riffraff | 1303421884687192174 |
 | `RECRUITMENT_REMINDER_CHANNEL_ID` | *(set via admin panel)* | — |
+| `HOMESTEAD_CHANNEL_ID` | homestead | 1403623893444329564 (default in CONFIG_META) |
 
 ## Key Decisions Made
 - `set_by` fields store Discord user ID, displayed as `<@id> / ingame_name`
