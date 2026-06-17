@@ -153,6 +153,15 @@ newsletters         Archived newsletter issues. Seeded from Discord channel via 
                     posted_at is the authoritative anchor for the "since last newsletter" window.
 newsletter_notes    Running memory for the next issue (events, member news, season notes).
                     created_at > MAX(newsletters.posted_at) = relevant to next generate call.
+panel_roles         Admin-panel access map. role_id -> tier (read/manage). Seeded
+                    Riff/Raff=manage, RiffRaffians=read. Editable in the Access tab.
+panel_op_access     Per-operation tier overrides (op_key -> tier). Absent = use the
+                    code default in auth.js OPERATIONS.
+panel_audit         Admin-panel audit log. One row per login + per successful mutation
+                    (discord_id or 'local', action, target, at).
+panel_presence      Presence heartbeat. discord_id -> name/avatar/last_seen. Drives the
+                    "who's viewing" avatar stack; active = seen within 2 min.
+sessions            Admin-panel login sessions (auto-managed by better-sqlite3-session-store).
 ```
 
 The `members` table is the join hub. It links:
@@ -354,7 +363,17 @@ Values are always stored and returned as strings. Callers that need a number cas
 
 ## admin/server.js (Admin panel)
 
-An Express server bound to `127.0.0.1` (localhost only, never reachable externally). Runs as a separate PM2 process (`meerbot-admin`) so it never needs a restart when the bot restarts.
+An Express server bound to `127.0.0.1`. Runs as a separate PM2 process (`meerbot-admin`) so it never needs a restart when the bot restarts. It is reachable remotely via a **Cloudflare Tunnel** (`admin.meerbot.dev` -> `127.0.0.1:3001`) -- the process itself never opens a public port; only the local `cloudflared` daemon connects to it. See `admin/REMOTE_ACCESS.md` for the deployment + OAuth setup.
+
+### Authentication & access tiers (`admin/auth.js`)
+
+All `/api/*` routes are gated by `auth.authorize`, which fails closed. Three tiers, ranked `read` < `manage` < `local`:
+
+- **read** -- view everything, no edits (RiffRaffian role, remote)
+- **manage** -- day-to-day edits, minus reserved infra ops (Riff/Raff roles, remote)
+- **local** -- everything, including reserved ops; **granted by request origin only** -- a request is `local` iff its `Host` is loopback AND it carries no Cloudflare headers (`cf-connecting-ip`/`cf-ray`). Tunnel traffic always carries those, so the host PC is the only `local` origin. A remote session is clamped to `manage` even if a role is mis-mapped, and a role can never be granted `local`.
+
+Remote users authenticate with **Discord OAuth2** (`identify` scope); their tier comes from their guild roles via `panel_roles`. Sessions live in the `sessions` table (`better-sqlite3-session-store`), cookies are `HttpOnly`/`Secure`/`SameSite=Lax`, mutations require a CSRF synchronizer token, and `helmet` + rate limiting are applied. Which tier each action needs is data-driven: the `OPERATIONS` registry holds a default tier per action (grouped by tab), overridable at runtime via `panel_op_access` (edited in the Access tab). Logins and every successful mutation are written to `panel_audit`.
 
 REST API:
 
@@ -395,8 +414,14 @@ REST API:
 | `PUT` | `/api/message-reactions/:id` | Update a reaction rule |
 | `DELETE` | `/api/message-reactions/:id` | Delete a reaction rule |
 | `POST` | `/api/message-reactions/reload` | No-op acknowledgement (cache auto-refreshes every 5 min) |
+| `GET` | `/api/dream-realm-bosses` / `POST` / `PUT /:id` / `DELETE /:id` | Manage Dream Realm boss list per season |
+| `GET` | `/api/presence` | Heartbeat + list of currently-active viewers (read tier) |
+| `GET` | `/api/access` | Operations (by tab) + role->tier map + recent audit log (**local only**) |
+| `PUT` | `/api/access/op` | `{ op_key, tier }` · set/clear a per-operation tier override (**local only**) |
+| `PUT` | `/api/access/role` | `{ role_id, tier }` · set/clear a role's tier (read/manage; **local only**) |
+| `GET` | `/auth/me` · `GET /auth/login` · `GET /auth/callback` · `POST /auth/logout` | Discord OAuth2 login + session identity (outside `/api`) |
 
-The admin panel UI has tabs for: **Channels**, **Job Timing**, **Thresholds**, **Config** (DB-backed key/value config), **Permissions** (command_permissions allowlists -- role and channel pickers per command/subcommand), **Reactions**, **Scheduled Jobs**, **Job Runs**, **Members**, **Warbands**, and **Seasons**.
+The admin panel UI has tabs for: **Channels**, **Job Timing**, **Thresholds**, **Config** (DB-backed key/value config), **Permissions** (command_permissions allowlists -- role and channel pickers per command/subcommand), **Reactions**, **Scheduled Jobs**, **Job Runs**, **Members**, **Warbands**, **Seasons**, **DR Bosses**, and **Access** (local-only -- per-operation tiers, role->tier grants, audit log). The header shows the logged-in user (circular Discord avatar) and a presence stack of other active viewers; controls above the current tier are disabled (never hidden).
 
 The panel supports 5 themes (Jewel, Chili, Tigereye, Plum, Lapis) in dark and light mode. Theme and mode are persisted to `localStorage`; an anti-FOUC script in `<head>` applies the saved choice before first paint.
 
@@ -528,5 +553,5 @@ The admin process never needs `--update-env` because it reads all config from th
 | Token security | `.env` listed in `.gitignore`, never committed |
 | Subprocess | `execFile` with array arguments, no shell interpolation |
 | Ephemeral responses | All admin output uses `MessageFlags.Ephemeral` |
-| Admin panel | Bound to `127.0.0.1` only -- not reachable externally -- key writes validated against `CONFIG_META` allowlist -- Host + Origin headers verified to block CSRF and DNS rebinding |
+| Admin panel | Bound to `127.0.0.1`; reachable remotely only through a Cloudflare Tunnel -- Discord OAuth2 login with role-derived access tiers (read/manage/local), `local` reserved to the host PC by request origin -- CSRF synchronizer token on mutations, `helmet`, rate limiting, session cookies (HttpOnly/Secure/SameSite=Lax) -- key writes validated against `CONFIG_META` allowlist -- Host + Origin allowlist blocks DNS rebinding -- logins + mutations audited |
 | Cache over fetch | `commandLogger` and scheduled handler channel lookups use `channels.cache.get()` not `.fetch()` to avoid unnecessary API calls |

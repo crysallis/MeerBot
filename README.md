@@ -30,7 +30,7 @@ pm2 save
 pm2 startup
 ```
 
-Admin panel runs at `http://localhost:3001` (localhost only).
+Admin panel runs at `http://localhost:3001` (binds `127.0.0.1`). On the host PC it opens with full access, no login. It can also be exposed to guild leadership remotely via a Cloudflare Tunnel + Discord login -- see [admin/REMOTE_ACCESS.md](admin/REMOTE_ACCESS.md).
 
 ### Updating after code changes
 
@@ -54,6 +54,7 @@ pm2 restart meerbot --update-env
 | `SCRAPER_SCRIPT` | Full path to `scraper.py` |
 | `GUILD_DB_PATH` | Full path to `guild.db` (optional, defaults to `../../AFKDataMining/guild.db`) |
 | `ADMIN_PORT` | Port for the admin panel (optional, defaults to `3001`) |
+| `ADMIN_PUBLIC_HOST` / `ADMIN_OAUTH_REDIRECT` / `DISCORD_CLIENT_SECRET` / `SESSION_SECRET` | Only needed to expose the admin panel remotely (Cloudflare Tunnel + Discord OAuth2). See [admin/REMOTE_ACCESS.md](admin/REMOTE_ACCESS.md) |
 
 ### Configurable via admin panel (or .env as fallback)
 
@@ -165,8 +166,10 @@ MeerBot/
     config.js                   Static parameters: rate limit, ping tiers.
     ecosystem.config.js         PM2 multi-process config (meerbot + meerbot-admin).
     admin/
-        server.js               Express admin panel server (localhost:3001).
+        server.js               Express admin panel server (binds 127.0.0.1:3001).
+        auth.js                 Discord OAuth2 + tiered RBAC (read/manage/local), CSRF, audit, presence.
         public/index.html       Plain HTML admin UI — edit config without touching code.
+        REMOTE_ACCESS.md        How to expose the panel via Cloudflare Tunnel + OAuth.
     slash-commands/
         guild.js                All /guild subcommands incl. chart, warbands, unlinked.
         newsletter.js           /newsletter note/generate/seed · Claude-drafted newsletters.
