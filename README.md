@@ -30,7 +30,7 @@ pm2 save
 pm2 startup
 ```
 
-Admin panel runs at `http://localhost:3001` (binds `127.0.0.1`). On the host PC it opens with full access, no login. It can also be exposed to guild leadership remotely via a Cloudflare Tunnel + Discord login -- see [admin/REMOTE_ACCESS.md](admin/REMOTE_ACCESS.md).
+Admin panel runs at `http://localhost:3001` (binds `127.0.0.1`). On the host PC it opens with full access, no login. It can also be exposed to guild leadership remotely via a Cloudflare Tunnel + Discord login -- see [admin/REMOTE_ACCESS.md](admin/REMOTE_ACCESS.md). The UI is responsive: on phones/tablets the section tabs collapse into a hamburger drawer and wide tables reflow/scroll.
 
 ### Updating after code changes
 

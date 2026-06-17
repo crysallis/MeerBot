@@ -53,7 +53,7 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `admin/server.js` | Express admin panel server (binds 127.0.0.1:3001) · PM2 process `meerbot-admin` · all `/api/*` gated by `auth.js` |
 | `admin/auth.js` | Admin panel auth/RBAC · Discord OAuth2 login, session, three tiers (read/manage/local), CSRF, audit · `OPERATIONS` registry maps each editable action to a tab + default tier (override via `panel_op_access`) · `panel_roles` = role->tier · new tabs add an `OPERATIONS` entry so they appear in the Access tab automatically |
 | `admin/REMOTE_ACCESS.md` | How to expose the panel via Cloudflare Tunnel (`admin.meerbot.dev`) + OAuth setup · for going beyond localhost |
-| `admin/public/index.html` | Plain HTML admin UI · channel IDs, timing, thresholds + **Members** tab (rename/link/merge/approve/warband) + **Warbands** tab (add/rename/archive) + **Access** tab (local-only · per-op tiers, role->tier, audit log) · login overlay + tier-gated controls |
+| `admin/public/index.html` | Plain HTML admin UI · channel IDs, timing, thresholds + **Members** tab (rename/link/merge/approve/warband) + **Warbands** tab (add/rename/archive) + **Access** tab (local-only · per-op tiers, role->tier, audit log) · login overlay + tier-gated controls · responsive ≤768px: hamburger drawer nav (header utilities relocate into it via matchMedia), Members table reflows to cards, other tables scroll · desktop look unchanged |
 | `ecosystem.config.js` | PM2 multi-process config · defines `meerbot` + `meerbot-admin` |
 
 ## Slash Commands

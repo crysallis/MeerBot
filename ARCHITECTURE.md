@@ -423,6 +423,8 @@ REST API:
 
 The admin panel UI has tabs for: **Channels**, **Job Timing**, **Thresholds**, **Config** (DB-backed key/value config), **Permissions** (command_permissions allowlists -- role and channel pickers per command/subcommand), **Reactions**, **Scheduled Jobs**, **Job Runs**, **Members**, **Warbands**, **Seasons**, **DR Bosses**, and **Access** (local-only -- per-operation tiers, role->tier grants, audit log). The header shows the logged-in user (circular Discord avatar) and a presence stack of other active viewers; controls above the current tier are disabled (never hidden).
 
+**Responsive layout.** The panel is desktop-first but adds a `@media (max-width: 768px)` layer that leaves the desktop look untouched. On mobile/tablet: a hamburger button opens a slide-out drawer (`#drawer`) holding the section nav, and the header utility controls (theme picker, mode toggle, Restart, logout) are relocated into the drawer via a `matchMedia` listener (`setupMobileChrome`) -- moved, not duplicated, so element IDs, handlers, and `lockTiers()` keep working. The Members table reflows into stacked labeled cards (`.cards-sm` + `data-label` per cell); all other tables scroll horizontally inside their card. Form controls are 16px to avoid iOS zoom-on-focus.
+
 The panel supports 5 themes (Jewel, Chili, Tigereye, Plum, Lapis) in dark and light mode. Theme and mode are persisted to `localStorage`; an anti-FOUC script in `<head>` applies the saved choice before first paint.
 
 The config PUT endpoint validates the key against `CONFIG_META` before writing, preventing arbitrary DB writes. The scheduled-jobs PUT validates that `recurrence` matches `daily:N` or `weekly:N` and that `fire_at` is a valid datetime.
