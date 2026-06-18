@@ -1940,7 +1940,7 @@ async function loadDreamBosses() {
           ${seasons.map(s => `<option value="${s.id}"${s.id === b.season ? ' selected' : ''}>${escHtml(s.name)}</option>`).join('')}
         </select>
       </td>
-      <td><button class="reset-btn" onclick="deleteDreamBoss(${b.id},'${escHtml(b.name)}')" style="color:var(--red)">Delete</button></td>
+      <td><button class="reset-btn" data-id="${b.id}" data-name="${escHtml(b.name)}" onclick="deleteDreamBoss(this)" style="color:var(--red)">Delete</button></td>
     </tr>`).join('');
 }
 
@@ -1967,7 +1967,9 @@ async function updateDreamBoss(id, fields) {
   if (res.error) alert(res.error);
 }
 
-async function deleteDreamBoss(id, name) {
+async function deleteDreamBoss(el) {
+  const id = +el.dataset.id;
+  const name = el.dataset.name;
   if (!confirm(`Delete boss "${name}"?`)) return;
   const res = await fetch(`/api/dream-realm-bosses/${id}`, { method: 'DELETE' }).then(r => r.json());
   if (res.error) { alert(res.error); return; }
