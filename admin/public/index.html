@@ -1800,7 +1800,7 @@ function renderSeasons() {
       <td class="action-col">
         <button class="save-btn" style="${toggleStyle};margin-right:6px" onclick="toggleSeason(${s.id},${s.active ? 0 : 1})">${toggleLabel}</button>
         <button class="save-btn view-ok" style="background:#1971c2;margin-right:6px" onclick="toggleServerPanel(${s.id})">${isExpanded ? 'Collapse' : 'Servers'}</button>
-        <button class="reset-btn" onclick="deleteSeason(${s.id},'${escHtml(s.name).replace(/'/g, "\\'")}',${s.server_count})">Delete</button>
+        <button class="reset-btn" data-id="${s.id}" data-name="${escHtml(s.name)}" data-count="${s.server_count}" onclick="deleteSeason(this)">Delete</button>
       </td>`;
     tbody.appendChild(tr);
 
@@ -1877,7 +1877,10 @@ async function toggleSeason(id, newActive) {
   await loadSeasons();
 }
 
-async function deleteSeason(id, name, serverCount) {
+async function deleteSeason(el) {
+  const id = +el.dataset.id;
+  const name = el.dataset.name;
+  const serverCount = +el.dataset.count;
   const msg = serverCount > 0
     ? `Delete season "${name}" and its ${serverCount} server${serverCount !== 1 ? 's' : ''}?`
     : `Delete season "${name}"?`;

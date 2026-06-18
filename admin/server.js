@@ -21,7 +21,20 @@ const app = express();
 // x-forwarded-proto · trust that one hop so secure cookies and req.secure work.
 app.set('trust proxy', 1);
 
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc:     ["'self'"],
+            scriptSrc:      ["'self'", "'unsafe-inline'"],
+            styleSrc:       ["'self'", "'unsafe-inline'"],
+            imgSrc:         ["'self'", "data:", "https://cdn.discordapp.com"],
+            connectSrc:     ["'self'"],
+            fontSrc:        ["'self'"],
+            objectSrc:      ["'none'"],
+            frameAncestors: ["'none'"],
+        },
+    },
+}));
 
 // Host/Origin guard · allow loopback plus the public tunnel host, reject everything
 // else. Blocks DNS rebinding and cross-origin POSTs in both local and remote modes.
@@ -345,6 +358,7 @@ app.post('/api/message-reactions', (req, res) => {
     }
 
     if (pattern_type === 'regex') {
+        if (pattern.length > 300) return res.status(400).json({ error: 'Regex pattern too long (max 300 characters)' });
         try { new RegExp(pattern); } catch { return res.status(400).json({ error: 'Invalid regex pattern' }); }
     }
 
@@ -396,6 +410,7 @@ app.put('/api/message-reactions/:id', (req, res) => {
     if (response_type && !VALID_RESPONSE_TYPES.includes(response_type)) return res.status(400).json({ error: `response_type must be one of: ${VALID_RESPONSE_TYPES.join(', ')}` });
 
     if (pattern_type === 'regex' && pattern) {
+        if (pattern.length > 300) return res.status(400).json({ error: 'Regex pattern too long (max 300 characters)' });
         try { new RegExp(pattern); } catch { return res.status(400).json({ error: 'Invalid regex pattern' }); }
     }
 

@@ -59,7 +59,7 @@ client.once('clientReady', async () => {
             r.mentionable ? 'mentionable' : null,
             r.hoist ? 'hoist' : null,
         ].filter(Boolean).join(', ');
-        const safeName = r.name.replace(/\|/g, '\\|');
+        const safeName = r.name.replace(/[|`\\]/g, '\\$&');
         console.log(`| \`${r.id}\` | ${safeName} | ${r.member_count} | ${notes || '-'} |`);
     }
 
