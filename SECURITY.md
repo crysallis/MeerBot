@@ -13,8 +13,7 @@ Both are self-hosted. There is no public-facing service and no user data beyond 
 
 If you find a security issue, please don't open a public issue. Instead:
 
-- **GitHub private advisory** (preferred): [Report a vulnerability](https://github.com/crysallis/MeerBot/security/advisories/new)
-- **Email**: crysallis7@gmail.com
+- **GitHub private advisory**: [Report a vulnerability](https://github.com/crysallis/MeerBot/security/advisories/new)
 
 Include a description of the issue, the affected component, and steps to reproduce if possible. I'll respond as quickly as I can -- this is a personal project so no SLA, but I take security seriously and will act on real findings promptly.
 
