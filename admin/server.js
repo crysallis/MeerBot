@@ -358,7 +358,7 @@ app.post('/api/message-reactions', (req, res) => {
     }
 
     if (pattern_type === 'regex') {
-        if (pattern.length > 300) return res.status(400).json({ error: 'Regex pattern too long (max 300 characters)' });
+        if (pattern.length > 30) return res.status(400).json({ error: 'Regex pattern too long (max 30 characters)' });
         try { new RegExp(pattern); } catch { return res.status(400).json({ error: 'Invalid regex pattern' }); }
     }
 
@@ -410,7 +410,7 @@ app.put('/api/message-reactions/:id', (req, res) => {
     if (response_type && !VALID_RESPONSE_TYPES.includes(response_type)) return res.status(400).json({ error: `response_type must be one of: ${VALID_RESPONSE_TYPES.join(', ')}` });
 
     if (pattern_type === 'regex' && pattern) {
-        if (pattern.length > 300) return res.status(400).json({ error: 'Regex pattern too long (max 300 characters)' });
+        if (pattern.length > 30) return res.status(400).json({ error: 'Regex pattern too long (max 30 characters)' });
         try { new RegExp(pattern); } catch { return res.status(400).json({ error: 'Invalid regex pattern' }); }
     }
 
