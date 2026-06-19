@@ -64,7 +64,7 @@ function renderDR(me) {
     // Bar chart
     const labels = rows.map(r => r.ingame_name);
     const values = rows.map(r => parseScore(r.score));
-    const colors = rows.map(r => r.member_id === me?.memberId ? getCSSVar('--accent') : tierColor(r.tier));
+    const colors = rows.map(r => r.member_id === me?.memberId ? getCSSVar('--color-primary') : tierColor(r.tier));
 
     if (chart) {
         chart.data.labels   = labels;

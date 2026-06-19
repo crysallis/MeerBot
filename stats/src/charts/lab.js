@@ -1,14 +1,19 @@
 import { escHtml } from '../utils.js';
 
 export async function initLab(me) {
-    const res  = await fetch('/api/lab');
-    const rows = await res.json();
+    const [labRes, honorRes] = await Promise.all([
+        fetch('/api/lab'),
+        fetch('/api/honor'),
+    ]);
+    const rows  = await labRes.json();
+    const honor = await honorRes.json();
 
-    const el = document.getElementById('lab-table');
-    if (!rows.length) {
-        el.innerHTML = '<div class="empty-state">No arcane lab data yet.</div>';
-        return;
-    }
+    document.getElementById('lab-table').innerHTML   = renderLabTable(rows, me);
+    document.getElementById('honor-table').innerHTML = renderHonorTable(honor, me);
+}
+
+function renderLabTable(rows, me) {
+    if (!rows.length) return '<div class="empty-state">No arcane lab data yet.</div>';
 
     const scanDate = rows[0]?.scanned_at?.slice(0, 10) ?? '';
     let html = `<table class="data-table"><thead><tr>
@@ -29,8 +34,26 @@ export async function initLab(me) {
     }
     html += `</tbody></table>`;
     if (scanDate) html += `<div class="scan-note">Latest scan: ${scanDate}</div>`;
+    return html;
+}
 
-    el.innerHTML = html;
+function renderHonorTable(rows, me) {
+    if (!rows.length) return '<div class="empty-state">No honor duel data yet.</div>';
+    const scanDate = rows[0]?.scanned_at?.slice(0, 10) ?? '';
+    let html = `<table class="data-table"><thead><tr>
+        <th>#</th><th>Member</th><th>Points</th>
+    </tr></thead><tbody>`;
+    for (const r of rows) {
+        const isMe = r.id === me?.memberId;
+        html += `<tr${isMe ? ' class="me"' : ''}>
+            <td data-label="#">${rankBadge(r.rank)}</td>
+            <td data-label="Member">${escHtml(r.ingame_name)}</td>
+            <td data-label="Points">${r.honor_points?.toLocaleString() ?? '--'}</td>
+        </tr>`;
+    }
+    html += `</tbody></table>`;
+    if (scanDate) html += `<div class="scan-note">Latest scan: ${scanDate}</div>`;
+    return html;
 }
 
 function rankBadge(r) {

@@ -425,7 +425,7 @@ The admin panel UI has tabs for: **Commands** (command/event channel settings --
 
 **Responsive layout.** The panel is desktop-first but adds a `@media (max-width: 768px)` layer that leaves the desktop look untouched. On mobile/tablet: a hamburger button opens a slide-out drawer (`#drawer`) holding the section nav, and the header utility controls (theme picker, mode toggle, Restart, logout) are relocated into the drawer via a `matchMedia` listener (`setupMobileChrome`) -- moved, not duplicated, so element IDs, handlers, and `lockTiers()` keep working. The Members table reflows into stacked labeled cards (`.cards-sm` + `data-label` per cell); all other tables scroll horizontally inside their card. Form controls are 16px to avoid iOS zoom-on-focus.
 
-The panel supports 5 themes (Jewel, Chili, Tigereye, Plum, Lapis) in dark and light mode. Theme and mode are persisted to `localStorage`; an anti-FOUC script in `<head>` applies the saved choice before first paint.
+The panel supports 6 themes (Jewel, Chili, Tigereye, Plum, Lapis, Synthwave) in dark and light mode. Theme and mode are persisted to `localStorage`; an anti-FOUC script in `<head>` applies the saved choice before first paint. A `/theme-demo` page (served as `admin/public/theme-demo.html`) renders all DaisyUI component classes and custom vars in the active theme for visual verification.
 
 The config PUT endpoint validates the key against `CONFIG_META` before writing, preventing arbitrary DB writes. The scheduled-jobs PUT validates that `recurrence` matches `daily:N` or `weekly:N` and that `fire_at` is a valid datetime.
 

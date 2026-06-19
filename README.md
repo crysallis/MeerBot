@@ -30,7 +30,9 @@ pm2 save
 pm2 startup
 ```
 
-Admin panel runs at `http://localhost:3001` (binds `127.0.0.1`). On the host PC it opens with full access, no login. It can also be exposed to guild leadership remotely via a Cloudflare Tunnel + Discord login -- see [admin/REMOTE_ACCESS.md](admin/REMOTE_ACCESS.md). The UI is responsive: on phones/tablets the section tabs collapse into a hamburger drawer and wide tables reflow/scroll.
+Admin panel runs at `http://localhost:3001` (binds `127.0.0.1`). On the host PC it opens with full access, no login. It can also be exposed to guild leadership remotely via a Cloudflare Tunnel + Discord login -- see [admin/REMOTE_ACCESS.md](admin/REMOTE_ACCESS.md). The UI is responsive: on phones/tablets the section tabs collapse into a hamburger drawer and wide tables reflow/scroll. A `/theme-demo` page previews all DaisyUI component classes in the active theme.
+
+The stats site (`stats/`) is a separate Vite + Tailwind v4 + DaisyUI v5 app that exposes member stats publicly at `riffraff.meerbot.dev`. Both sites share the same modular theme files under `shared/themes/`.
 
 ### Updating after code changes
 
@@ -172,10 +174,27 @@ MeerBot/
     deploy-commands.js          Registers slash commands with Discord API.
     config.js                   Static parameters: rate limit, ping tiers.
     ecosystem.config.js         PM2 multi-process config (meerbot + meerbot-admin).
+    shared/
+        theme.css               @import index for all per-theme files + compat aliases + theme controls.
+        themes/
+            jewel.css           Jewel palette (dark + light blocks, DaisyUI var names).
+            chili.css           Chili palette.
+            tigereye.css        Tigereye palette.
+            plum.css            Plum palette.
+            lapis.css           Lapis palette.
+            synthwave.css       Synthwave palette (OKLCH colours from DaisyUI generator).
+    stats/                      Public stats site (Vite + Tailwind v4 + DaisyUI v5).
+        src/
+            index.html          Stats UI — guild stats, charts, member tables.
+            main.js             Entry point, theme/login logic, chart init.
+            style.css           Tailwind + DaisyUI import + layout overrides.
+            charts/             Chart.js chart builders (overview, dreamrealm, arena, lab).
     admin/
         server.js               Express admin panel server (binds 127.0.0.1:3001).
         auth.js                 Discord OAuth2 + tiered RBAC (read/manage/local), CSRF, audit, presence.
         public/index.html       Plain HTML admin UI — edit config without touching code.
+        public/theme-demo.html  DaisyUI component showcase — all themes × dark/light.
+        public/style.css        Admin panel layout and component overrides.
         REMOTE_ACCESS.md        How to expose the panel via Cloudflare Tunnel + OAuth.
     slash-commands/
         guild.js                All /guild subcommands incl. chart, warbands, unlinked.

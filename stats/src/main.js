@@ -21,7 +21,7 @@ function hexToRgba(hex, alpha) {
 
 function updateChartTheme() {
     const gridColor = hexToRgba(getCSSVar('--border'), 0.6);
-    const tickColor = getCSSVar('--accent');
+    const tickColor = getCSSVar('--color-primary');
     Object.values(Chart.instances).forEach(chart => {
         for (const scale of Object.values(chart.options.scales || {})) {
             if (scale.grid)  scale.grid.color  = gridColor;
@@ -123,6 +123,7 @@ async function activateTab(name) {
         if (name === 'dreamrealm') await initDreamRealm(me);
         if (name === 'arena')      await initArena(me);
         if (name === 'lab')        await initLab(me);
+        // preview tab is static HTML — no async init needed
         updateChartTheme();
     } catch (err) {
         console.error('[stats] init error for tab:', name, err);

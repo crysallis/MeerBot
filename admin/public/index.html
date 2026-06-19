@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MeerBot Admin</title>
+<link rel="stylesheet" href="/daisyui.css">
 <link rel="stylesheet" href="/shared/theme.css">
 <link rel="stylesheet" href="style.css">
 <script>(function(){var t=localStorage.getItem('meerbot-theme')||'jewel',m=localStorage.getItem('meerbot-mode')||'dark';document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-mode',m);})()</script>
@@ -28,6 +29,7 @@
         <option value="tigereye">🌿 Tigereye</option>
         <option value="plum">🔮 Plum</option>
         <option value="lapis">💎 Lapis</option>
+        <option value="synthwave">🌊 Synthwave</option>
       </select>
       <button id="mode-toggle" class="mode-btn" title="Toggle light/dark mode">🌙</button>
     </div>
@@ -68,7 +70,7 @@
 
     <!-- Add / Edit form -->
     <div id="rxForm" style="display:none; margin-bottom:20px">
-      <div class="card" style="padding:16px 20px">
+      <div class="panel-card" style="padding:16px 20px">
         <div style="font-size:14px; font-weight:600; color:#fff; margin-bottom:14px" id="rxFormTitle">Add Reaction Rule</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px">
           <div>
@@ -124,7 +126,7 @@
             <input type="checkbox" id="rx-enabled" checked> Enabled
           </label>
         </div>
-        <div style="margin-bottom:12px; padding:12px; border:1px solid var(--border); border-radius:6px">
+        <div style="margin-bottom:12px; padding:12px; border:1px solid var(--border-color); border-radius:6px">
           <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Embed (optional — combine with text or use alone)</div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px">
             <div>
@@ -134,27 +136,27 @@
             <div>
               <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Embed Color (hex)</label>
               <div style="display:flex;gap:6px;align-items:center">
-                <input type="color" id="rx-embed-color-picker" value="#4dabf7" oninput="document.getElementById('rx-embed-color').value=this.value;updatePreview()" style="width:38px;height:32px;padding:2px;border-radius:5px;border:1px solid var(--border);background:var(--bg);cursor:pointer">
+                <input type="color" id="rx-embed-color-picker" value="#4dabf7" oninput="document.getElementById('rx-embed-color').value=this.value;updatePreview()" style="width:38px;height:32px;padding:2px;border-radius:5px;border:1px solid var(--border-color);background:var(--bg);cursor:pointer">
                 <input type="text" id="rx-embed-color" placeholder="#4dabf7" oninput="rxSyncColorPicker();updatePreview()" style="width:100px">
               </div>
             </div>
           </div>
           <div>
             <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Embed Description</label>
-            <textarea id="rx-embed-description" placeholder="Supports Discord markdown..." rows="3" oninput="updatePreview()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:5px;font-size:13px;resize:vertical;outline:none;font-family:inherit"></textarea>
+            <textarea id="rx-embed-description" placeholder="Supports Discord markdown..." rows="3" oninput="updatePreview()" style="width:100%;background:var(--bg);border:1px solid var(--border-color);color:var(--text);padding:6px 8px;border-radius:5px;font-size:13px;resize:vertical;outline:none;font-family:inherit"></textarea>
           </div>
         </div>
 
         <div style="margin-bottom:12px">
           <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Channel Filter (leave blank = all channels)</label>
           <input type="text" id="rx-ch-filter" placeholder="Filter channels..." oninput="rxFilterSelect('rx-channel-filter-select', this.value)" style="margin-bottom:4px;max-width:340px">
-          <select id="rx-channel-filter-select" multiple size="4" style="width:100%;max-width:400px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:4px"></select>
+          <select id="rx-channel-filter-select" multiple size="4" style="width:100%;max-width:400px;background:var(--bg);border:1px solid var(--border-color);color:var(--text);border-radius:5px;padding:4px"></select>
           <div style="font-size:11px;color:var(--muted);margin-top:4px">Hold Ctrl/Cmd to select multiple channels. No selection = fires in all channels.</div>
         </div>
         <!-- Preview pane -->
         <div style="margin-bottom:12px">
           <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Preview</div>
-          <div id="rx-preview" style="min-height:48px;background:#313338;border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:14px;line-height:1.5;color:#dbdee1;white-space:pre-wrap;word-break:break-word">
+          <div id="rx-preview" style="min-height:48px;background:#313338;border:1px solid var(--border-color);border-radius:6px;padding:10px 14px;font-size:14px;line-height:1.5;color:#dbdee1;white-space:pre-wrap;word-break:break-word">
             <span style="color:var(--muted);font-style:italic">Start typing to preview...</span>
           </div>
         </div>
@@ -198,7 +200,7 @@
     </div>
 
     <!-- Rules table -->
-    <div class="card">
+    <div class="panel-card">
       <table>
         <thead><tr>
           <th>Name</th>
@@ -221,7 +223,7 @@
 
   <div class="section" id="section-jobs">
     <div class="section-title">Recent Job Runs</div>
-    <div class="card">
+    <div class="panel-card">
       <table class="jobs-table">
         <thead>
           <tr class="jobs-header-row">
@@ -247,7 +249,7 @@
       <input id="memberFilter" class="view-ok" placeholder="Filter name / warband..." oninput="renderMembers()"
              style="max-width:240px">
     </div>
-    <div class="card">
+    <div class="panel-card">
       <table class="jobs-table cards-sm">
         <thead>
           <tr class="jobs-header-row">
@@ -269,7 +271,7 @@
       Renaming a warband updates it everywhere (all members and history) in one step.
       Archived warbands are hidden from scans and filters but keep their history.
     </p>
-    <div class="card">
+    <div class="panel-card">
       <table class="jobs-table">
         <thead>
           <tr class="jobs-header-row"><th>Warband</th><th>Active Members</th><th>Status</th><th>Actions</th></tr>
@@ -299,7 +301,7 @@
     <p style="color:var(--muted); font-size:12px; margin-bottom:12px">
       Add bosses in their rotation order for each season. The scraper uses order + today's boss to determine which boss was on past scan days.
     </p>
-    <div class="card">
+    <div class="panel-card">
       <table class="jobs-table">
         <thead>
           <tr class="jobs-header-row"><th>#</th><th>Boss</th><th>Season</th><th>Actions</th></tr>
@@ -318,7 +320,7 @@
     <p style="color:var(--muted); font-size:12px; margin-bottom:12px">
       Expand a season to manage its ally servers. Bulk add supports ranges: <code style="background:#1e1f22;padding:1px 4px;border-radius:3px">1, 3, 5-10, 14</code>
     </p>
-    <div class="card">
+    <div class="panel-card">
       <table class="jobs-table">
         <thead>
           <tr class="jobs-header-row"><th>Season</th><th>Status</th><th>Servers</th><th>Actions</th></tr>
@@ -334,7 +336,7 @@
       Role and channel restrictions per command/subcommand. Empty table = no restrictions (everyone/anywhere).
       Leave Subcommand blank to apply to the whole command.
     </p>
-    <div class="card" style="padding:16px 20px;margin-bottom:16px">
+    <div class="panel-card" style="padding:16px 20px;margin-bottom:16px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
         <div>
           <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Command *</label>
@@ -367,7 +369,7 @@
         <span id="perm-error" style="color:var(--red);font-size:12px"></span>
       </div>
     </div>
-    <div class="card">
+    <div class="panel-card">
       <table class="jobs-table">
         <thead><tr class="jobs-header-row">
           <th>Command</th><th>Subcommand</th><th>Roles</th><th>Channels</th><th></th>
@@ -383,7 +385,7 @@
       Configurable only from this PC. <b>local</b> = this machine only · <b>manage</b> =
       Riff/Raff remotely · <b>read</b> = view only. Role tiers apply at next login.</p>
 
-    <div class="card">
+    <div class="panel-card">
       <div class="section-title" style="font-size:14px">Operations by tab</div>
       <table class="jobs-table">
         <thead><tr class="jobs-header-row"><th>Tab</th><th>Operation</th><th>Required tier</th></tr></thead>
@@ -391,7 +393,7 @@
       </table>
     </div>
 
-    <div class="card">
+    <div class="panel-card">
       <div class="section-title" style="font-size:14px">Roles</div>
       <table class="jobs-table">
         <thead><tr class="jobs-header-row"><th>Role</th><th>Access</th></tr></thead>
@@ -399,7 +401,7 @@
       </table>
     </div>
 
-    <div class="card">
+    <div class="panel-card">
       <div class="section-title" style="font-size:14px">Recent changes (audit log)</div>
       <table class="jobs-table">
         <thead><tr class="jobs-header-row"><th>When (UTC)</th><th>Who</th><th>Action</th><th>Details</th></tr></thead>
@@ -784,7 +786,7 @@ function renderAllSections() {
     section.innerHTML = `<div class="section-title">${CATEGORY_LABELS[cat] ?? cat}</div>`;
 
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = 'panel-card';
 
     const table = document.createElement('table');
     table.innerHTML = `<thead><tr>
@@ -841,7 +843,7 @@ function buildRow(entry, cat) {
     inputHtml = `<input type="text" id="${inputId}" value="${entry.value || ''}" data-key="${entry.key}" placeholder="Discord user ID">`;
   }
 
-  const badgeClass = { DB: 'badge-db', ENV: 'badge-env', DEFAULT: 'badge-default' }[entry.source] || 'badge-default';
+  const configBadgeClass = { DB: 'config-badge-db', ENV: 'config-badge-env', DEFAULT: 'config-badge-default' }[entry.source] || 'config-badge-default';
   const resetBtn = entry.source === 'DB'
     ? `<button class="reset-btn" onclick="resetKey('${entry.key}')" title="Remove DB override, revert to ENV/DEFAULT">✕</button>`
     : '';
@@ -850,7 +852,7 @@ function buildRow(entry, cat) {
     <td class="label-col">${entry.label}</td>
     <td class="desc-col">${entry.description}</td>
     <td class="val-col">${inputHtml}</td>
-    <td class="badge-col"><span class="badge ${badgeClass}" id="badge-${entry.key}">${entry.source}</span></td>
+    <td class="config-badge-col"><span class="badge ${configBadgeClass}" id="config-badge-${entry.key}">${entry.source}</span></td>
     <td class="action-col">
       <button class="save-btn" onclick="saveKey('${entry.key}')">Save</button>
       ${resetBtn}
@@ -917,10 +919,10 @@ async function resetKey(key) {
 }
 
 function updateBadge(key, source) {
-  const badge = document.getElementById('badge-' + key);
+  const badge = document.getElementById('config-badge-' + key);
   if (!badge) return;
   badge.textContent = source;
-  badge.className = 'badge ' + ({ DB: 'badge-db', ENV: 'badge-env', DEFAULT: 'badge-default' }[source] || 'badge-default');
+  badge.className = 'config-badge ' + ({ DB: 'config-badge-db', ENV: 'config-badge-env', DEFAULT: 'config-badge-default' }[source] || 'config-badge-default');
 }
 
 function flash(key, msg = 'Saved!') {
@@ -988,7 +990,7 @@ function renderScheduledJobs(jobs) {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div class="sj-name" style="margin-bottom:0;${!job.enabled ? 'text-decoration:line-through;color:var(--muted)' : ''}">${job.display}</div>
         <button id="sj-toggle-${job.id}" onclick="toggleScheduledJob(${job.id}, ${job.enabled ? 0 : 1})"
-          style="background:${job.enabled ? '#2f9e44' : 'var(--border)'};color:#fff;border:none;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600">
+          style="background:${job.enabled ? '#2f9e44' : 'var(--border-color)'};color:#fff;border:none;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600">
           ${job.enabled ? 'Enabled' : 'Disabled'}
         </button>
       </div>
@@ -1240,7 +1242,7 @@ function buildCheatSheet() {
       { label: '> blockquote',      insert: '> '                },
     ];
     fmtEl.innerHTML = snippets.map((s, i) =>
-      `<button data-idx="${i}" class="rx-fmt-chip" style="background:#2b2d31;border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left;font-family:monospace">${escHtml(s.label)}</button>`
+      `<button data-idx="${i}" class="rx-fmt-chip" style="background:#2b2d31;border:1px solid var(--border-color);color:var(--text);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left;font-family:monospace">${escHtml(s.label)}</button>`
     ).join('');
     fmtEl.querySelectorAll('.rx-fmt-chip').forEach((btn, i) => {
       btn.addEventListener('click', () => rxInsert(snippets[i].insert));
@@ -1259,7 +1261,7 @@ function buildCheatSheet() {
     varEl.innerHTML = '';
     for (const v of vars) {
       const btn = document.createElement('button');
-      btn.style.cssText = 'background:#2b2d31;border:1px solid var(--border);color:#e9c46a;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left;font-family:monospace';
+      btn.style.cssText = 'background:#2b2d31;border:1px solid var(--border-color);color:#e9c46a;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left;font-family:monospace';
       btn.title = v.desc;
       btn.textContent = v.label;
       btn.addEventListener('click', () => rxInsert(v.label));
@@ -1271,7 +1273,7 @@ function buildCheatSheet() {
   const chEl = document.getElementById('rx-channel-chips');
   if (chEl) {
     chEl.innerHTML = channelList
-      .map(c => `<button onclick="rxInsert('<#${c.id}>')" style="background:#2b2d31;border:1px solid var(--border);color:#c9cdfb;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left">#${escHtml(c.name)}</button>`)
+      .map(c => `<button onclick="rxInsert('<#${c.id}>')" style="background:#2b2d31;border:1px solid var(--border-color);color:#c9cdfb;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left">#${escHtml(c.name)}</button>`)
       .join('');
   }
 
@@ -1282,7 +1284,7 @@ function buildCheatSheet() {
       .filter(r => r.name !== '@everyone' && !r.managed)
       .map(r => {
         const color = r.color && r.color !== '#000000' ? r.color : '#c9cdfb';
-        return `<button onclick="rxInsert('<@&${r.id}>')" style="background:#2b2d31;border:1px solid var(--border);color:${color};padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left">@${escHtml(r.name)}</button>`;
+        return `<button onclick="rxInsert('<@&${r.id}>')" style="background:#2b2d31;border:1px solid var(--border-color);color:${color};padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left">@${escHtml(r.name)}</button>`;
       })
       .join('');
   }
@@ -1798,8 +1800,8 @@ function renderSeasons() {
   tbody.innerHTML = '';
   for (const s of seasonsData) {
     const statusBadge = s.active
-      ? `<span class="badge badge-db">Active</span>`
-      : `<span class="badge badge-default">Inactive</span>`;
+      ? `<span class="config-badge config-config-badge-db">Active</span>`
+      : `<span class="config-badge config-config-badge-default">Inactive</span>`;
     const toggleLabel = s.active ? 'Inactivate' : 'Activate';
     const toggleStyle = s.active ? 'background:#c92a2a' : 'background:#2f9e44';
     const isExpanded = expandedSeason === s.id;
@@ -2057,7 +2059,7 @@ function permRemoveChannel(id) {
   renderPermChips();
 }
 
-const CHIP_STYLE = 'background:var(--border);border-radius:3px;padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px';
+const CHIP_STYLE = 'background:var(--border-color);border-radius:3px;padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px';
 const X_STYLE   = 'background:none;border:none;color:var(--muted);cursor:pointer;padding:0;font-size:14px;line-height:1';
 
 function renderPermChips() {

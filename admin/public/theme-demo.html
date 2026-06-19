@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Theme Preview · MeerBot Admin</title>
+  <link rel="stylesheet" href="/daisyui.css">
+  <link rel="stylesheet" href="/shared/theme.css">
+  <link rel="stylesheet" href="style.css">
+  <script>(function(){
+    var t=localStorage.getItem('meerbot-theme')||'jewel';
+    var m=localStorage.getItem('meerbot-mode')||'dark';
+    document.documentElement.setAttribute('data-theme',t);
+    document.documentElement.setAttribute('data-mode',m);
+  })()</script>
+  <style>
+    .preview-wrap { max-width: 860px; margin: 0 auto; padding: 24px 20px; display: flex; flex-direction: column; gap: 2rem; }
+    .preview-section h3 {
+      font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--color-neutral-content); margin-bottom: .65rem;
+      padding-bottom: .3rem; border-bottom: 1px solid var(--border-color);
+    }
+    .preview-row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:12px">
+    <a href="/" style="font-size:13px;color:var(--color-primary);text-decoration:none">← Admin</a>
+    <h1>Meer<span>Bot</span> Theme Preview</h1>
+  </div>
+  <div class="header-right">
+    <div class="theme-controls">
+      <select id="theme-select" class="theme-picker">
+        <option value="jewel">✦ Jewel</option>
+        <option value="chili">🌶 Chili</option>
+        <option value="tigereye">🌿 Tigereye</option>
+        <option value="plum">🔮 Plum</option>
+        <option value="lapis">💎 Lapis</option>
+        <option value="synthwave">🌊 Synthwave</option>
+      </select>
+      <button id="mode-toggle" class="mode-btn" title="Toggle light/dark">🌙</button>
+    </div>
+  </div>
+</header>
+
+<main style="padding:0 0 40px">
+<div class="preview-wrap">
+
+  <div class="preview-section">
+    <h3>Buttons</h3>
+    <div class="preview-row">
+      <button class="btn btn-primary">Primary</button>
+      <button class="btn btn-secondary">Secondary</button>
+      <button class="btn btn-accent">Accent</button>
+      <button class="btn btn-ghost">Ghost</button>
+      <button class="btn btn-error">Error</button>
+      <button class="btn btn-success">Success</button>
+      <button class="btn btn-info">Info</button>
+    </div>
+    <div class="preview-row" style="margin-top:.4rem">
+      <button class="btn btn-primary btn-sm">Small</button>
+      <button class="btn btn-primary">Default</button>
+      <button class="btn btn-primary btn-lg">Large</button>
+      <button class="btn btn-primary btn-outline">Outline</button>
+      <button class="btn btn-primary" disabled>Disabled</button>
+    </div>
+  </div>
+
+  <div class="preview-section">
+    <h3>Badges</h3>
+    <div class="preview-row">
+      <span class="badge badge-primary">Primary</span>
+      <span class="badge badge-secondary">Secondary</span>
+      <span class="badge badge-accent">Accent</span>
+      <span class="badge badge-ghost">Ghost</span>
+      <span class="badge badge-success">Success</span>
+      <span class="badge badge-warning">Warning</span>
+      <span class="badge badge-error">Error</span>
+      <span class="badge badge-info">Info</span>
+      <span class="badge badge-neutral">Neutral</span>
+      <span class="badge badge-primary badge-outline">Outline</span>
+    </div>
+  </div>
+
+  <div class="preview-section">
+    <h3>Config Source Badges (admin-specific)</h3>
+    <div class="preview-row">
+      <span class="config-badge config-badge-db">DB</span>
+      <span class="config-badge config-badge-env">ENV</span>
+      <span class="config-badge config-badge-default">DEFAULT</span>
+    </div>
+  </div>
+
+  <div class="preview-section">
+    <h3>Alerts</h3>
+    <div style="display:flex;flex-direction:column;gap:.4rem;max-width:600px">
+      <div role="alert" class="alert alert-info"><span>Info — 3 members are AFK and will be cleared tonight.</span></div>
+      <div role="alert" class="alert alert-success"><span>Success — bot restarted in 1.2 s.</span></div>
+      <div role="alert" class="alert alert-warning"><span>Warning — newsletter has no notes since the last issue.</span></div>
+      <div role="alert" class="alert alert-error"><span>Error — scan failed: ADB device not found.</span></div>
+    </div>
+  </div>
+
+  <div class="preview-section">
+    <h3>Form Controls</h3>
+    <div class="preview-row" style="align-items:flex-start;gap:1rem;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:160px">
+        <label class="label" style="padding:0 0 4px"><span class="label-text">Text input</span></label>
+        <input type="text" placeholder="e.g. RiffRaff" class="input input-bordered">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:160px">
+        <label class="label" style="padding:0 0 4px"><span class="label-text">Select</span></label>
+        <select class="select select-bordered">
+          <option>All Warbands</option>
+          <option>RiffRaff</option>
+          <option>Kings</option>
+        </select>
+      </div>
+      <label class="label" style="gap:8px;cursor:pointer">
+        <span class="label-text">Toggle</span>
+        <input type="checkbox" class="toggle toggle-primary" checked>
+      </label>
+      <label class="label" style="gap:8px;cursor:pointer">
+        <span class="label-text">Checkbox</span>
+        <input type="checkbox" class="checkbox checkbox-primary" checked>
+      </label>
+      <label class="label" style="gap:8px;cursor:pointer">
+        <span class="label-text">Radio</span>
+        <input type="radio" class="radio radio-primary" checked>
+      </label>
+    </div>
+  </div>
+
+  <div class="preview-section">
+    <h3>Stats</h3>
+    <div class="stats shadow" style="border:1px solid var(--border-color)">
+      <div class="stat">
+        <div class="stat-title">Members</div>
+        <div class="stat-value" style="color:var(--color-primary)">87</div>
+        <div class="stat-desc">Active this scan</div>
+      </div>
+      <div class="stat">
+        <div class="stat-title">Total Power</div>
+        <div class="stat-value">4.2B</div>
+        <div class="stat-desc">↗ +120M this week</div>
+      </div>
+      <div class="stat">
+        <div class="stat-title">Last Scan</div>
+        <div class="stat-value" style="color:var(--color-secondary)">Today</div>
+        <div class="stat-desc">06/19/2026</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-section">
+    <h3>Card (DaisyUI)</h3>
+    <div class="card" style="width:18rem;border:1px solid var(--border-color)">
+      <div class="card-body">
+        <h2 class="card-title">RiffRaff</h2>
+        <p>Guild power leader — 3 warbands, 87 active members.</p>
+        <div class="card-actions" style="justify-content:flex-end">
+          <button class="btn btn-primary btn-sm">View</button>
+          <button class="btn btn-ghost btn-sm">Dismiss</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-section">
+    <h3>Table (DaisyUI)</h3>
+    <div style="overflow-x:auto;max-width:500px">
+      <table class="table table-sm table-zebra" style="border:1px solid var(--border-color)">
+        <thead>
+          <tr><th>#</th><th>Member</th><th>Power</th><th>Warband</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Exemplar</td><td>12.4M</td><td>RiffRaff</td></tr>
+          <tr><td>2</td><td>Shadowbane</td><td>11.9M</td><td>Kings</td></tr>
+          <tr><td>3</td><td>Crystalis</td><td>11.2M</td><td>Sobaquitos</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="preview-section">
+    <h3>Typography</h3>
+    <div style="display:flex;flex-direction:column;gap:.5rem;max-width:600px">
+      <p style="font-size:2rem;font-weight:700;color:var(--color-primary)">Heading 1</p>
+      <p style="font-size:1.5rem;font-weight:600">Heading 2</p>
+      <p style="font-size:1.1rem;font-weight:500">Heading 3</p>
+      <p>Body text — Lorem ipsum dolor sit amet. Active members shown with current power values.</p>
+      <p style="color:var(--color-neutral-content)">Muted text — Scan dates, secondary labels, supporting copy.</p>
+      <p>
+        <kbd class="kbd">Ctrl+K</kbd> ·
+        <span class="badge badge-ghost">tag</span> ·
+        <kbd class="kbd kbd-sm">Enter</kbd>
+      </p>
+    </div>
+  </div>
+
+</div>
+</main>
+
+<script>
+  (function() {
+    var sel = document.getElementById('theme-select');
+    var btn = document.getElementById('mode-toggle');
+    sel.value = localStorage.getItem('meerbot-theme') || 'jewel';
+    btn.textContent = (localStorage.getItem('meerbot-mode') || 'dark') === 'dark' ? '☀️' : '🌙';
+
+    function applyTheme(theme, mode) {
+      document.documentElement.setAttribute('data-theme', theme);
+      document.documentElement.setAttribute('data-mode', mode);
+      btn.textContent = mode === 'dark' ? '☀️' : '🌙';
+      localStorage.setItem('meerbot-theme', theme);
+      localStorage.setItem('meerbot-mode', mode);
+    }
+
+    sel.addEventListener('change', function() {
+      applyTheme(sel.value, document.documentElement.getAttribute('data-mode') || 'dark');
+    });
+    btn.addEventListener('click', function() {
+      var cur = document.documentElement.getAttribute('data-mode') || 'dark';
+      applyTheme(document.documentElement.getAttribute('data-theme') || 'jewel', cur === 'dark' ? 'light' : 'dark');
+    });
+  })();
+</script>
+
+</body>
+</html>

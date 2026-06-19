@@ -1,0 +1,68 @@
+[data-theme="synthwave"][data-mode="dark"] {
+  /* Pasted from DaisyUI theme generator — stripped @plugin wrapper.
+     Removed DaisyUI internals: --border, --radius-N, --size-N, --depth, --noise.
+     Fixed color-scheme quoting. Added our custom vars below. */
+  --color-base-100: oklch(26% 0.051 172.552);
+  --color-base-200: oklch(37% 0.077 168.94);
+  --color-base-300: oklch(43% 0.095 166.913);
+  --color-base-content: oklch(95% 0.052 163.051);
+  --color-primary: oklch(84% 0.143 164.978);
+  --color-primary-content: oklch(26% 0.051 172.552);
+  --color-secondary: oklch(86% 0.127 207.078);
+  --color-secondary-content: oklch(30% 0.056 229.695);
+  --color-accent: oklch(87% 0.169 91.605);
+  --color-accent-content: oklch(27% 0.077 45.635);
+  --color-neutral: oklch(59% 0.145 163.225);
+  --color-neutral-content: oklch(97% 0.021 166.113);
+  --color-info: oklch(74% 0.16 232.661);
+  --color-info-content: oklch(29% 0.066 243.157);
+  --color-success: oklch(77% 0.152 181.912);
+  --color-success-content: oklch(27% 0.046 192.524);
+  --color-warning: oklch(85% 0.199 91.936);
+  --color-warning-content: oklch(28% 0.066 53.813);
+  --color-error: oklch(71% 0.202 349.761);
+  --color-error-content: oklch(28% 0.109 3.907);
+
+  /* Our custom vars (not in the generator — add these yourself per theme) */
+  --border-color:  oklch(43% 0.095 166.913);
+  --hover-bg:      rgba(255,255,255,.04);
+  --card-shadow: 0 0 8px 5px var(--border-color);
+  --hard:          oklch(71% 0.202 349.761);
+  --epic:          oklch(87% 0.169 91.605);
+  --common:        oklch(74% 0.16 232.661);
+  --radius:        4px;
+  color-scheme:    dark;
+}
+
+[data-theme="synthwave"][data-mode="light"] {
+  /* Light mode — generator only gave dark; hand-crafted inversion */
+  --color-base-100: oklch(97% 0.012 166);
+  --color-base-200: oklch(93% 0.022 166);
+  --color-base-300: oklch(89% 0.030 166);
+  --color-base-content: oklch(22% 0.045 172);
+  --color-primary: oklch(52% 0.14 165);
+  --color-primary-content: oklch(97% 0.012 166);
+  --color-secondary: oklch(48% 0.11 207);
+  --color-secondary-content: oklch(97% 0.010 207);
+  --color-accent: oklch(55% 0.15 91);
+  --color-accent-content: oklch(97% 0.012 91);
+  --color-neutral: oklch(45% 0.10 163);
+  --color-neutral-content: oklch(97% 0.021 166);
+  --color-info: oklch(52% 0.14 232);
+  --color-info-content: oklch(97% 0.010 232);
+  --color-success: oklch(50% 0.13 181);
+  --color-success-content: oklch(97% 0.010 181);
+  --color-warning: oklch(60% 0.16 91);
+  --color-warning-content: oklch(97% 0.012 91);
+  --color-error: oklch(55% 0.18 349);
+  --color-error-content: oklch(97% 0.010 349);
+
+  --border-color:  oklch(82% 0.040 166);
+  --hover-bg:      rgba(0,0,0,.04);
+  --card-shadow: 0 0 8px 5px var(--border-color);
+  --hard:          oklch(55% 0.18 349);
+  --epic:          oklch(55% 0.15 91);
+  --common:        oklch(52% 0.14 232);
+  --radius:        4px;
+  color-scheme:    light;
+}

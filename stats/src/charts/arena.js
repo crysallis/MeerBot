@@ -1,16 +1,11 @@
 import { escHtml } from '../utils.js';
 
 export async function initArena(me) {
-    const [arenaRes, honorRes] = await Promise.all([
-        fetch('/api/arena'),
-        fetch('/api/honor'),
-    ]);
-    const { arena, supArena } = await arenaRes.json();
-    const honor               = await honorRes.json();
+    const res = await fetch('/api/arena');
+    const { arena, supArena } = await res.json();
 
     document.getElementById('arena-table').innerHTML = renderArenaTable(arena, me);
     document.getElementById('sup-arena-table').innerHTML = renderSupArenaTable(supArena, me);
-    document.getElementById('honor-table').innerHTML = renderHonorTable(honor, me);
 }
 
 function renderArenaTable(rows, me) {
@@ -70,25 +65,6 @@ function renderSupArenaTable(rows, me) {
         </tr>`;
     }
     html += `</tbody></table><div class="scan-note">Period: ${latest}${prev ? ` vs ${prev}` : ''}</div>`;
-    return html;
-}
-
-function renderHonorTable(rows, me) {
-    if (!rows.length) return '<div class="empty-state">No honor duel data yet.</div>';
-    const scanDate = rows[0]?.scanned_at?.slice(0, 10) ?? '';
-    let html = `<table class="data-table"><thead><tr>
-        <th>#</th><th>Member</th><th>Points</th>
-    </tr></thead><tbody>`;
-    for (const r of rows) {
-        const isMe = r.id === me?.memberId;
-        html += `<tr${isMe ? ' class="me"' : ''}>
-            <td data-label="#">${rankBadge(r.rank)}</td>
-            <td data-label="Member">${escHtml(r.ingame_name)}</td>
-            <td data-label="Points">${r.honor_points?.toLocaleString() ?? '--'}</td>
-        </tr>`;
-    }
-    html += `</tbody></table>`;
-    if (scanDate) html += `<div class="scan-note">Latest scan: ${scanDate}</div>`;
     return html;
 }
 

@@ -52,7 +52,7 @@ export async function initOverview(me) {
             const { ctx, chartArea } = chart;
             chart.data.datasets[0].backgroundColor = wbEntries.map(w => {
                 const key = wbKey(w.name);
-                if (!key) return cssVarRgba('--muted', 0.5);
+                if (!key) return cssVarRgba('--color-neutral-content', 0.5);
                 const [c1, c2] = WB_COLORS[key];
                 const g = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
                 g.addColorStop(0, c1);
@@ -85,7 +85,7 @@ export async function initOverview(me) {
     // Top 10 members horizontal bar
     const top10  = [...members].slice(0, 10);
     const meColors = () => top10.map(m =>
-        m.id === me?.memberId ? getCSSVar('--accent') : cssVarRgba('--muted', 0.55)
+        m.id === me?.memberId ? getCSSVar('--color-primary') : cssVarRgba('--color-neutral-content', 0.55)
     );
 
     const topChart = new Chart(document.getElementById('chart-top10'), {
