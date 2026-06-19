@@ -6,6 +6,7 @@ const { initJobScheduler } = require('./utils/jobScheduler');
 const { logCommand } = require('./utils/commandLogger');
 const { handleMessage } = require('./utils/messageReactions');
 const { handleTranslationRole } = require('./utils/handlers/translationRoleHandler');
+const { handlePromoCode } = require('./utils/handlers/promoCodeHandler');
 const { rateLimit } = require('./config');
 
 require('./utils/db');
@@ -54,7 +55,10 @@ client.once('clientReady', () => {
   initJobScheduler(client);
 });
 
-client.on('messageCreate', message => handleMessage(message, client));
+client.on('messageCreate', message => {
+  handleMessage(message, client);
+  handlePromoCode(message);
+});
 client.on('guildMemberUpdate', (oldMember, newMember) => handleTranslationRole(oldMember, newMember, client));
 
 client.on('interactionCreate', async interaction => {
