@@ -58,7 +58,7 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use('/shared', express.static(path.join(__dirname, '..', 'shared')));
-app.get('/daisyui.css', (_req, res) =>
+app.get('/daisyui.css', rateLimit({ windowMs: 60 * 1000, max: 120 }), (_req, res) =>
     res.sendFile(path.join(__dirname, '..', 'node_modules', 'daisyui', 'daisyui.css'))
 );
 app.use(express.static(path.join(__dirname, 'public')));
