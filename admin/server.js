@@ -57,6 +57,7 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
+app.use('/shared', express.static(path.join(__dirname, '..', 'shared')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Sessions + Discord OAuth · login routes are public, /auth is rate limited.

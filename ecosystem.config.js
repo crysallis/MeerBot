@@ -15,5 +15,12 @@ module.exports = {
             env_file: '.env',
             watch: false,
         },
+        {
+            name: 'meerbot-stats',
+            script: 'stats/server.js',
+            cwd: __dirname,
+            env_file: '.env',
+            watch: false,
+        },
     ],
 };

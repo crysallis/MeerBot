@@ -1,20 +1,4 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --bg:          #0d0b20;
-  --surface:     #0d0b20;
-  --surface-alt: #090716;
-  --border:      #2d2a5a;
-  --text:        #c8dcf8;
-  --muted:       #5868a0;
-  --accent:      #5fc9de;
-  --heading:     #ffffff;
-  --hover-bg:    rgba(255,255,255,.03);
-  --green:       #51cf66;
-  --blue:        #5fc9de;
-  --gray:        #5868a0;
-  --red:         #ff6b6b;
-  --card-shadow: 0 0 22px rgba(95,201,222,.28), 0 4px 12px rgba(0,0,0,.5);
-}
 body { background: var(--bg); color: var(--text); font: 14px/1.5 'Segoe UI', system-ui, sans-serif; }
 header {
   display: flex; align-items: center; justify-content: space-between;
@@ -168,117 +152,16 @@ input[type=datetime-local]:focus { border-color: var(--accent); }
 .bot-status-bar .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .bot-status-bar .stat-value { color: var(--heading); font-weight: 600; }
 
-/* ── Theme picker controls ── */
-.theme-controls { display: flex; align-items: center; gap: 6px; }
-.theme-picker {
-  width: auto; padding: 4px 8px; font-size: 12px;
-  background: var(--surface); border: 1px solid var(--border);
-  color: var(--text); border-radius: 5px; cursor: pointer;
-}
-.mode-btn {
-  background: var(--surface); border: 1px solid var(--border);
-  color: var(--text); padding: 4px 9px; border-radius: 5px;
-  cursor: pointer; font-size: 14px; line-height: 1;
-  transition: border-color .15s;
-}
-.mode-btn:hover { border-color: var(--accent); }
-
-/* ── Themes ── */
-[data-theme="jewel"][data-mode="dark"] {
-  --bg: #0d0b20; --surface: #0d0b20; --surface-alt: #090716;
-  --border: #2d2a5a; --text: #c8dcf8; --muted: #5868a0;
-  --accent: #5fc9de; --heading: #ffffff; --hover-bg: rgba(255,255,255,.03);
-  --green: #51cf66; --red: #ff6b6b; --blue: #5fc9de; --gray: #5868a0;
-  --card-shadow: 0 0 22px rgba(95,201,222,.28), 0 4px 12px rgba(0,0,0,.5);
-  color-scheme: dark;
-}
-[data-theme="jewel"][data-mode="light"] {
-  --bg: #edf4ff; --surface: #edf4ff; --surface-alt: #dce8f8;
-  --border: #b8cce0; --text: #1d1a40; --muted: #4e60a0;
-  --accent: #1e9ab0; --heading: #0d0b20; --hover-bg: rgba(0,0,0,.04);
-  --green: #2f9e44; --red: #e03131; --blue: #1971c2; --gray: #868e96;
-  --card-shadow: 0 4px 20px rgba(30,154,176,.18), 0 1px 4px rgba(0,0,0,.08);
-  color-scheme: light;
-}
-
-[data-theme="chili"][data-mode="dark"] {
-  --bg: #150802; --surface: #150802; --surface-alt: #0d0400;
-  --border: #4d1a0a; --text: #ffd8cc; --muted: #7a3a28;
-  --accent: #ff6a4d; --heading: #ffffff; --hover-bg: rgba(255,255,255,.03);
-  --green: #51cf66; --red: #ff8f7a; --blue: #4dabf7; --gray: #6a4040;
-  --card-shadow: 0 0 22px rgba(255,106,77,.28), 0 4px 12px rgba(0,0,0,.5);
-  color-scheme: dark;
-}
-[data-theme="chili"][data-mode="light"] {
-  --bg: #fff8f5; --surface: #fff8f5; --surface-alt: #ffe8e0;
-  --border: #f0c0a8; --text: #280a02; --muted: #8a3520;
-  --accent: #c83010; --heading: #150802; --hover-bg: rgba(0,0,0,.04);
-  --green: #2f9e44; --red: #c92a2a; --blue: #1971c2; --gray: #868e96;
-  --card-shadow: 0 4px 20px rgba(200,48,16,.16), 0 1px 4px rgba(0,0,0,.08);
-  color-scheme: light;
-}
-
-[data-theme="tigereye"][data-mode="dark"] {
-  --bg: #0e1208; --surface: #0e1208; --surface-alt: #090d05;
-  --border: #2e3e18; --text: #e0eecc; --muted: #5a7040;
-  --accent: #a0c048; --heading: #ffffff; --hover-bg: rgba(255,255,255,.03);
-  --green: #a0c048; --red: #ff6b6b; --blue: #4dabf7; --gray: #607050;
-  --card-shadow: 0 0 22px rgba(160,192,72,.26), 0 4px 12px rgba(0,0,0,.5);
-  color-scheme: dark;
-}
-[data-theme="tigereye"][data-mode="light"] {
-  --bg: #f8f5e0; --surface: #f8f5e0; --surface-alt: #edeac8;
-  --border: #c8c080; --text: #1a2008; --muted: #5a6030;
-  --accent: #5a7a20; --heading: #0e1208; --hover-bg: rgba(0,0,0,.04);
-  --green: #3a7a18; --red: #c92a2a; --blue: #1971c2; --gray: #868e96;
-  --card-shadow: 0 4px 20px rgba(90,122,32,.16), 0 1px 4px rgba(0,0,0,.08);
-  color-scheme: light;
-}
-
-[data-theme="plum"][data-mode="dark"] {
-  --bg: #130918; --surface: #130918; --surface-alt: #0d0510;
-  --border: #3d1e50; --text: #f0d8ff; --muted: #7050a0;
-  --accent: #bb60e0; --heading: #ffffff; --hover-bg: rgba(255,255,255,.03);
-  --green: #51cf66; --red: #ff6b6b; --blue: #4dabf7; --gray: #786090;
-  --card-shadow: 0 0 22px rgba(187,96,224,.30), 0 4px 12px rgba(0,0,0,.5);
-  color-scheme: dark;
-}
-[data-theme="plum"][data-mode="light"] {
-  --bg: #fcf4ff; --surface: #fcf4ff; --surface-alt: #f0e0ff;
-  --border: #ddc0f0; --text: #200830; --muted: #7050a0;
-  --accent: #7626bd; --heading: #130918; --hover-bg: rgba(0,0,0,.04);
-  --green: #2f9e44; --red: #c92a2a; --blue: #1971c2; --gray: #868e96;
-  --card-shadow: 0 4px 20px rgba(118,38,189,.18), 0 1px 4px rgba(0,0,0,.08);
-  color-scheme: light;
-}
-
-[data-theme="lapis"][data-mode="dark"] {
-  --bg: #080a18; --surface: #080a18; --surface-alt: #04060f;
-  --border: #1c2860; --text: #fff099; --muted: #4858a0;
-  --accent: #00bfff; --heading: #ffffff; --hover-bg: rgba(255,255,255,.03);
-  --green: #51cf66; --red: #ff6b6b; --blue: #00bfff; --gray: #485878;
-  --card-shadow: 0 0 24px rgba(0,191,255,.30), 0 4px 12px rgba(0,0,0,.6);
-  color-scheme: dark;
-}
-[data-theme="lapis"][data-mode="light"] {
-  --bg: #fffff0; --surface: #fffff0; --surface-alt: #f0f0d8;
-  --border: #b8c8e0; --text: #050820; --muted: #4060a0;
-  --accent: #0060d0; --heading: #080a18; --hover-bg: rgba(0,0,0,.04);
-  --green: #2f9e44; --red: #c92a2a; --blue: #0060d0; --gray: #868e96;
-  --card-shadow: 0 4px 20px rgba(0,96,208,.16), 0 1px 4px rgba(0,0,0,.08);
-  color-scheme: light;
-}
-
 /* ── Auth: login overlay, identity, tier-gating ── */
 .whoami { font-size: 12px; color: var(--muted); }
-.user-avatar { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border); object-fit: cover; }
+.user-avatar { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--accent); object-fit: cover; }
 
 /* Presence · overlapping circular avatars that fan out on hover (ServiceNow style) */
 .presence-stack { display: flex; align-items: center; }
 .presence-label { font-size: 11px; color: var(--muted); margin-right: 8px; }
 .presence-av {
   width: 24px; height: 24px; border-radius: 50%; overflow: hidden;
-  margin-left: -8px; border: 2px solid var(--surface); background: var(--surface-alt);
+  margin-left: -8px; border: 2px solid var(--accent); background: var(--surface-alt);
   display: inline-flex; align-items: center; justify-content: center;
   transition: margin-left .15s ease; flex: 0 0 auto;
 }

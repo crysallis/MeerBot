@@ -49,6 +49,7 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `utils/birthdayCheck.js` | Daily at midnight · checks birthday table, posts embed |
 | `utils/commandLogger.js` | Posts a Dyno-style audit embed for every slash command to `COMMAND_LOG_CHANNEL_ID` · uses cache.get (not fetch) |
 | `utils/handlers/translationRoleHandler.js` | `guildMemberUpdate` handler · detects translation role gain (ID `1516271538217943131`) · DMs bilingual embed, then removes the role · fallback to general channel if DMs off |
+| `utils/handlers/promoCodeHandler.js` | `messageCreate` handler · watches promo codes channel (`1229551249209430066`) · extracts codes (bold, `Code:` label, solo post, AFKJ prefix, serial codes) · INSERT OR IGNORE into `promo_codes` · exports `getRecentCodes(n)` for future on-join use |
 | `utils/jobLog.js` | Shared helper · scheduled jobs call `logJobRun(name)` to record runs in `scheduler_log` |
 | `admin/server.js` | Express admin panel server (binds 127.0.0.1:3001) · PM2 process `meerbot-admin` · all `/api/*` gated by `auth.js` |
 | `admin/auth.js` | Admin panel auth/RBAC · Discord OAuth2 login, session, three tiers (read/manage/local), CSRF, audit · `OPERATIONS` registry maps each editable action to a tab + default tier (override via `panel_op_access`) · `panel_roles` = role->tier · new tabs add an `OPERATIONS` entry so they appear in the Access tab automatically |
@@ -100,6 +101,7 @@ Schema ownership: the miner (`AFKDataMining/src/db.py`) owns the shared scan/ide
 - `panel_op_access` · op_key (PK), tier · per-operation tier override (set via the Access tab) · absent = use the code default in `auth.js` `OPERATIONS`
 - `panel_presence` · discord_id (PK), name, avatar, last_seen · heartbeat for "who's actively viewing the panel" · the page polls `GET /api/presence` every 45s, active = seen within 2 min · header shows other active viewers as a hover-fanning avatar stack · logins also write a `LOGIN` row to `panel_audit`
 - `sessions` · auto-created/managed by `better-sqlite3-session-store` for admin-panel logins
+- `promo_codes` · code (UNIQUE), posted_at (ISO datetime), message_id · auto-populated by `promoCodeHandler` on every new message in the promo codes channel · seeded via `scripts/backfill-promo-codes.js` · use `getRecentCodes(n)` from the handler for the planned on-join welcome feature
 
 ## Scheduled Messages
 Defined in `utils/scheduledMessages.js` MESSAGES array. Each entry has:

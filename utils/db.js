@@ -214,6 +214,14 @@ db.exec(`
     avatar     TEXT,
     last_seen  TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS promo_codes (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    code       TEXT NOT NULL UNIQUE,
+    posted_at  TEXT NOT NULL,
+    message_id TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_promo_codes_posted ON promo_codes(posted_at);
 `);
 
 /**

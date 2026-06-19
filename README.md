@@ -158,6 +158,12 @@ All tasks run through a single unified job scheduler (`utils/jobScheduler.js`) b
 
 ---
 
+## Security
+
+To report a vulnerability, use the [GitHub private advisory](https://github.com/crysallis/MeerBot/security/advisories/new). See [SECURITY.md](SECURITY.md) for scope and what to expect.
+
+---
+
 ## Project structure
 
 ```
