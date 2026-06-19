@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RiffRaff Stats</title>
+</head>
+<body>
+
+  <!-- Login overlay -->
+  <div id="login-overlay" class="login-overlay hidden">
+    <div class="login-card">
+      <div class="login-icon">&#9876;</div>
+      <h1>RiffRaff Stats</h1>
+      <p>Sign in with Discord to view guild stats.</p>
+      <a href="/auth/login" class="btn-discord">Login with Discord</a>
+    </div>
+  </div>
+
+  <header class="header">
+    <div class="header-left">
+      <span class="header-icon">&#9876;</span>
+      <span class="header-title">RiffRaff Stats</span>
+    </div>
+    <div class="header-right">
+      <span id="user-ingame" class="user-ingame"></span>
+      <span id="user-name" class="user-name"></span>
+      <img id="user-avatar" class="user-avatar hidden" alt="" />
+      <div class="theme-controls">
+        <select id="theme-select" class="theme-picker">
+          <option value="jewel">✦ Jewel</option>
+          <option value="chili">🌶 Chili</option>
+          <option value="tigereye">🌿 Tigereye</option>
+          <option value="plum">🔮 Plum</option>
+          <option value="lapis">💎 Lapis</option>
+        </select>
+        <button id="mode-toggle" class="mode-btn" title="Toggle light/dark">🌙</button>
+      </div>
+      <button id="logout-btn" class="btn-logout hidden">Logout</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="overview">Overview</button>
+    <button class="tab" data-tab="power">Power Growth</button>
+    <button class="tab" data-tab="dreamrealm">Dream Realm</button>
+    <button class="tab" data-tab="arena">Arena</button>
+    <button class="tab" data-tab="lab">Arcane Lab</button>
+  </nav>
+
+  <main class="main">
+
+    <!-- Overview -->
+    <section id="tab-overview" class="tab-content active">
+      <div class="stat-cards" id="overview-cards"></div>
+      <div class="chart-row">
+        <div class="chart-box">
+          <h2>Power by Warband</h2>
+          <canvas id="chart-warband"></canvas>
+        </div>
+        <div class="chart-box">
+          <h2>Top Members</h2>
+          <canvas id="chart-top10"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Power Growth -->
+    <section id="tab-power" class="tab-content hidden">
+      <div class="controls">
+        <label>
+          Warband
+          <select id="power-warband">
+            <option value="">All Warbands</option>
+          </select>
+        </label>
+        <label>
+          Members
+          <div id="power-member-wrap"></div>
+        </label>
+      </div>
+      <div class="chart-box full">
+        <canvas id="chart-power"></canvas>
+      </div>
+    </section>
+
+    <!-- Dream Realm -->
+    <section id="tab-dreamrealm" class="tab-content hidden">
+      <div class="controls">
+        <label>
+          Boss
+          <select id="dr-boss"></select>
+        </label>
+        <label>
+          Date
+          <select id="dr-date"></select>
+        </label>
+      </div>
+      <div class="dr-layout">
+        <div class="chart-box">
+          <h2>Scores</h2>
+          <canvas id="chart-dr"></canvas>
+        </div>
+        <div class="table-box">
+          <h2>Leaderboard</h2>
+          <div id="dr-table"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Arena -->
+    <section id="tab-arena" class="tab-content hidden">
+      <div class="arena-layout">
+        <div class="table-box">
+          <h2>Arena</h2>
+          <div id="arena-table"></div>
+        </div>
+        <div class="table-box">
+          <h2>Supreme Arena</h2>
+          <div id="sup-arena-table"></div>
+        </div>
+        <div class="table-box">
+          <h2>Honor Duel</h2>
+          <div id="honor-table"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Arcane Lab -->
+    <section id="tab-lab" class="tab-content hidden">
+      <div class="table-box wide">
+        <h2>Arcane Lab</h2>
+        <div id="lab-table"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
