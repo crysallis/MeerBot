@@ -190,7 +190,8 @@ app.get('/api/lab', (req, res) => {
     }
 });
 
-// SPA fallback
+// SPA fallback — rate-limited to satisfy static-analysis tools
+app.use(rateLimit({ windowMs: 60 * 1000, max: 300 }));
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });

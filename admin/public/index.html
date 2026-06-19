@@ -22,14 +22,14 @@
     <span class="restart-status" id="restartStatus"></span>
     <button class="restart-btn needs-local" id="restartBtn" onclick="restartBot()">⟳ Restart Bot</button>
     <div class="theme-controls">
-      <select id="theme-select" class="theme-picker" onchange="setTheme(this.value)">
+      <select id="theme-select" class="theme-picker">
         <option value="jewel">✦ Jewel</option>
         <option value="chili">🌶 Chili</option>
         <option value="tigereye">🌿 Tigereye</option>
         <option value="plum">🔮 Plum</option>
         <option value="lapis">💎 Lapis</option>
       </select>
-      <button id="mode-toggle" class="mode-btn" onclick="toggleMode()" title="Toggle light/dark mode">🌙</button>
+      <button id="mode-toggle" class="mode-btn" title="Toggle light/dark mode">🌙</button>
     </div>
     <button id="navToggle" class="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
   </div>
@@ -587,14 +587,25 @@ function toggleMode() {
   const cur = document.documentElement.getAttribute('data-mode') || 'dark';
   applyTheme(document.documentElement.getAttribute('data-theme') || 'jewel', cur === 'dark' ? 'light' : 'dark');
 }
-// Sync controls to saved preference
+// Init theme — matches stats/src/main.js initTheme()
 (function() {
   const t = localStorage.getItem('meerbot-theme') || 'jewel';
   const m = localStorage.getItem('meerbot-mode')  || 'dark';
+  applyTheme(t, m);
   const sel = document.getElementById('theme-select');
-  if (sel) sel.value = t;
+  if (sel) {
+    sel.value = t;
+    sel.addEventListener('change', () =>
+      applyTheme(sel.value, document.documentElement.getAttribute('data-mode') || 'dark')
+    );
+  }
   const btn = document.getElementById('mode-toggle');
-  if (btn) btn.textContent = m === 'dark' ? '☀️' : '🌙';
+  if (btn) {
+    btn.addEventListener('click', () => {
+      const cur = document.documentElement.getAttribute('data-mode') || 'dark';
+      applyTheme(document.documentElement.getAttribute('data-theme') || 'jewel', cur === 'dark' ? 'light' : 'dark');
+    });
+  }
 })();
 
 const CATEGORY_LABELS = {
