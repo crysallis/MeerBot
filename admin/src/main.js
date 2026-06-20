@@ -1,4 +1,5 @@
 import '../../shared/theme.css';
+import { THEMES, themeMode } from '../../shared/themes.js';
 import './style.css';
 
 import { state } from './state.js';
@@ -162,42 +163,22 @@ async function loadPresence() {
 
 // ── Theme system ──────────────────────────────────────────────────────────────
 
-function applyTheme(theme, mode) {
+function applyTheme(theme) {
+  const mode = themeMode(theme);
   document.documentElement.setAttribute('data-theme', theme);
   document.documentElement.setAttribute('data-mode', mode);
-  const btn = document.getElementById('mode-toggle');
-  if (btn) btn.textContent = mode === 'dark' ? '☀️' : '🌙';
   localStorage.setItem('meerbot-theme', theme);
-  localStorage.setItem('meerbot-mode', mode);
-}
-
-function setTheme(theme) {
-  applyTheme(theme, document.documentElement.getAttribute('data-mode') || 'dark');
-}
-
-function toggleMode() {
-  const cur = document.documentElement.getAttribute('data-mode') || 'dark';
-  applyTheme(document.documentElement.getAttribute('data-theme') || 'jewel', cur === 'dark' ? 'light' : 'dark');
 }
 
 // Restore theme select value + attach listeners (DOM is ready; module is deferred)
 (function () {
-  const t   = localStorage.getItem('meerbot-theme') || 'jewel';
-  const m   = localStorage.getItem('meerbot-mode')  || 'dark';
-  applyTheme(t, m);
+  const t = localStorage.getItem('meerbot-theme') || 'jewel';
+  applyTheme(t);
   const sel = document.getElementById('theme-select');
   if (sel) {
+    sel.innerHTML = THEMES.map(th => `<option value="${th.value}">${th.label}</option>`).join('');
     sel.value = t;
-    sel.addEventListener('change', () =>
-      applyTheme(sel.value, document.documentElement.getAttribute('data-mode') || 'dark')
-    );
-  }
-  const btn = document.getElementById('mode-toggle');
-  if (btn) {
-    btn.addEventListener('click', () => {
-      const cur = document.documentElement.getAttribute('data-mode') || 'dark';
-      applyTheme(document.documentElement.getAttribute('data-theme') || 'jewel', cur === 'dark' ? 'light' : 'dark');
-    });
+    sel.addEventListener('change', () => applyTheme(sel.value));
   }
 })();
 
@@ -512,7 +493,7 @@ Object.assign(window, {
   logout, toggleNav, closeNav,
   setJobChannel, toggleScheduledJob, saveScheduledJob, filterJobs, sortJobs,
   filterChannel, saveKey, resetKey,
-  restartBot, setTheme, toggleMode,
+  restartBot, applyTheme,
   openReactionForm, cancelReactionForm, saveReactionRule, deleteReactionRule,
   updatePreview, rxPatternTypeChange, rxResponseTypeChange, rxSyncColorPicker,
   rxFilterSelect, rxInsert, refreshDiscordData,

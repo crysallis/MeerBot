@@ -1,0 +1,23 @@
+[data-theme="purple"] {
+  color-scheme: dark;
+  --color-base-100: oklch(25% 0.092 26.042);
+  --color-base-200: oklch(39% 0.141 25.723);
+  --color-base-300: oklch(44% 0.177 26.899);
+  --color-base-content: oklch(93% 0.032 17.717);
+  --color-primary: oklch(58% 0.233 277.117);
+  --color-primary-content: oklch(96% 0.018 272.314);
+  --color-secondary: oklch(62% 0.214 259.815);
+  --color-secondary-content: oklch(97% 0.014 254.604);
+  --color-accent: oklch(72% 0.219 149.579);
+  --color-accent-content: oklch(98% 0.018 155.826);
+  --color-neutral: oklch(50% 0.213 27.518);
+  --color-neutral-content: oklch(97% 0.013 17.38);
+  --color-info: oklch(54% 0.245 262.881);
+  --color-info-content: oklch(97% 0.014 254.604);
+  --color-success: oklch(64% 0.2 131.684);
+  --color-success-content: oklch(98% 0.031 120.757);
+  --color-warning: oklch(66% 0.179 58.318);
+  --color-warning-content: oklch(98% 0.022 95.277);
+  --color-error: oklch(59% 0.249 0.584);
+  --color-error-content: oklch(97% 0.014 343.198);
+}

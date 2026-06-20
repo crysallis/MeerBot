@@ -1,26 +1,17 @@
 import '../../shared/theme.css';
+import { THEMES, themeMode } from '../../shared/themes.js';
 import './style.css';
 import { Chart }          from 'chart.js';
 import { initOverview }   from './charts/overview.js';
 import { initPowerChart } from './charts/power.js';
 import { initDreamRealm } from './charts/dreamrealm.js';
 import { initArena }      from './charts/arena.js';
+import { initSupArena }   from './charts/supremeArena.js';
 import { initLab }        from './charts/lab.js';
-
-function getCSSVar(name) {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
-
-function hexToRgba(hex, alpha) {
-    const h = hex.replace('#', '');
-    const r = parseInt(h.slice(0, 2), 16);
-    const g = parseInt(h.slice(2, 4), 16);
-    const b = parseInt(h.slice(4, 6), 16);
-    return `rgba(${r},${g},${b},${alpha})`;
-}
+import { getCSSVar, cssVarRgba } from './utils.js';
 
 function updateChartTheme() {
-    const gridColor = hexToRgba(getCSSVar('--border'), 0.6);
+    const gridColor = cssVarRgba('--color-base-300', 0.6);
     const tickColor = getCSSVar('--color-primary');
     Object.values(Chart.instances).forEach(chart => {
         for (const scale of Object.values(chart.options.scales || {})) {
@@ -35,33 +26,22 @@ function updateChartTheme() {
     });
 }
 
-function applyTheme(theme, mode) {
+function applyTheme(theme) {
+    const mode = themeMode(theme);
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.setAttribute('data-mode', mode);
-    const btn = document.getElementById('mode-toggle');
-    if (btn) btn.textContent = mode === 'dark' ? '☀️' : '🌙';
     localStorage.setItem('meerbot-theme', theme);
-    localStorage.setItem('meerbot-mode', mode);
     updateChartTheme();
 }
 
 function initTheme() {
     const t = localStorage.getItem('meerbot-theme') || 'jewel';
-    const m = localStorage.getItem('meerbot-mode')  || 'dark';
-    applyTheme(t, m);
+    applyTheme(t);
     const sel = document.getElementById('theme-select');
     if (sel) {
+        sel.innerHTML = THEMES.map(th => `<option value="${th.value}">${th.label}</option>`).join('');
         sel.value = t;
-        sel.addEventListener('change', () =>
-            applyTheme(sel.value, document.documentElement.getAttribute('data-mode') || 'dark')
-        );
-    }
-    const btn = document.getElementById('mode-toggle');
-    if (btn) {
-        btn.addEventListener('click', () => {
-            const cur = document.documentElement.getAttribute('data-mode') || 'dark';
-            applyTheme(document.documentElement.getAttribute('data-theme') || 'jewel', cur === 'dark' ? 'light' : 'dark');
-        });
+        sel.addEventListener('change', () => applyTheme(sel.value));
     }
 }
 
@@ -122,6 +102,7 @@ async function activateTab(name) {
         if (name === 'power')      await initPowerChart(me);
         if (name === 'dreamrealm') await initDreamRealm(me);
         if (name === 'arena')      await initArena(me);
+        if (name === 'suparena')   await initSupArena(me);
         if (name === 'lab')        await initLab(me);
         // preview tab is static HTML — no async init needed
         updateChartTheme();

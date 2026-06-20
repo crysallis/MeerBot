@@ -57,7 +57,7 @@ export function renderScheduledJobs(jobs) {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div class="sj-name" style="margin-bottom:0;${!job.enabled ? 'text-decoration:line-through;color:var(--color-neutral-content)' : ''}">${job.display}</div>
         <button id="sj-toggle-${job.id}" onclick="toggleScheduledJob(${job.id}, ${job.enabled ? 0 : 1})"
-          style="background:${job.enabled ? 'var(--color-success)' : 'var(--border-color)'};color:#fff;border:none;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600">
+          style="background:${job.enabled ? 'var(--color-success)' : 'var(--color-base-300)'};color:#fff;border:none;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600">
           ${job.enabled ? 'Enabled' : 'Disabled'}
         </button>
       </div>

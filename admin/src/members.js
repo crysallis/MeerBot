@@ -42,11 +42,11 @@ export function renderMembers() {
       ? `<button class="save-btn" style="background:var(--color-success);padding:3px 8px" onclick="approveMember(${m.id})">Approve</button>` : '';
     const wbOptions = warbandsList.filter(w => !w.archived)
       .map(w => `<option value="${w.id}"${m.warband_id === w.id ? ' selected' : ''}>${escapeHtml(w.name)}</option>`).join('');
-    const wbSelect = `<select onchange="setWarband(${m.id}, this.value)" style="background:var(--color-base-200);color:var(--color-base-content);border:1px solid var(--border-color);border-radius:4px;padding:2px 4px">`
+    const wbSelect = `<select onchange="setWarband(${m.id}, this.value)" style="background:var(--color-base-200);color:var(--color-base-content);border:1px solid var(--color-base-300);border-radius:4px;padding:2px 4px">`
       + `<option value=""${m.warband_id ? '' : ' selected'}>— none —</option>${wbOptions}</select>`;
     const ingameIdInput = `<input type="number" value="${m.ingame_id || ''}" placeholder="no ID" min="1"
       title="In-game User ID · type and press Enter or Tab to save"
-      style="width:90px;font-size:11px;margin-top:3px;background:var(--color-base-200);color:var(--color-base-content);border:1px solid var(--border-color);border-radius:4px;padding:2px 4px"
+      style="width:90px;font-size:11px;margin-top:3px;background:var(--color-base-200);color:var(--color-base-content);border:1px solid var(--color-base-300);border-radius:4px;padding:2px 4px"
       onchange="setIngameId(${m.id}, this.value)">`;
     return `<tr>
       <td data-label="Name"><b>${escapeHtml(m.ingame_name)}</b><br>${ingameIdInput}</td>

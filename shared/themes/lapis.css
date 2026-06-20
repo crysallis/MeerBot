@@ -1,4 +1,4 @@
-[data-theme="lapis"][data-mode="dark"] {
+[data-theme="lapis"] {
   --color-base-100:     #080a18;
   --color-base-200:     #04060f;
   --color-base-300:     #0e1028;
@@ -9,24 +9,5 @@
   --color-success:      #51cf66;
   --color-info:         #00bfff;
   --color-error:        #ff6b6b;
-  --border-color:       #1c2860;
-  --common:             #00bfff;
   color-scheme: dark;
-}
-
-[data-theme="lapis"][data-mode="light"] {
-  --color-base-100:     #fffff0;
-  --color-base-200:     #f0f0d8;
-  --color-base-300:     #f0f0d8;
-  --color-base-content: #050820;
-  --color-primary:      #0060d0;
-  --color-neutral:      #868e96;
-  --color-neutral-content: #4060a0;
-  --color-success:      #2f9e44;
-  --color-info:         #0060d0;
-  --color-error:        #c92a2a;
-  --border-color:       #b8c8e0;
-  --hard:               #c92a2a;
-  --common:             #0060d0;
-  color-scheme: light;
 }

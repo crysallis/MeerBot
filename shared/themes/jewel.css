@@ -1,4 +1,4 @@
-[data-theme="jewel"][data-mode="dark"] {
+[data-theme="jewel"] {
   --color-base-100:     #0d0b20;
   --color-base-200:     #090716;
   --color-base-300:     #13162c;
@@ -9,21 +9,5 @@
   --color-success:      #51cf66;
   --color-info:         #5fc9de;
   --color-error:        #ff6b6b;
-  --border-color:       #2d2a5a;
   color-scheme: dark;
-}
-
-[data-theme="jewel"][data-mode="light"] {
-  --color-base-100:     #edf4ff;
-  --color-base-200:     #dce8f8;
-  --color-base-300:     #dce8f8;
-  --color-base-content: #1d1a40;
-  --color-primary:      #1e9ab0;
-  --color-neutral:      #868e96;
-  --color-neutral-content: #4e60a0;
-  --color-success:      #2f9e44;
-  --color-info:         #1971c2;
-  --color-error:        #e03131;
-  --border-color:       #b8cce0;
-  color-scheme: light;
 }

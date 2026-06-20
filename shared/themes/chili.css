@@ -1,19 +1,4 @@
-[data-theme="chili"][data-mode="dark"] {
-  --color-base-100:     #150802;
-  --color-base-200:     #0d0400;
-  --color-base-300:     #1c0e08;
-  --color-base-content: #ffd8cc;
-  --color-primary:      #ff6a4d;
-  --color-neutral:      #6a4040;
-  --color-neutral-content: #7a3a28;
-  --color-success:      #51cf66;
-  --color-info:         #4dabf7;
-  --color-error:        #ff8f7a;
-  --border-color:       #4d1a0a;
-  color-scheme: dark;
-}
-
-[data-theme="chili"][data-mode="light"] {
+[data-theme="chili"] {
   --color-base-100:     #fff8f5;
   --color-base-200:     #ffe8e0;
   --color-base-300:     #ffe8e0;
@@ -24,6 +9,5 @@
   --color-success:      #2f9e44;
   --color-info:         #1971c2;
   --color-error:        #c92a2a;
-  --border-color:       #f0c0a8;
   color-scheme: light;
 }

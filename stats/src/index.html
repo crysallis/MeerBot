@@ -17,40 +17,34 @@
     </div>
   </div>
 
-  <header class="header">
-    <div class="header-left">
-      <span class="header-icon">&#9876;</span>
-      <span class="header-title">RiffRaff Stats</span>
+  <header>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <img src="./images/meerbot_logo.png" alt="MeerBot Logo" style="width:50px; height:auto;">
+      <h1>Meer<span>Bot</span> Stats</h1>
     </div>
     <div class="header-right">
       <span id="user-ingame" class="user-ingame"></span>
       <span id="user-name" class="user-name"></span>
       <img id="user-avatar" class="user-avatar hidden" alt="" />
       <div class="theme-controls">
-        <select id="theme-select" class="theme-picker">
-          <option value="jewel">✦ Jewel</option>
-          <option value="chili">🌶 Chili</option>
-          <option value="tigereye">🌿 Tigereye</option>
-          <option value="plum">🔮 Plum</option>
-          <option value="lapis">💎 Lapis</option>
-          <option value="synthwave">🌊 Synthwave</option>
-        </select>
-        <button id="mode-toggle" class="mode-btn" title="Toggle light/dark">🌙</button>
+        <select id="theme-select" class="theme-picker"></select>
       </div>
-      <button id="logout-btn" class="btn btn-ghost btn-sm hidden">Logout</button>
+      <button id="logout-btn" class="logout-btn hidden">Logout</button>
     </div>
   </header>
 
-  <nav class="tabs">
-    <button class="tab active" data-tab="overview">Overview</button>
-    <button class="tab" data-tab="power">Power Growth</button>
-    <button class="tab" data-tab="dreamrealm">Dream Realm</button>
-    <button class="tab" data-tab="arena">Arena</button>
-    <button class="tab" data-tab="lab">Arcane Lab</button>
-    <button class="tab" data-tab="preview">Theme Preview</button>
-  </nav>
+  <main>
+    <div class="meerbot_header"><img src="./images/meerbot_header.png" alt="MeerBot Header" style="width:400px; max-width:100%; height:auto; display:block; margin:0 auto;"></div>
 
-  <main class="main">
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="overview">Overview</button>
+      <button class="tab" data-tab="power">Power Growth</button>
+      <button class="tab" data-tab="dreamrealm">Dream Realm</button>
+      <button class="tab" data-tab="arena">Arena</button>
+      <button class="tab" data-tab="suparena">Sup Arena</button>
+      <button class="tab" data-tab="lab">Arcane Lab</button>
+      <button class="tab" data-tab="preview">Theme Preview</button>
+    </div>
 
     <!-- Overview -->
     <section id="tab-overview" class="tab-content active">
@@ -112,14 +106,46 @@
 
     <!-- Arena -->
     <section id="tab-arena" class="tab-content hidden">
-      <div class="arena-layout">
-        <div class="table-box">
-          <h2>Arena</h2>
-          <div id="arena-table"></div>
+      <div class="table-box">
+        <h2>Arena</h2>
+        <div id="arena-table"></div>
+      </div>
+    </section>
+
+    <!-- Supreme Arena -->
+    <section id="tab-suparena" class="tab-content hidden">
+      <div class="sa-layout">
+        <div class="sa-left">
+          <div class="table-box">
+            <div class="sa-box-header">
+              <h2>Current Rankings</h2>
+              <div class="sa-controls">
+                <label>
+                  Warband
+                  <select id="sa-warband-filter">
+                    <option value="">All Warbands</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div id="sa-table"></div>
+          </div>
         </div>
-        <div class="table-box">
-          <h2>Supreme Arena</h2>
-          <div id="sup-arena-table"></div>
+        <div class="sa-right">
+          <div class="chart-box">
+            <h2>Member History</h2>
+            <div class="sa-controls" style="margin-bottom:.75rem">
+              <label>Member <select id="sa-member-select"></select></label>
+            </div>
+            <canvas id="chart-sa-member"></canvas>
+          </div>
+          <div class="chart-box">
+            <h2>Warband History</h2>
+            <div class="sa-controls" style="margin-bottom:.75rem">
+              <label>Warband <select id="sa-wb-chart-select"></select></label>
+            </div>
+            <canvas id="chart-sa-warband"></canvas>
+          </div>
         </div>
       </div>
     </section>

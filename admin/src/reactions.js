@@ -115,7 +115,7 @@ export function buildCheatSheet() {
       { label: '> blockquote',      insert: '> '                },
     ];
     fmtEl.innerHTML = snippets.map((s, i) =>
-      `<button data-idx="${i}" class="rx-fmt-chip" style="background:var(--discord-bg-alt);border:1px solid var(--border-color);color:var(--color-base-content);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left;font-family:monospace">${escHtml(s.label)}</button>`
+      `<button data-idx="${i}" class="rx-fmt-chip" style="background:var(--discord-bg-alt);border:1px solid var(--color-base-300);color:var(--color-base-content);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left;font-family:monospace">${escHtml(s.label)}</button>`
     ).join('');
     fmtEl.querySelectorAll('.rx-fmt-chip').forEach((btn, i) => {
       btn.addEventListener('click', () => rxInsert(snippets[i].insert));
@@ -133,7 +133,7 @@ export function buildCheatSheet() {
     varEl.innerHTML = '';
     for (const v of vars) {
       const btn = document.createElement('button');
-      btn.style.cssText = 'background:var(--discord-bg-alt);border:1px solid var(--border-color);color:var(--color-warning);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left;font-family:monospace';
+      btn.style.cssText = 'background:var(--discord-bg-alt);border:1px solid var(--color-base-300);color:var(--color-warning);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left;font-family:monospace';
       btn.title = v.desc;
       btn.textContent = v.label;
       btn.addEventListener('click', () => rxInsert(v.label));
@@ -144,7 +144,7 @@ export function buildCheatSheet() {
   const chEl = document.getElementById('rx-channel-chips');
   if (chEl) {
     chEl.innerHTML = state.channelList
-      .map(c => `<button onclick="rxInsert('<#${c.id}>')" style="background:var(--discord-bg-alt);border:1px solid var(--border-color);color:var(--discord-mention-fg);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left">#${escHtml(c.name)}</button>`)
+      .map(c => `<button onclick="rxInsert('<#${c.id}>')" style="background:var(--discord-bg-alt);border:1px solid var(--color-base-300);color:var(--discord-mention-fg);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left">#${escHtml(c.name)}</button>`)
       .join('');
   }
 
@@ -154,7 +154,7 @@ export function buildCheatSheet() {
       .filter(r => r.name !== '@everyone' && !r.managed)
       .map(r => {
         const color = r.color && r.color !== '#000000' ? r.color : 'var(--discord-mention-fg)';
-        return `<button onclick="rxInsert('<@&${r.id}>')" style="background:var(--discord-bg-alt);border:1px solid var(--border-color);color:${color};padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left">@${escHtml(r.name)}</button>`;
+        return `<button onclick="rxInsert('<@&${r.id}>')" style="background:var(--discord-bg-alt);border:1px solid var(--color-base-300);color:${color};padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left">@${escHtml(r.name)}</button>`;
       })
       .join('');
   }

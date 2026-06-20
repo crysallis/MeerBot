@@ -4,27 +4,16 @@
 @import "./themes/plum.css";
 @import "./themes/lapis.css";
 @import "./themes/synthwave.css";
+@import "./themes/purple.css";
 
-/* Mode defaults — specificity 0-1-0, overridden by [data-theme][data-mode] blocks (0-2-0) */
-[data-mode="dark"] {
+:root {
+  /* Rarity colors — dark defaults; chili (light theme) keeps these readable */
   --hover-bg: rgba(255,255,255,.03);
   --hard:     #e05c5c;
   --epic:     #9b6bc7;
   --common:   #4a9ec7;
-}
-[data-mode="light"] {
-  --hover-bg: rgba(0,0,0,.04);
-  --hard:     #c0392b;
-  --epic:     #7d3c98;
-  --common:   #1a5276;
-}
-
-:root {
-  /* Fallback for themes that omit --border-color */
-  --border-color: var(--color-base-300);
 
   /* Layout */
-  --card-shadow: 0 0 8px 5px var(--border-color);
   --radius: 8px;
 
   /* Discord brand colors — used in embed/command preview UI */
@@ -47,16 +36,17 @@
   --wb-sobaquitos-to:   #ff9cbf;
 }
 
+/* Chili is the light theme — override rarity and hover vars to match */
+[data-theme="chili"] {
+  --hover-bg: rgba(0,0,0,.04);
+  --hard:     #c0392b;
+  --epic:     #7d3c98;
+  --common:   #1a5276;
+}
+
 .theme-controls { display: flex; align-items: center; gap: 6px; }
 .theme-picker {
   width: auto; padding: 4px 8px; font-size: 12px;
-  background: var(--color-base-100); border: 1px solid var(--border-color);
+  background: var(--color-base-100); border: 1px solid var(--color-base-300);
   color: var(--color-base-content); border-radius: 5px; cursor: pointer;
 }
-.mode-btn {
-  background: var(--color-base-100); border: 1px solid var(--border-color);
-  color: var(--color-base-content); padding: 4px 9px; border-radius: 5px;
-  cursor: pointer; font-size: 14px; line-height: 1;
-  transition: border-color .15s;
-}
-.mode-btn:hover { border-color: var(--color-primary); }
