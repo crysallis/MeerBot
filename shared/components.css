@@ -8,7 +8,7 @@
   .hidden { display: none !important; }
 
   body {
-    background: var(--color-base-100);
+    background: var(--color-base-200);
     color: var(--color-base-content);
     font-size: 14px;
     line-height: 1.5;
@@ -22,7 +22,7 @@
   /* ── Card surface ─────────────────────────────────────────────────────────── */
   /* Use .card for any raised panel: sections, stat cards, chart boxes, job cards */
   .card {
-    background: var(--color-base-300);
+    background: var(--color-base-100);
     border: 1px solid var(--color-base-300);
     border-radius: var(--radius);
     box-shadow: 0 1px 3px rgba(0,0,0,.2);
@@ -45,7 +45,7 @@
     white-space: nowrap;
   }
   .tab:hover { border-color: var(--color-primary); color: var(--color-primary); }
-  .tab.active { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-content); }
+  .tab.active { background: var(--color-primary); border-color: var(--color-primary); }
 
   /* ── Inputs & selects ─────────────────────────────────────────────────────── */
   input[type=text],
@@ -86,13 +86,13 @@
   /* ── Login overlay ────────────────────────────────────────────────────────── */
   .login-overlay {
     position: fixed; inset: 0; z-index: 1000;
-    background: var(--color-base-100);
+    background: var(--color-base-200);
     display: flex; align-items: center; justify-content: center;
   }
   .login-overlay.hidden { display: none; }
 
   .login-card {
-    background: var(--color-base-300);
+    background: var(--color-base-100);
     border: 1px solid var(--color-base-300);
     border-radius: var(--radius);
     box-shadow: 0 1px 3px rgba(0,0,0,.2);
@@ -135,3 +135,7 @@
   .delta-neu { color: var(--color-neutral-content); font-size: .8rem; }
 
 }
+
+/* Outside @layer so these beat DaisyUI's unlayered button base styles */
+.tab:hover { color: var(--color-primary); }
+.tab.active { color: var(--color-primary-content); }
