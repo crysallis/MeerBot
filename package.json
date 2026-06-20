@@ -8,7 +8,10 @@
     "dev": "nodemon index.js",
     "deploy-commands": "node deploy-commands.js",
     "check-updates": "node scripts/check-updates.js",
-    "refresh": "node scripts/list-channels.js && node scripts/list-roles.js && node scripts/sync-join-dates.js"
+    "refresh": "node scripts/list-channels.js && node scripts/list-roles.js && node scripts/sync-join-dates.js",
+    "build:stats": "npm run build --prefix stats",
+    "build:admin": "npm run build --prefix admin",
+    "build": "npm run build:stats && npm run build:admin"
   },
   "keywords": [],
   "author": "",

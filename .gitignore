@@ -1,5 +1,7 @@
 node_modules/
 .env
+admin/dist/
+stats/dist/
 .DS_Store
 .vscode/
 *.log

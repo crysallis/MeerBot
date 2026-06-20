@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MeerBot Admin</title>
+<script>(function(){var t=localStorage.getItem('meerbot-theme')||'jewel',m=localStorage.getItem('meerbot-mode')||'dark';document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-mode',m);})()</script>
+</head>
+<body>
+
+<header>
+  <div style="display:flex; align-items:center; gap:12px;">
+  <img src="./images/meerbot_logo.png" alt="MeerBot Logo" style="width: 50px; height: auto; display: flex;"><h1>Meer<span>Bot</span> Admin</h1>
+  </div>
+  <div class="header-right">
+    <div class="presence-stack" id="presence"></div>
+    <img class="user-avatar" id="userAvatar" alt="" style="display:none">
+    <span class="whoami" id="whoami"></span>
+    <button class="logout-btn" onclick="logout()" title="Sign out">⎋</button>
+    <span class="restart-status" id="restartStatus"></span>
+    <button class="restart-btn needs-local" id="restartBtn" onclick="restartBot()">⟳ Restart Bot</button>
+    <div class="theme-controls">
+      <select id="theme-select" class="theme-picker">
+        <option value="jewel">✦ Jewel</option>
+        <option value="chili">🌶 Chili</option>
+        <option value="tigereye">🌿 Tigereye</option>
+        <option value="plum">🔮 Plum</option>
+        <option value="lapis">💎 Lapis</option>
+        <option value="synthwave">🌊 Synthwave</option>
+      </select>
+      <button id="mode-toggle" class="mode-btn" title="Toggle light/dark mode">🌙</button>
+    </div>
+    <button id="navToggle" class="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
+  </div>
+</header>
+<div id="navBackdrop" class="nav-backdrop" onclick="closeNav()"></div>
+
+<main>
+  <div class="meerbot_header"><img src="./images/meerbot_header.png" alt="MeerBot Header" style="width: 400px; max-width: 100%; height: auto; display: block; margin: 0 auto;"></div>
+
+  <div class="bot-status-bar" id="botStatusBar">
+    <div class="status-dot status-other" id="statusDot"></div>
+    <div class="stat"><span class="stat-label">Status</span><span class="stat-value" id="statStatus">Loading...</span></div>
+    <div class="stat"><span class="stat-label">CPU</span><span class="stat-value" id="statCpu">--</span></div>
+    <div class="stat"><span class="stat-label">Memory</span><span class="stat-value" id="statMemory">--</span></div>
+    <div class="stat"><span class="stat-label">Uptime</span><span class="stat-value" id="statUptime">--</span></div>
+  </div>
+
+  <div class="info-bar">
+    <span>Changes take effect after bot restart</span>
+    <span id="channelsFetchedAt"></span>
+  </div>
+
+  <nav id="drawer">
+    <div class="tabs" id="tabs"></div>
+    <div id="drawerUtils"></div>
+  </nav>
+
+  <div id="sections"></div>
+
+  <div class="section" id="section-reactions">
+    <div class="section-title">Message Reactions</div>
+
+    <div style="margin-bottom:16px">
+      <button class="save-btn" onclick="openReactionForm(null)" style="background:var(--color-success)">+ Add Rule</button>
+    </div>
+
+    <!-- Add / Edit form -->
+    <div id="rxForm" style="display:none; margin-bottom:20px">
+      <div class="panel-card" style="padding:16px 20px">
+        <div style="font-size:14px; font-weight:600; color:var(--color-base-content); margin-bottom:14px" id="rxFormTitle">Add Reaction Rule</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px">
+          <div>
+            <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Rule Name *</label>
+            <input type="text" id="rx-name" placeholder="e.g. Hello response">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Pattern Type</label>
+            <select id="rx-pattern-type" onchange="rxPatternTypeChange()">
+              <option value="contains">Contains</option>
+              <option value="exact">Exact match</option>
+              <option value="regex">Regex</option>
+              <option value="mention">@Mention bot (no pattern)</option>
+            </select>
+          </div>
+          <div id="rx-pattern-wrap">
+            <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Pattern *</label>
+            <input type="text" id="rx-pattern" placeholder="Text to match">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Response Type</label>
+            <select id="rx-response-type" onchange="rxResponseTypeChange()">
+              <option value="reply">Reply (threaded)</option>
+              <option value="message">Standalone message</option>
+              <option value="emoji">Emoji react</option>
+              <option value="dm">DM sender</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px" id="rx-content-label">Response Content *</label>
+            <input type="text" id="rx-response-content" placeholder="Text to send (or emoji char)" oninput="updatePreview()">
+          </div>
+          <div id="rx-resp-channel-wrap" style="display:none">
+            <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Response Channel (optional)</label>
+            <input type="text" id="rx-resp-channel-filter" placeholder="Filter..." oninput="rxFilterSelect('rx-response-channel', this.value)" style="margin-bottom:4px">
+            <select id="rx-response-channel">
+              <option value="">— same channel as trigger —</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Cooldown (seconds)</label>
+            <input type="number" id="rx-cooldown" value="60" min="0" style="width:90px">
+          </div>
+        </div>
+        <div style="display:flex; gap:16px; align-items:center; margin-bottom:12px; flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="rx-ignore-case" checked> Case-insensitive
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="rx-require-mention"> Require @mention
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="rx-enabled" checked> Enabled
+          </label>
+        </div>
+        <div style="margin-bottom:12px; padding:12px; border:1px solid var(--border-color); border-radius:6px">
+          <div style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Embed (optional — combine with text or use alone)</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px">
+            <div>
+              <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Embed Title</label>
+              <input type="text" id="rx-embed-title" placeholder="e.g. Need help?" oninput="updatePreview()">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Embed Color (hex)</label>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input type="color" id="rx-embed-color-picker" value="#4dabf7" oninput="document.getElementById('rx-embed-color').value=this.value;updatePreview()" style="width:38px;height:32px;padding:2px;border-radius:5px;border:1px solid var(--border-color);background:var(--color-base-100);cursor:pointer">
+                <input type="text" id="rx-embed-color" placeholder="#4dabf7" oninput="rxSyncColorPicker();updatePreview()" style="width:100px">
+              </div>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Embed Description</label>
+            <textarea id="rx-embed-description" placeholder="Supports Discord markdown..." rows="3" oninput="updatePreview()" style="width:100%;background:var(--color-base-100);border:1px solid var(--border-color);color:var(--color-base-content);padding:6px 8px;border-radius:5px;font-size:13px;resize:vertical;outline:none;font-family:inherit"></textarea>
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Channel Filter (leave blank = all channels)</label>
+          <input type="text" id="rx-ch-filter" placeholder="Filter channels..." oninput="rxFilterSelect('rx-channel-filter-select', this.value)" style="margin-bottom:4px;max-width:340px">
+          <select id="rx-channel-filter-select" multiple size="4" style="width:100%;max-width:400px;background:var(--color-base-100);border:1px solid var(--border-color);color:var(--color-base-content);border-radius:5px;padding:4px"></select>
+          <div style="font-size:11px;color:var(--color-neutral-content);margin-top:4px">Hold Ctrl/Cmd to select multiple channels. No selection = fires in all channels.</div>
+        </div>
+        <!-- Preview pane -->
+        <div style="margin-bottom:12px">
+          <div style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Preview</div>
+          <div id="rx-preview" style="min-height:48px;background:var(--discord-bg);border:1px solid var(--border-color);border-radius:6px;padding:10px 14px;font-size:14px;line-height:1.5;color:var(--discord-fg);white-space:pre-wrap;word-break:break-word">
+            <span style="color:var(--color-neutral-content);font-style:italic">Start typing to preview...</span>
+          </div>
+        </div>
+
+        <!-- Cheat sheet -->
+        <details style="margin-bottom:12px">
+          <summary style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;cursor:pointer;user-select:none">Quick Reference (click to expand)</summary>
+          <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--color-base-content);margin-bottom:6px">Formatting</div>
+              <div id="rx-fmt-chips" style="display:flex;flex-direction:column;gap:4px"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--color-base-content);margin-bottom:6px">Variables</div>
+              <div style="font-size:11px;color:var(--color-neutral-content);margin-bottom:4px">Filled in at send time</div>
+              <div id="rx-var-chips" style="display:flex;flex-direction:column;gap:4px"></div>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <span style="font-size:11px;font-weight:600;color:#fff">Channels</span>
+                <button class="reset-btn needs-local" style="font-size:10px;padding:2px 7px" onclick="refreshDiscordData()">⟳ Refresh</button>
+              </div>
+              <div style="font-size:11px;color:var(--color-neutral-content);margin-bottom:4px">Click to insert</div>
+              <div id="rx-channel-chips" style="display:flex;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--color-base-content);margin-bottom:6px">Roles</div>
+              <div style="font-size:11px;color:var(--color-neutral-content);margin-bottom:4px">Click to insert</div>
+              <div id="rx-role-chips" style="display:flex;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto"></div>
+            </div>
+          </div>
+          <div id="rx-refresh-status" style="font-size:11px;color:var(--color-neutral-content);margin-top:8px"></div>
+        </details>
+
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="save-btn" onclick="saveReactionRule()">Save Rule</button>
+          <button class="reset-btn" onclick="cancelReactionForm()">Cancel</button>
+          <span id="rx-error" style="color:var(--color-error);font-size:12px"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rules table -->
+    <div class="panel-card">
+      <table>
+        <thead><tr>
+          <th>Name</th>
+          <th>Trigger</th>
+          <th>Response</th>
+          <th>Scope</th>
+          <th>Cooldown</th>
+          <th>Status</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="rxTableBody"><tr><td colspan="7" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="section-scheduledjobs">
+    <div class="section-title">Scheduled Jobs</div>
+    <div id="sjContainer"><p style="color:var(--color-neutral-content)">Loading...</p></div>
+  </div>
+
+  <div class="section" id="section-jobs">
+    <div class="section-title">Recent Job Runs</div>
+    <div class="panel-card">
+      <table class="jobs-table">
+        <thead>
+          <tr class="jobs-header-row">
+            <th onclick="sortJobs('name')">Job <span class="sort-arrow" id="sort-name">↕</span></th>
+            <th onclick="sortJobs('sent_at')">Last Run (UTC) <span class="sort-arrow active" id="sort-sent_at">↓</span></th>
+            <th onclick="sortJobs('late')">Late? <span class="sort-arrow" id="sort-late">↕</span></th>
+          </tr>
+          <tr class="jobs-filter-row">
+            <td><input class="job-filter view-ok" placeholder="Filter job name..." oninput="filterJobs('name', this.value)"></td>
+            <td><input class="job-filter view-ok" placeholder="Filter date..." oninput="filterJobs('sent_at', this.value)"></td>
+            <td><input class="job-filter view-ok" placeholder="yes / —" oninput="filterJobs('late', this.value)"></td>
+          </tr>
+        </thead>
+        <tbody id="jobsBody"><tr><td colspan="3" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="section-members">
+    <div class="section-title">Members</div>
+    <div class="info-bar" style="margin-bottom:12px">
+      <span id="membersSummary">Loading...</span>
+      <input id="memberFilter" class="view-ok" placeholder="Filter name / warband..." oninput="renderMembers()"
+             style="max-width:240px">
+    </div>
+    <div class="panel-card">
+      <table class="jobs-table cards-sm">
+        <thead>
+          <tr class="jobs-header-row">
+            <th>Name</th><th>Warband</th><th>Power</th><th>Discord</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="membersBody"><tr><td colspan="6" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="section-warbands">
+    <div class="section-title">Warbands</div>
+    <div style="margin-bottom:16px; display:flex; gap:8px">
+      <input id="newWarbandName" placeholder="New warband name" style="max-width:240px">
+      <button class="save-btn" style="background:var(--color-success)" onclick="addWarband()">+ Add Warband</button>
+    </div>
+    <p style="color:var(--color-neutral-content); font-size:12px; margin-bottom:12px">
+      Renaming a warband updates it everywhere (all members and history) in one step.
+      Archived warbands are hidden from scans and filters but keep their history.
+    </p>
+    <div class="panel-card">
+      <table class="jobs-table">
+        <thead>
+          <tr class="jobs-header-row"><th>Warband</th><th>Active Members</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="warbandsBody"><tr><td colspan="4" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="section-dreambosses">
+    <div class="section-title">Dream Realm Bosses</div>
+    <div style="margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em">Boss Name</label>
+        <input id="newBossName" placeholder="e.g. Gloommaw" style="max-width:200px">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em">Order in Season</label>
+        <input id="newBossOrder" type="number" min="1" placeholder="1" style="width:80px">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em">Season</label>
+        <select id="newBossSeason" style="max-width:160px"><option value="">— none —</option></select>
+      </div>
+      <button class="save-btn" style="background:var(--color-success)" onclick="addDreamBoss()">+ Add Boss</button>
+    </div>
+    <p style="color:var(--color-neutral-content); font-size:12px; margin-bottom:12px">
+      Add bosses in their rotation order for each season. The scraper uses order + today's boss to determine which boss was on past scan days.
+    </p>
+    <div class="panel-card">
+      <table class="jobs-table">
+        <thead>
+          <tr class="jobs-header-row"><th>#</th><th>Boss</th><th>Season</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="dreamBossesBody"><tr><td colspan="4" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="section-seasons">
+    <div class="section-title">Seasons</div>
+    <div style="margin-bottom:16px; display:flex; gap:8px">
+      <input id="newSeasonName" placeholder="New season name (e.g. S7)" style="max-width:240px">
+      <button class="save-btn" style="background:var(--color-success)" onclick="addSeason()">+ Add Season</button>
+    </div>
+    <p style="color:var(--color-neutral-content); font-size:12px; margin-bottom:12px">
+      Expand a season to manage its ally servers. Bulk add supports ranges: <code style="background:var(--discord-code-bg);padding:1px 4px;border-radius:3px">1, 3, 5-10, 14</code>
+    </p>
+    <div class="panel-card">
+      <table class="jobs-table">
+        <thead>
+          <tr class="jobs-header-row"><th>Season</th><th>Status</th><th>Servers</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="seasonsBody"><tr><td colspan="4" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="section-permissions">
+    <div class="section-title">Command Permissions</div>
+    <p style="color:var(--color-neutral-content);font-size:12px;margin-bottom:12px">
+      Role and channel restrictions per command/subcommand. Empty table = no restrictions (everyone/anywhere).
+      Leave Subcommand blank to apply to the whole command.
+    </p>
+    <div class="panel-card" style="padding:16px 20px;margin-bottom:16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Command *</label>
+          <select id="perm-command" onchange="permCommandChanged()">
+            <option value="">-- select command --</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Subcommand</label>
+          <select id="perm-subcommand">
+            <option value="">— whole command —</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Roles <span style="font-weight:normal;text-transform:none;letter-spacing:0">(pick to restrict)</span></label>
+          <select id="perm-role-pick" onchange="permPickRole()"><option value="">-- add role --</option></select>
+          <div id="perm-role-chips" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;min-height:20px"></div>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Channels <span style="font-weight:normal;text-transform:none;letter-spacing:0">(pick to restrict)</span></label>
+          <select id="perm-channel-pick" onchange="permPickChannel()"><option value="">-- add channel --</option></select>
+          <div id="perm-channel-chips" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;min-height:20px"></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button id="perm-add-btn" class="save-btn" style="background:var(--color-success)" onclick="addPermRule()">+ Add Rules</button>
+        <button id="perm-cancel-btn" class="reset-btn" style="display:none" onclick="cancelPermEdit()">Cancel</button>
+        <span id="perm-error" style="color:var(--color-error);font-size:12px"></span>
+      </div>
+    </div>
+    <div class="panel-card">
+      <table class="jobs-table">
+        <thead><tr class="jobs-header-row">
+          <th>Command</th><th>Subcommand</th><th>Roles</th><th>Channels</th><th></th>
+        </tr></thead>
+        <tbody id="permTableBody"><tr><td colspan="5" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="section-access">
+    <div class="section-title">Access Control</div>
+    <p style="color:var(--color-neutral-content);font-size:12px;margin-bottom:16px">
+      Configurable only from this PC. <b>local</b> = this machine only · <b>manage</b> =
+      Riff/Raff remotely · <b>read</b> = view only. Role tiers apply at next login.</p>
+
+    <div class="panel-card">
+      <div class="section-title" style="font-size:14px">Operations by tab</div>
+      <table class="jobs-table">
+        <thead><tr class="jobs-header-row"><th>Tab</th><th>Operation</th><th>Required tier</th></tr></thead>
+        <tbody id="accessOpsBody"><tr><td colspan="3" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="panel-card">
+      <div class="section-title" style="font-size:14px">Roles</div>
+      <table class="jobs-table">
+        <thead><tr class="jobs-header-row"><th>Role</th><th>Access</th></tr></thead>
+        <tbody id="accessRolesBody"><tr><td colspan="2" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="panel-card">
+      <div class="section-title" style="font-size:14px">Recent changes (audit log)</div>
+      <table class="jobs-table">
+        <thead><tr class="jobs-header-row"><th>When (UTC)</th><th>Who</th><th>Action</th><th>Details</th></tr></thead>
+        <tbody id="accessAuditBody"><tr><td colspan="4" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>

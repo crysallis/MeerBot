@@ -2,18 +2,23 @@ import { Chart, registerables } from 'chart.js';
 import { getCSSVar, cssVarRgba } from '../utils.js';
 Chart.register(...registerables);
 
-const WB_COLORS = {
-    riffraff:   ['#2980b9', '#00d2ff'],
-    kings:      ['#d35400', '#ff871b'],
-    sobaquitos: ['#ff5dd6', '#ff9cbf'],
-};
+const WB_KEYS = ['riffraff', 'kings', 'sobaquitos'];
 
 function wbKey(name) {
     const lower = (name || '').toLowerCase();
-    for (const key of Object.keys(WB_COLORS)) {
+    for (const key of WB_KEYS) {
         if (lower.includes(key)) return key;
     }
     return null;
+}
+
+function wbGradColors() {
+    const s = getComputedStyle(document.documentElement);
+    return {
+        riffraff:   [s.getPropertyValue('--wb-riffraff-from').trim(), s.getPropertyValue('--wb-riffraff-to').trim()],
+        kings:      [s.getPropertyValue('--wb-kings-from').trim(),    s.getPropertyValue('--wb-kings-to').trim()],
+        sobaquitos: [s.getPropertyValue('--wb-sobaquitos-from').trim(),s.getPropertyValue('--wb-sobaquitos-to').trim()],
+    };
 }
 
 export async function initOverview(me) {
@@ -53,7 +58,7 @@ export async function initOverview(me) {
             chart.data.datasets[0].backgroundColor = wbEntries.map(w => {
                 const key = wbKey(w.name);
                 if (!key) return cssVarRgba('--color-neutral-content', 0.5);
-                const [c1, c2] = WB_COLORS[key];
+                const [c1, c2] = wbGradColors()[key];
                 const g = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
                 g.addColorStop(0, c1);
                 g.addColorStop(1, c2);

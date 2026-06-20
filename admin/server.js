@@ -57,11 +57,7 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
-app.use('/shared', express.static(path.join(__dirname, '..', 'shared')));
-app.get('/daisyui.css', rateLimit({ windowMs: 60 * 1000, max: 120 }), (_req, res) =>
-    res.sendFile(path.join(__dirname, '..', 'node_modules', 'daisyui', 'daisyui.css'))
-);
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // Sessions + Discord OAuth · login routes are public, /auth is rate limited.
 app.use(auth.sessionMiddleware());
@@ -896,6 +892,8 @@ app.put('/api/access/role', (req, res) => {
 
 // Ensure dream_realm_bosses.sort_order exists (added after initial schema creation)
 try { db.exec('ALTER TABLE dream_realm_bosses ADD COLUMN sort_order INTEGER'); } catch {}
+
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
 
 app.listen(PORT, '127.0.0.1', () => {
     console.log(`MeerBot admin panel running at http://127.0.0.1:${PORT}`);

@@ -9,13 +9,9 @@
   --color-success:      #51cf66;
   --color-info:         #4dabf7;
   --color-error:        #ff6b6b;
-  --border-color:             #3d1e50;
-  --hover-bg:           rgba(255,255,255,.03);
-  --card-shadow: 0 0 8px 5px var(--border-color);
-  --hard:               #e05c5c;
+  --border-color:       #3d1e50;
   --epic:               #bb60e0;
   --common:             #4dabf7;
-  --radius:             8px;
   color-scheme: dark;
 }
 
@@ -30,12 +26,9 @@
   --color-success:      #2f9e44;
   --color-info:         #1971c2;
   --color-error:        #c92a2a;
-  --border-color:             #ddc0f0;
-  --hover-bg:           rgba(0,0,0,.04);
-  --card-shadow: 0 0 8px 5px var(--border-color);
+  --border-color:       #ddc0f0;
   --hard:               #c92a2a;
   --epic:               #7626bd;
   --common:             #1971c2;
-  --radius:             8px;
   color-scheme: light;
 }

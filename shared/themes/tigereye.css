@@ -9,13 +9,9 @@
   --color-success:      #5ccac0;
   --color-info:         #56b2e0;
   --color-error:        #e04870;
-  --border-color:             #1e3e2c;
-  --hover-bg:           rgba(255,255,255,.03);
-  --card-shadow: 0 0 8px 5px var(--border-color);
+  --border-color:       #1e3e2c;
   --hard:               #e04870;
-  --epic:               #9b6bc7;
   --common:             #56b2e0;
-  --radius:             8px;
   color-scheme: dark;
 }
 
@@ -30,12 +26,8 @@
   --color-success:      #1a8878;
   --color-info:         #1a78b8;
   --color-error:        #c02848;
-  --border-color:             #9cc8b0;
-  --hover-bg:           rgba(0,0,0,.04);
-  --card-shadow: 0 0 8px 5px var(--border-color);
+  --border-color:       #9cc8b0;
   --hard:               #c02848;
-  --epic:               #7d3c98;
   --common:             #1a78b8;
-  --radius:             8px;
   color-scheme: light;
 }
