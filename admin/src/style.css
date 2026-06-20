@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "../../shared/components.css";
-@plugin "daisyui" { themes: false; }
+@plugin "daisyui";
 
 body { font-family: 'Segoe UI', system-ui, sans-serif; }
 header {
