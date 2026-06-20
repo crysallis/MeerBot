@@ -1,4 +1,8 @@
-[data-theme="synthwave"] {
+@plugin "daisyui/theme" {
+  name: "synthwave";
+  default: false;
+  prefersdark: true;
+  color-scheme: "dark";
   --color-base-100: oklch(26% 0.051 172.552);
   --color-base-200: oklch(37% 0.077 168.94);
   --color-base-300: oklch(43% 0.095 166.913);
@@ -19,8 +23,13 @@
   --color-warning-content: oklch(28% 0.066 53.813);
   --color-error: oklch(71% 0.202 349.761);
   --color-error-content: oklch(28% 0.109 3.907);
-
   --hover-bg: rgba(255,255,255,.04);
-  --radius:       4px;
-  color-scheme:   dark;
+  --radius-selector: 0.25rem;
+  --radius-field: 0.125rem;
+  --radius-box: 0.25rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
 }

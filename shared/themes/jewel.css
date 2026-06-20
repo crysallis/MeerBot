@@ -1,13 +1,24 @@
-[data-theme="jewel"] {
-  --color-base-100:     #0d0b20;
-  --color-base-200:     #090716;
-  --color-base-300:     #13162c;
+@plugin "daisyui/theme" {
+  name: "jewel";
+  default: true;
+  prefersdark: true;
+  color-scheme: "dark";
+  --color-base-100: #0d0b20;
+  --color-base-200: #090716;
+  --color-base-300: #13162c;
   --color-base-content: #c8dcf8;
-  --color-primary:      #5fc9de;
-  --color-neutral:      #5868a0;
+  --color-primary: #5fc9de;
+  --color-neutral: #5868a0;
   --color-neutral-content: #5868a0;
-  --color-success:      #51cf66;
-  --color-info:         #5fc9de;
-  --color-error:        #ff6b6b;
-  color-scheme: dark;
+  --color-success: #51cf66;
+  --color-info: #5fc9de;
+  --color-error: #ff6b6b;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
 }

@@ -1,13 +1,24 @@
-[data-theme="chili"] {
-  --color-base-100:     #fff8f5;
-  --color-base-200:     #ffe8e0;
-  --color-base-300:     #ffe8e0;
+@plugin "daisyui/theme" {
+  name: "chili";
+  default: false;
+  prefersdark: false;
+  color-scheme: "light";
+  --color-base-100: #fff8f5;
+  --color-base-200: #ffe8e0;
+  --color-base-300: #ffe8e0;
   --color-base-content: #280a02;
-  --color-primary:      #c83010;
-  --color-neutral:      #868e96;
+  --color-primary: #c83010;
+  --color-neutral: #868e96;
   --color-neutral-content: #8a3520;
-  --color-success:      #2f9e44;
-  --color-info:         #1971c2;
-  --color-error:        #c92a2a;
-  color-scheme: light;
+  --color-success: #2f9e44;
+  --color-info: #1971c2;
+  --color-error: #c92a2a;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
 }

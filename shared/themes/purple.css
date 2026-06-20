@@ -1,5 +1,8 @@
-[data-theme="purple"] {
-  color-scheme: dark;
+@plugin "daisyui/theme" {
+  name: "purple";
+  default: false;
+  prefersdark: true;
+  color-scheme: "dark";
   --color-base-100: oklch(25% 0.092 26.042);
   --color-base-200: oklch(39% 0.141 25.723);
   --color-base-300: oklch(44% 0.177 26.899);
@@ -20,4 +23,12 @@
   --color-warning-content: oklch(98% 0.022 95.277);
   --color-error: oklch(59% 0.249 0.584);
   --color-error-content: oklch(97% 0.014 343.198);
+  --radius-selector: 0.5rem;
+  --radius-field: 0rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 1;
 }

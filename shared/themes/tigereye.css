@@ -1,13 +1,24 @@
-[data-theme="tigereye"] {
-  --color-base-100:     #0c1c15;
-  --color-base-200:     #08130e;
-  --color-base-300:     #162e23;
+@plugin "daisyui/theme" {
+  name: "tigereye";
+  default: false;
+  prefersdark: true;
+  color-scheme: "dark";
+  --color-base-100: #0c1c15;
+  --color-base-200: #08130e;
+  --color-base-300: #162e23;
   --color-base-content: #e0f4e8;
-  --color-primary:      #74d4a4;
-  --color-neutral:      #3a6050;
+  --color-primary: #74d4a4;
+  --color-neutral: #3a6050;
   --color-neutral-content: #3a8860;
-  --color-success:      #5ccac0;
-  --color-info:         #56b2e0;
-  --color-error:        #e04870;
-  color-scheme: dark;
+  --color-success: #5ccac0;
+  --color-info: #56b2e0;
+  --color-error: #e04870;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
 }

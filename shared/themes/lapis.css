@@ -1,13 +1,24 @@
-[data-theme="lapis"] {
-  --color-base-100:     #080a18;
-  --color-base-200:     #04060f;
-  --color-base-300:     #0e1028;
+@plugin "daisyui/theme" {
+  name: "lapis";
+  default: false;
+  prefersdark: true;
+  color-scheme: "dark";
+  --color-base-100: #080a18;
+  --color-base-200: #04060f;
+  --color-base-300: #0e1028;
   --color-base-content: #fff099;
-  --color-primary:      #00bfff;
-  --color-neutral:      #485878;
+  --color-primary: #00bfff;
+  --color-neutral: #485878;
   --color-neutral-content: #4858a0;
-  --color-success:      #51cf66;
-  --color-info:         #00bfff;
-  --color-error:        #ff6b6b;
-  color-scheme: dark;
+  --color-success: #51cf66;
+  --color-info: #00bfff;
+  --color-error: #ff6b6b;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
 }
