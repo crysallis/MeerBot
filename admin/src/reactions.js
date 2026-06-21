@@ -20,7 +20,8 @@ export function renderReactionsTable() {
   const PTYPES = { contains:'contains', exact:'exact', regex:'regex', mention:'@mention' };
   const RTYPES = { reply:'reply', message:'message', emoji:'emoji react', dm:'DM sender' };
 
-  tbody.innerHTML = allReactions.map(r => {
+  tbody.replaceChildren();
+  for (const r of allReactions) {
     const trigger = r.pattern_type === 'mention' ? '<em>@mention</em>' : `<code>${escHtml(r.pattern)}</code> <span style="color:var(--color-neutral-content);font-size:11px">(${PTYPES[r.pattern_type]??r.pattern_type})</span>`;
     const response = `${RTYPES[r.response_type]??r.response_type}: <code>${escHtml(r.response_content||'')}</code>`;
     let scope = 'all channels';
@@ -34,19 +35,28 @@ export function renderReactionsTable() {
     const status = r.enabled
       ? '<span style="color:var(--color-success);font-weight:600">ON</span>'
       : '<span style="color:var(--color-neutral-content);text-decoration:line-through">OFF</span>';
-    return `<tr>
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
       <td style="font-weight:600;color:var(--color-base-content)">${escHtml(r.name)}</td>
       <td>${trigger}</td>
       <td>${response}</td>
       <td style="font-size:12px;color:var(--color-neutral-content)">${escHtml(scope)}</td>
       <td style="font-size:12px">${r.cooldown_seconds}s</td>
       <td>${status}</td>
-      <td style="white-space:nowrap">
-        <button class="save-btn" onclick="openReactionForm(${r.id})" style="font-size:11px;padding:4px 8px">Edit</button>
-        <button class="reset-btn" onclick="deleteReactionRule(${r.id})" style="margin-left:4px">Delete</button>
-      </td>
-    </tr>`;
-  }).join('');
+      <td style="white-space:nowrap"></td>`;
+    const editBtn = document.createElement('button');
+    editBtn.className = 'save-btn';
+    editBtn.style.cssText = 'font-size:11px;padding:4px 8px';
+    editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', () => openReactionForm(r.id));
+    const delBtn = document.createElement('button');
+    delBtn.className = 'reset-btn';
+    delBtn.style.marginLeft = '4px';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', () => deleteReactionRule(r.id));
+    tr.lastElementChild.append(editBtn, delBtn);
+    tbody.appendChild(tr);
+  }
 }
 
 export function renderDiscordMarkdown(text) {
@@ -143,20 +153,27 @@ export function buildCheatSheet() {
 
   const chEl = document.getElementById('rx-channel-chips');
   if (chEl) {
-    chEl.innerHTML = state.channelList
-      .map(c => `<button onclick="rxInsert('<#${c.id}>')" style="background:var(--discord-bg-alt);border:1px solid var(--color-base-300);color:var(--discord-mention-fg);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left">#${escHtml(c.name)}</button>`)
-      .join('');
+    chEl.replaceChildren();
+    for (const c of state.channelList) {
+      const btn = document.createElement('button');
+      btn.style.cssText = 'background:var(--discord-bg-alt);border:1px solid var(--color-base-300);color:var(--discord-mention-fg);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left';
+      btn.textContent = '#' + c.name;
+      btn.addEventListener('click', () => rxInsert(`<#${c.id}>`));
+      chEl.appendChild(btn);
+    }
   }
 
   const roEl = document.getElementById('rx-role-chips');
   if (roEl) {
-    roEl.innerHTML = state.roleList
-      .filter(r => r.name !== '@everyone' && !r.managed)
-      .map(r => {
-        const color = r.color && r.color !== '#000000' ? r.color : 'var(--discord-mention-fg)';
-        return `<button onclick="rxInsert('<@&${r.id}>')" style="background:var(--discord-bg-alt);border:1px solid var(--color-base-300);color:${color};padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left">@${escHtml(r.name)}</button>`;
-      })
-      .join('');
+    roEl.replaceChildren();
+    for (const r of state.roleList.filter(r => r.name !== '@everyone' && !r.managed)) {
+      const color = r.color && r.color !== '#000000' ? r.color : 'var(--discord-mention-fg)';
+      const btn = document.createElement('button');
+      btn.style.cssText = `background:var(--discord-bg-alt);border:1px solid var(--color-base-300);color:${color};padding:3px 8px;border-radius:4px;cursor:pointer;font-size:12px;text-align:left`;
+      btn.textContent = '@' + r.name;
+      btn.addEventListener('click', () => rxInsert(`<@&${r.id}>`));
+      roEl.appendChild(btn);
+    }
   }
 }
 

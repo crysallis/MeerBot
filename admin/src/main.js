@@ -12,6 +12,65 @@ import { loadSeasons, addSeason, toggleSeason, deleteSeason, toggleServerPanel, 
 import { loadPermissions, populatePermCommands, permCommandChanged, populatePermCheckboxes, permPickRole, permPickChannel, permRemoveRole, permRemoveChannel, addPermRule, deletePermRule, removePermGroup, editPermGroup, cancelPermEdit } from './permissions.js';
 import { loadAccess, setOpTier, setRoleTierUI } from './access.js';
 
+// ── Error log (surfaces CSP violations, JS errors, unhandled rejections, fetch failures) ──
+
+const _errorLog = [];
+
+function reportError(type, message, detail = {}) {
+  const entry = { type, message, detail, at: new Date().toISOString() };
+  _errorLog.push(entry);
+  renderErrorLog();
+  _origFetch('/api/client-error', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  }).catch(() => {});
+}
+
+function renderErrorLog() {
+  let panel = document.getElementById('errorLogPanel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'errorLogPanel';
+    panel.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;max-width:480px;max-height:320px;overflow-y:auto;background:var(--color-base-100);border:2px solid var(--color-error);border-radius:8px;padding:12px 14px;box-shadow:0 4px 20px rgba(0,0,0,.4);font-size:12px';
+    document.body.appendChild(panel);
+  }
+  panel.replaceChildren();
+  const header = document.createElement('div');
+  header.style.cssText = 'font-weight:600;color:var(--color-error);margin-bottom:8px';
+  const closeBtn = document.createElement('button');
+  closeBtn.style.cssText = 'float:right;background:none;border:none;color:var(--color-neutral-content);cursor:pointer;font-size:14px;line-height:1;padding:0';
+  closeBtn.textContent = '✕';
+  closeBtn.addEventListener('click', () => panel.remove());
+  header.appendChild(closeBtn);
+  header.appendChild(document.createTextNode(`⚠ Client Errors (${_errorLog.length})`));
+  panel.appendChild(header);
+  for (const e of _errorLog.slice(-20).reverse()) {
+    const row = document.createElement('div');
+    row.style.cssText = 'border-bottom:1px solid var(--color-base-300);padding:4px 0;margin-bottom:4px';
+    row.innerHTML = `<span style="color:var(--color-error);font-weight:600">[${escapeHtml(e.type)}]</span>
+      <span style="color:var(--color-base-content);margin-left:6px">${escapeHtml(e.message)}</span>
+      <div style="color:var(--color-neutral-content);font-size:10px;margin-top:2px">${e.at.replace('T',' ').slice(0,19)}</div>`;
+    panel.appendChild(row);
+  }
+}
+
+// CSP violations
+document.addEventListener('securitypolicyviolation', e => {
+  reportError('CSP', `Blocked: ${e.blockedURI} in ${e.violatedDirective}`, { sourceFile: e.sourceFile, lineNumber: e.lineNumber });
+});
+
+// Uncaught JS errors
+window.addEventListener('error', e => {
+  reportError('JS Error', e.message, { source: e.filename, line: e.lineno, col: e.colno });
+});
+
+// Unhandled promise rejections
+window.addEventListener('unhandledrejection', e => {
+  const msg = e.reason instanceof Error ? e.reason.message : String(e.reason);
+  reportError('Unhandled Promise', msg);
+});
+
 // ── Auth / access tier ────────────────────────────────────────────────────────
 
 const AUTH = { tier: null, csrf: null, user: null };
@@ -23,8 +82,19 @@ window.fetch = async function (input, init = {}) {
   if (url.startsWith('/api/') && method !== 'GET' && method !== 'HEAD' && AUTH.csrf) {
     init.headers = Object.assign({}, init.headers, { 'X-CSRF-Token': AUTH.csrf });
   }
-  const res = await _origFetch(input, init);
+  let res;
+  try {
+    res = await _origFetch(input, init);
+  } catch (err) {
+    reportError('Fetch Error', `${method} ${url} — ${err.message}`);
+    throw err;
+  }
   if (res.status === 401 && url.startsWith('/api/')) showLogin();
+  if (!res.ok && url.startsWith('/api/') && method !== 'GET' && method !== 'HEAD') {
+    res.clone().json().then(data => {
+      if (data?.error) reportError('API Error', `${method} ${url} → ${res.status}: ${data.error}`);
+    }).catch(() => reportError('API Error', `${method} ${url} → ${res.status}`));
+  }
   return res;
 };
 
@@ -326,52 +396,132 @@ function buildRow(entry, cat) {
   if (cat === 'scan_modes' || entry.key === 'SCAN_AUTHORIZED_USER') tr.classList.add('needs-local');
 
   const inputId = 'input-' + entry.key;
-  let inputHtml = '';
+
+  // label col
+  const tdLabel = document.createElement('td');
+  tdLabel.className = 'label-col';
+  tdLabel.textContent = entry.label;
+
+  // desc col
+  const tdDesc = document.createElement('td');
+  tdDesc.className = 'desc-col';
+  tdDesc.textContent = entry.description;
+
+  // value col — build input via DOM to avoid inline event handlers (CSP blocks script-src-attr)
+  const tdVal = document.createElement('td');
+  tdVal.className = 'val-col';
 
   if (cat === 'channels') {
-    const filterId = 'filter-' + entry.key;
-    const opts = state.channelList.map(ch => {
-      const cleanName = ch.name.replace(/[^\w\s#\-]/gu, '').trim();
-      const selected  = ch.id === entry.value ? ' selected' : '';
-      return `<option value="${ch.id}"${selected}>${cleanName} (${ch.id})</option>`;
-    }).join('');
-    inputHtml = `
-      <input class="channel-filter" type="text" id="${filterId}" placeholder="Filter channels..."
-        oninput="filterChannel('${entry.key}')" style="margin-bottom:4px">
-      <select id="${inputId}" data-key="${entry.key}">
-        <option value="">— not set —</option>
-        ${opts}
-      </select>`;
+    const filterInput = document.createElement('input');
+    filterInput.className = 'channel-filter';
+    filterInput.type = 'text';
+    filterInput.id = 'filter-' + entry.key;
+    filterInput.placeholder = 'Filter channels...';
+    filterInput.style.marginBottom = '4px';
+    filterInput.addEventListener('input', () => filterChannel(entry.key));
+
+    const sel = document.createElement('select');
+    sel.id = inputId;
+    sel.dataset.key = entry.key;
+    const blankOpt = document.createElement('option');
+    blankOpt.value = '';
+    blankOpt.textContent = '— not set —';
+    sel.appendChild(blankOpt);
+    for (const ch of state.channelList) {
+      const opt = document.createElement('option');
+      opt.value = ch.id;
+      opt.textContent = ch.name.replace(/[^\w\s#\-]/gu, '').trim() + ' (' + ch.id + ')';
+      if (ch.id === entry.value) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    tdVal.appendChild(filterInput);
+    tdVal.appendChild(sel);
   } else if (cat === 'timing') {
-    inputHtml = `<input type="time" id="${inputId}" value="${entry.value || ''}" data-key="${entry.key}">`;
+    const inp = document.createElement('input');
+    inp.type = 'time';
+    inp.id = inputId;
+    inp.value = entry.value || '';
+    inp.dataset.key = entry.key;
+    tdVal.appendChild(inp);
   } else if (cat === 'scan_modes') {
-    inputHtml = `
-      <select id="${inputId}" data-key="${entry.key}">
-        <option value="false"${entry.value !== 'true' ? ' selected' : ''}>Off</option>
-        <option value="true"${entry.value === 'true' ? ' selected' : ''}>On</option>
-      </select>`;
+    const sel = document.createElement('select');
+    sel.id = inputId;
+    sel.dataset.key = entry.key;
+    const offOpt = document.createElement('option');
+    offOpt.value = 'false';
+    offOpt.textContent = 'Off';
+    if (entry.value !== 'true') offOpt.selected = true;
+    const onOpt = document.createElement('option');
+    onOpt.value = 'true';
+    onOpt.textContent = 'On';
+    if (entry.value === 'true') onOpt.selected = true;
+    sel.appendChild(offOpt);
+    sel.appendChild(onOpt);
+    tdVal.appendChild(sel);
   } else if (cat === 'thresholds') {
-    inputHtml = `<input type="number" id="${inputId}" value="${entry.value || ''}" min="1" data-key="${entry.key}" style="width:80px">`;
+    const inp = document.createElement('input');
+    inp.type = 'number';
+    inp.id = inputId;
+    inp.value = entry.value || '';
+    inp.min = '1';
+    inp.dataset.key = entry.key;
+    inp.style.width = '80px';
+    tdVal.appendChild(inp);
   } else {
-    inputHtml = `<input type="text" id="${inputId}" value="${entry.value || ''}" data-key="${entry.key}" placeholder="Discord user ID">`;
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.id = inputId;
+    inp.value = entry.value || '';
+    inp.dataset.key = entry.key;
+    inp.placeholder = 'Discord user ID';
+    tdVal.appendChild(inp);
   }
 
+  // badge col
   const configBadgeClass = { DB: 'config-badge-db', ENV: 'config-badge-env', DEFAULT: 'config-badge-default' }[entry.source] || 'config-badge-default';
-  const resetBtn = entry.source === 'DB'
-    ? `<button class="reset-btn" onclick="resetKey('${entry.key}')" title="Remove DB override, revert to ENV/DEFAULT">✕</button>`
-    : '';
+  const tdBadge = document.createElement('td');
+  tdBadge.className = 'config-badge-col';
+  const badge = document.createElement('span');
+  badge.className = 'config-badge ' + configBadgeClass;
+  badge.id = 'config-badge-' + entry.key;
+  badge.textContent = entry.source;
+  tdBadge.appendChild(badge);
 
-  tr.innerHTML = `
-    <td class="label-col">${entry.label}</td>
-    <td class="desc-col">${entry.description}</td>
-    <td class="val-col">${inputHtml}</td>
-    <td class="config-badge-col"><span class="config-badge ${configBadgeClass}" id="config-badge-${entry.key}">${entry.source}</span></td>
-    <td class="action-col">
-      <button class="save-btn" onclick="saveKey('${entry.key}')">Save</button>
-      ${resetBtn}
-      <span class="saved-flash" id="flash-${entry.key}">Saved!</span>
-    </td>`;
+  // action col
+  const tdAction = document.createElement('td');
+  tdAction.className = 'action-col';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'save-btn';
+  saveBtn.textContent = 'Save';
+  saveBtn.addEventListener('click', () => saveKey(entry.key));
+  tdAction.appendChild(saveBtn);
+
+  if (entry.source === 'DB') {
+    tdAction.appendChild(makeResetBtn(entry.key));
+  }
+
+  const flashSpan = document.createElement('span');
+  flashSpan.className = 'saved-flash';
+  flashSpan.id = 'flash-' + entry.key;
+  flashSpan.textContent = 'Saved!';
+  tdAction.appendChild(flashSpan);
+
+  tr.appendChild(tdLabel);
+  tr.appendChild(tdDesc);
+  tr.appendChild(tdVal);
+  tr.appendChild(tdBadge);
+  tr.appendChild(tdAction);
   return tr;
+}
+
+function makeResetBtn(key) {
+  const btn = document.createElement('button');
+  btn.className = 'reset-btn';
+  btn.title = 'Remove DB override, revert to ENV/DEFAULT';
+  btn.textContent = '✕';
+  btn.addEventListener('click', () => resetKey(key));
+  return btn;
 }
 
 function filterChannel(key) {
@@ -394,14 +544,8 @@ async function saveKey(key) {
   updateBadge(key, 'DB');
   flash(key);
   const tr = document.getElementById('row-' + key);
-  let resetBtn = tr.querySelector('.reset-btn');
-  if (!resetBtn) {
-    resetBtn = document.createElement('button');
-    resetBtn.className = 'reset-btn';
-    resetBtn.title = 'Remove DB override, revert to ENV/DEFAULT';
-    resetBtn.textContent = '✕';
-    resetBtn.onclick = () => resetKey(key);
-    tr.querySelector('.action-col').insertBefore(resetBtn, tr.querySelector('.saved-flash'));
+  if (!tr.querySelector('.reset-btn')) {
+    tr.querySelector('.action-col').insertBefore(makeResetBtn(key), tr.querySelector('.saved-flash'));
   }
 }
 

@@ -106,27 +106,59 @@ export async function loadPermissions() {
     if (!groups.has(key)) groups.set(key, { command: r.command, subcommand: r.subcommand, roles: [], channels: [] });
     (r.type === 'role' ? groups.get(key).roles : groups.get(key).channels).push(r);
   }
-  const tinyChip = (label, id) =>
-    `<span style="${CHIP_STYLE}">${escHtml(label)}<button style="${X_STYLE}" onclick="deletePermRule(${id})">×</button></span>`;
-  tbody.innerHTML = [...groups.values()].map(g => {
-    const subcmd      = g.subcommand ?? `<span style="color:var(--color-neutral-content)">— whole command —</span>`;
-    const roleChips   = g.roles.map(r => tinyChip(state.roleList.find(x => x.id === r.value_id)?.name ?? r.value_id, r.id)).join(' ');
-    const chChips     = g.channels.map(c => tinyChip('#' + (state.channelList.find(x => x.id === c.value_id)?.name ?? c.value_id), c.id)).join(' ');
-    const rIds  = '[' + g.roles.map(r => `'${r.value_id}'`).join(',') + ']';
-    const cIds  = '[' + g.channels.map(c => `'${c.value_id}'`).join(',') + ']';
-    const dbIds = '[' + [...g.roles, ...g.channels].map(r => r.id).join(',') + ']';
-    const sub   = g.subcommand ? `'${g.subcommand}'` : 'null';
-    return `<tr>
-      <td><code>${escHtml(g.command)}</code></td>
-      <td>${subcmd}</td>
-      <td style="white-space:normal">${roleChips    || '<span style="color:var(--color-neutral-content)">—</span>'}</td>
-      <td style="white-space:normal">${chChips      || '<span style="color:var(--color-neutral-content)">—</span>'}</td>
-      <td style="white-space:nowrap">
-        <button class="reset-btn" onclick="editPermGroup('${g.command}',${sub},${rIds},${cIds},${dbIds})">Edit</button>
-        <button class="reset-btn" style="margin-left:4px" onclick="removePermGroup(${dbIds})">Remove</button>
-      </td>
-    </tr>`;
-  }).join('');
+  function makeTinyChip(label, ruleId) {
+    const span = document.createElement('span');
+    span.setAttribute('style', CHIP_STYLE);
+    span.textContent = label;
+    const xBtn = document.createElement('button');
+    xBtn.setAttribute('style', X_STYLE);
+    xBtn.textContent = '×';
+    xBtn.addEventListener('click', () => deletePermRule(ruleId));
+    span.appendChild(xBtn);
+    return span;
+  }
+
+  tbody.replaceChildren();
+  for (const g of groups.values()) {
+    const tr = document.createElement('tr');
+
+    const tdCmd = document.createElement('td');
+    tdCmd.innerHTML = `<code>${escHtml(g.command)}</code>`;
+
+    const tdSub = document.createElement('td');
+    tdSub.innerHTML = g.subcommand ?? '<span style="color:var(--color-neutral-content)">— whole command —</span>';
+
+    const tdRoles = document.createElement('td');
+    tdRoles.style.whiteSpace = 'normal';
+    const roleChips = g.roles.map(r => makeTinyChip(state.roleList.find(x => x.id === r.value_id)?.name ?? r.value_id, r.id));
+    if (roleChips.length) roleChips.forEach(c => tdRoles.appendChild(c));
+    else tdRoles.innerHTML = '<span style="color:var(--color-neutral-content)">—</span>';
+
+    const tdChs = document.createElement('td');
+    tdChs.style.whiteSpace = 'normal';
+    const chChips = g.channels.map(c => makeTinyChip('#' + (state.channelList.find(x => x.id === c.value_id)?.name ?? c.value_id), c.id));
+    if (chChips.length) chChips.forEach(c => tdChs.appendChild(c));
+    else tdChs.innerHTML = '<span style="color:var(--color-neutral-content)">—</span>';
+
+    const tdAct = document.createElement('td');
+    tdAct.style.whiteSpace = 'nowrap';
+    const roleValueIds    = g.roles.map(r => r.value_id);
+    const channelValueIds = g.channels.map(c => c.value_id);
+    const dbIds           = [...g.roles, ...g.channels].map(r => r.id);
+    const editBtn = document.createElement('button');
+    editBtn.className = 'reset-btn';
+    editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', () => editPermGroup(g.command, g.subcommand, roleValueIds, channelValueIds, dbIds));
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'reset-btn';
+    removeBtn.style.marginLeft = '4px';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', () => removePermGroup(dbIds));
+    tdAct.append(editBtn, removeBtn);
+
+    tr.append(tdCmd, tdSub, tdRoles, tdChs, tdAct);
+    tbody.appendChild(tr);
+  }
 }
 
 export async function addPermRule() {

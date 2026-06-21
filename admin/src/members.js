@@ -31,37 +31,93 @@ export function renderMembers() {
     return;
   }
 
-  body.innerHTML = rows.map(m => {
-    const discord = m.discord_id
-      ? `<span title="${m.discord_id}">${m.discord_name || m.discord_id}</span>`
-      : '<span style="color:var(--color-neutral-content)">—</span>';
-    const status = m.pending
+  body.replaceChildren();
+  for (const m of rows) {
+    const tr = document.createElement('tr');
+
+    // Name + ingame ID
+    const tdName = document.createElement('td');
+    tdName.dataset.label = 'Name';
+    const nameB = document.createElement('b');
+    nameB.textContent = m.ingame_name;
+    const idInput = document.createElement('input');
+    idInput.type = 'number';
+    idInput.value = m.ingame_id || '';
+    idInput.placeholder = 'no ID';
+    idInput.min = '1';
+    idInput.title = 'In-game User ID · type and press Enter or Tab to save';
+    idInput.style.cssText = 'width:90px;font-size:11px;margin-top:3px;background:var(--color-base-200);color:var(--color-base-content);border:1px solid var(--color-base-300);border-radius:4px;padding:2px 4px';
+    idInput.addEventListener('change', () => setIngameId(m.id, idInput.value));
+    tdName.append(nameB, document.createElement('br'), idInput);
+
+    // Warband select
+    const tdWb = document.createElement('td');
+    tdWb.dataset.label = 'Warband';
+    const wbSel = document.createElement('select');
+    wbSel.style.cssText = 'background:var(--color-base-200);color:var(--color-base-content);border:1px solid var(--color-base-300);border-radius:4px;padding:2px 4px';
+    const noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = '— none —';
+    if (!m.warband_id) noneOpt.selected = true;
+    wbSel.appendChild(noneOpt);
+    for (const w of warbandsList.filter(w => !w.archived)) {
+      const opt = document.createElement('option');
+      opt.value = w.id;
+      opt.textContent = w.name;
+      if (m.warband_id === w.id) opt.selected = true;
+      wbSel.appendChild(opt);
+    }
+    wbSel.addEventListener('change', () => setWarband(m.id, wbSel.value));
+    tdWb.appendChild(wbSel);
+
+    // Power
+    const tdPow = document.createElement('td');
+    tdPow.dataset.label = 'Power';
+    tdPow.textContent = m.combat_power || '';
+
+    // Discord
+    const tdDis = document.createElement('td');
+    tdDis.dataset.label = 'Discord';
+    if (m.discord_id) {
+      const sp = document.createElement('span');
+      sp.title = m.discord_id;
+      sp.textContent = m.discord_name || m.discord_id;
+      tdDis.appendChild(sp);
+    } else {
+      tdDis.innerHTML = '<span style="color:var(--color-neutral-content)">—</span>';
+    }
+
+    // Status
+    const tdStat = document.createElement('td');
+    tdStat.dataset.label = 'Status';
+    tdStat.innerHTML = m.pending
       ? '<span style="color:var(--color-warning);font-weight:600">PENDING</span>'
       : (m.active ? '<span style="color:var(--color-success)">active</span>' : '<span style="color:var(--color-neutral-content)">inactive</span>');
-    const approveBtn = m.pending
-      ? `<button class="save-btn" style="background:var(--color-success);padding:3px 8px" onclick="approveMember(${m.id})">Approve</button>` : '';
-    const wbOptions = warbandsList.filter(w => !w.archived)
-      .map(w => `<option value="${w.id}"${m.warband_id === w.id ? ' selected' : ''}>${escapeHtml(w.name)}</option>`).join('');
-    const wbSelect = `<select onchange="setWarband(${m.id}, this.value)" style="background:var(--color-base-200);color:var(--color-base-content);border:1px solid var(--color-base-300);border-radius:4px;padding:2px 4px">`
-      + `<option value=""${m.warband_id ? '' : ' selected'}>— none —</option>${wbOptions}</select>`;
-    const ingameIdInput = `<input type="number" value="${m.ingame_id || ''}" placeholder="no ID" min="1"
-      title="In-game User ID · type and press Enter or Tab to save"
-      style="width:90px;font-size:11px;margin-top:3px;background:var(--color-base-200);color:var(--color-base-content);border:1px solid var(--color-base-300);border-radius:4px;padding:2px 4px"
-      onchange="setIngameId(${m.id}, this.value)">`;
-    return `<tr>
-      <td data-label="Name"><b>${escapeHtml(m.ingame_name)}</b><br>${ingameIdInput}</td>
-      <td data-label="Warband">${wbSelect}</td>
-      <td data-label="Power">${escapeHtml(m.combat_power || '')}</td>
-      <td data-label="Discord">${discord}</td>
-      <td data-label="Status">${status}</td>
-      <td data-label="Actions" style="white-space:nowrap">
-        ${approveBtn}
-        <button class="save-btn" style="padding:3px 8px" onclick="renameMember(${m.id})">Rename</button>
-        <button class="save-btn" style="padding:3px 8px" onclick="linkMember(${m.id})">Link</button>
-        <button class="save-btn" style="padding:3px 8px" onclick="mergeMemberPrompt(${m.id})">Merge</button>
-      </td>
-    </tr>`;
-  }).join('');
+
+    // Actions
+    const tdAct = document.createElement('td');
+    tdAct.dataset.label = 'Actions';
+    tdAct.style.whiteSpace = 'nowrap';
+    if (m.pending) {
+      const approveBtn = document.createElement('button');
+      approveBtn.className = 'save-btn';
+      approveBtn.style.cssText = 'background:var(--color-success);padding:3px 8px';
+      approveBtn.textContent = 'Approve';
+      approveBtn.addEventListener('click', () => approveMember(m.id));
+      tdAct.appendChild(approveBtn);
+    }
+    for (const [label, fn] of [['Rename', () => renameMember(m.id)], ['Link', () => linkMember(m.id)], ['Merge', () => mergeMemberPrompt(m.id)]]) {
+      const btn = document.createElement('button');
+      btn.className = 'save-btn';
+      btn.style.padding = '3px 8px';
+      btn.textContent = label;
+      btn.addEventListener('click', fn);
+      tdAct.appendChild(btn);
+    }
+
+    tr.append(tdName, tdWb, tdPow, tdDis, tdStat, tdAct);
+    body.appendChild(tr);
+  }
 }
 
 export function renderWarbands() {
@@ -71,15 +127,26 @@ export function renderWarbands() {
     body.innerHTML = '<tr><td colspan="4" style="color:var(--color-neutral-content)">No warbands.</td></tr>';
     return;
   }
-  body.innerHTML = warbandsList.map(w => `<tr>
-    <td><b>${escapeHtml(w.name)}</b></td>
-    <td>${w.members}</td>
-    <td>${w.archived ? '<span style="color:var(--color-neutral-content)">archived</span>' : '<span style="color:var(--color-success)">active</span>'}</td>
-    <td style="white-space:nowrap">
-      <button class="save-btn" style="padding:3px 8px" onclick="renameWarbandUI(${w.id})">Rename</button>
-      <button class="save-btn" style="padding:3px 8px" onclick="archiveWarband(${w.id}, ${w.archived ? 0 : 1})">${w.archived ? 'Unarchive' : 'Archive'}</button>
-    </td>
-  </tr>`).join('');
+  body.replaceChildren();
+  for (const w of warbandsList) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><b>${escapeHtml(w.name)}</b></td>
+      <td>${w.members}</td>
+      <td>${w.archived ? '<span style="color:var(--color-neutral-content)">archived</span>' : '<span style="color:var(--color-success)">active</span>'}</td>
+      <td style="white-space:nowrap"></td>`;
+    const renBtn = document.createElement('button');
+    renBtn.className = 'save-btn';
+    renBtn.style.padding = '3px 8px';
+    renBtn.textContent = 'Rename';
+    renBtn.addEventListener('click', () => renameWarbandUI(w.id));
+    const archBtn = document.createElement('button');
+    archBtn.className = 'save-btn';
+    archBtn.style.padding = '3px 8px';
+    archBtn.textContent = w.archived ? 'Unarchive' : 'Archive';
+    archBtn.addEventListener('click', () => archiveWarband(w.id, w.archived ? 0 : 1));
+    tr.lastElementChild.append(renBtn, archBtn);
+    body.appendChild(tr);
+  }
 }
 
 export async function approveMember(id) {

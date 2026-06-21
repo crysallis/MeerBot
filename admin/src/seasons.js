@@ -34,11 +34,22 @@ export function renderSeasons() {
       <td style="font-weight:600;color:var(--color-base-content)">${escHtml(s.name)}</td>
       <td>${statusBadge}</td>
       <td style="color:var(--color-neutral-content);font-size:12px">${s.server_count} server${s.server_count !== 1 ? 's' : ''}</td>
-      <td class="action-col">
-        <button class="save-btn" style="${toggleStyle};margin-right:6px" onclick="toggleSeason(${s.id},${s.active ? 0 : 1})">${toggleLabel}</button>
-        <button class="save-btn view-ok" style="background:var(--color-info);margin-right:6px" onclick="toggleServerPanel(${s.id})">${isExpanded ? 'Collapse' : 'Servers'}</button>
-        <button class="reset-btn" data-id="${s.id}" data-name="${escHtml(s.name)}" data-count="${s.server_count}" onclick="deleteSeason(this)">Delete</button>
-      </td>`;
+      <td class="action-col"></td>`;
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'save-btn';
+    toggleBtn.style.cssText = `${toggleStyle};margin-right:6px`;
+    toggleBtn.textContent = toggleLabel;
+    toggleBtn.addEventListener('click', () => toggleSeason(s.id, s.active ? 0 : 1));
+    const serversBtn = document.createElement('button');
+    serversBtn.className = 'save-btn view-ok';
+    serversBtn.style.cssText = 'background:var(--color-info);margin-right:6px';
+    serversBtn.textContent = isExpanded ? 'Collapse' : 'Servers';
+    serversBtn.addEventListener('click', () => toggleServerPanel(s.id));
+    const delBtn = document.createElement('button');
+    delBtn.className = 'reset-btn';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', () => deleteSeason(s.id, s.name, s.server_count));
+    tr.lastElementChild.append(toggleBtn, serversBtn, delBtn);
     tbody.appendChild(tr);
 
     if (isExpanded) {
@@ -57,19 +68,39 @@ async function loadServersContent(seasonId) {
   const container = document.getElementById(`servers-content-${seasonId}`);
   if (!container) return;
 
-  const chips = nums.length
-    ? nums.map(n => `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--color-base-200);border:1px solid var(--color-info);border-radius:4px;padding:2px 8px;font-size:12px;margin:2px">
-        ${n}
-        <button onclick="removeServer(${seasonId},${n})" style="background:none;border:none;color:var(--color-neutral-content);cursor:pointer;padding:0;font-size:11px;line-height:1" title="Remove">✕</button>
-      </span>`).join('')
-    : '<span style="color:var(--color-neutral-content);font-size:12px">No servers yet</span>';
+  const chipsDiv = document.createElement('div');
+  chipsDiv.style.marginBottom = '10px';
+  if (nums.length) {
+    for (const n of nums) {
+      const span = document.createElement('span');
+      span.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:var(--color-base-200);border:1px solid var(--color-info);border-radius:4px;padding:2px 8px;font-size:12px;margin:2px';
+      span.textContent = n;
+      const xBtn = document.createElement('button');
+      xBtn.style.cssText = 'background:none;border:none;color:var(--color-neutral-content);cursor:pointer;padding:0;font-size:11px;line-height:1';
+      xBtn.title = 'Remove';
+      xBtn.textContent = '✕';
+      xBtn.addEventListener('click', () => removeServer(seasonId, n));
+      span.appendChild(xBtn);
+      chipsDiv.appendChild(span);
+    }
+  } else {
+    chipsDiv.innerHTML = '<span style="color:var(--color-neutral-content);font-size:12px">No servers yet</span>';
+  }
 
-  container.innerHTML = `
-    <div style="margin-bottom:10px">${chips}</div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input id="addServers-${seasonId}" placeholder="e.g. 1, 3, 5-10, 14" style="max-width:260px;font-size:12px">
-      <button class="save-btn" style="background:var(--color-success)" onclick="bulkAddServers(${seasonId})">+ Add</button>
-    </div>`;
+  const addInput = document.createElement('input');
+  addInput.id = `addServers-${seasonId}`;
+  addInput.placeholder = 'e.g. 1, 3, 5-10, 14';
+  addInput.style.cssText = 'max-width:260px;font-size:12px';
+  const addBtn = document.createElement('button');
+  addBtn.className = 'save-btn';
+  addBtn.style.background = 'var(--color-success)';
+  addBtn.textContent = '+ Add';
+  addBtn.addEventListener('click', () => bulkAddServers(seasonId));
+  const addRow = document.createElement('div');
+  addRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+  addRow.append(addInput, addBtn);
+
+  container.replaceChildren(chipsDiv, addRow);
 }
 
 function parseServerNums(str) {
@@ -114,11 +145,8 @@ export async function toggleSeason(id, newActive) {
   await loadSeasons();
 }
 
-export async function deleteSeason(el) {
-  const id          = +el.dataset.id;
-  const name        = el.dataset.name;
-  const serverCount = +el.dataset.count;
-  const msg         = serverCount > 0
+export async function deleteSeason(id, name, serverCount) {
+  const msg = serverCount > 0
     ? `Delete season "${name}" and its ${serverCount} server${serverCount !== 1 ? 's' : ''}?`
     : `Delete season "${name}"?`;
   if (!confirm(msg)) return;
@@ -165,18 +193,51 @@ export async function loadDreamBosses() {
     tbody.innerHTML = '<tr><td colspan="4" style="color:var(--color-neutral-content)">No bosses yet.</td></tr>';
     return;
   }
-  tbody.innerHTML = bossList.map(b => `
-    <tr id="dr-row-${b.id}">
-      <td><input type="number" min="1" value="${b.sort_order ?? ''}" style="width:60px" onchange="updateDreamBoss(${b.id},{sort_order:this.value?parseInt(this.value):null})"></td>
-      <td><input type="text" value="${escHtml(b.name)}" style="max-width:200px" onchange="updateDreamBoss(${b.id},{name:this.value})"></td>
-      <td>
-        <select onchange="updateDreamBoss(${b.id},{season:this.value?parseInt(this.value):null})">
-          <option value="">— none —</option>
-          ${seasons.map(s => `<option value="${s.id}"${s.id === b.season ? ' selected' : ''}>${escHtml(s.name)}</option>`).join('')}
-        </select>
-      </td>
-      <td><button class="reset-btn" data-id="${b.id}" data-name="${escHtml(b.name)}" onclick="deleteDreamBoss(this)" style="color:var(--color-error)">Delete</button></td>
-    </tr>`).join('');
+  tbody.replaceChildren();
+  for (const b of bossList) {
+    const tr = document.createElement('tr');
+    tr.id = `dr-row-${b.id}`;
+
+    const orderInput = document.createElement('input');
+    orderInput.type = 'number';
+    orderInput.min = '1';
+    orderInput.value = b.sort_order ?? '';
+    orderInput.style.width = '60px';
+    orderInput.addEventListener('change', () => updateDreamBoss(b.id, { sort_order: orderInput.value ? parseInt(orderInput.value) : null }));
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.value = b.name;
+    nameInput.style.maxWidth = '200px';
+    nameInput.addEventListener('change', () => updateDreamBoss(b.id, { name: nameInput.value }));
+
+    const seasonSel = document.createElement('select');
+    const noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = '— none —';
+    seasonSel.appendChild(noneOpt);
+    for (const s of seasons) {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      if (s.id === b.season) opt.selected = true;
+      seasonSel.appendChild(opt);
+    }
+    seasonSel.addEventListener('change', () => updateDreamBoss(b.id, { season: seasonSel.value ? parseInt(seasonSel.value) : null }));
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'reset-btn';
+    delBtn.style.color = 'var(--color-error)';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', () => deleteDreamBoss(b.id, b.name));
+
+    const tdOrder = document.createElement('td'); tdOrder.appendChild(orderInput);
+    const tdName  = document.createElement('td'); tdName.appendChild(nameInput);
+    const tdSeas  = document.createElement('td'); tdSeas.appendChild(seasonSel);
+    const tdDel   = document.createElement('td'); tdDel.appendChild(delBtn);
+    tr.append(tdOrder, tdName, tdSeas, tdDel);
+    tbody.appendChild(tr);
+  }
 }
 
 export async function addDreamBoss() {
@@ -202,9 +263,7 @@ export async function updateDreamBoss(id, fields) {
   if (res.error) alert(res.error);
 }
 
-export async function deleteDreamBoss(el) {
-  const id   = +el.dataset.id;
-  const name = el.dataset.name;
+export async function deleteDreamBoss(id, name) {
   if (!confirm(`Delete boss "${name}"?`)) return;
   const res = await fetch(`/api/dream-realm-bosses/${id}`, { method: 'DELETE' }).then(r => r.json());
   if (res.error) { alert(res.error); return; }

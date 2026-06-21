@@ -11,12 +11,20 @@ export async function loadAccess() {
   const opsBody = document.getElementById('accessOpsBody');
   opsBody.innerHTML = '';
   for (const op of data.operations) {
-    const sel = ['read', 'manage', 'local'].map(t =>
-      `<option value="${t}"${op.tier === t ? ' selected' : ''}>${t}</option>`).join('');
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${escapeHtml(op.group)}</td>` +
       `<td>${escapeHtml(op.label)}${op.overridden ? ' <span style="color:var(--color-neutral-content)">(custom)</span>' : ''}</td>` +
-      `<td><select onchange="setOpTier('${op.key}', this.value)">${sel}</select></td>`;
+      `<td></td>`;
+    const sel = document.createElement('select');
+    for (const t of ['read', 'manage', 'local']) {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      if (op.tier === t) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    sel.addEventListener('change', () => setOpTier(op.key, sel.value));
+    tr.lastElementChild.appendChild(sel);
     opsBody.appendChild(tr);
   }
 
@@ -25,11 +33,18 @@ export async function loadAccess() {
   const roles = (state.roleList || []).slice().sort((a, b) => (b.position || 0) - (a.position || 0));
   for (const role of roles) {
     const cur = tierMap[role.id] || 'none';
-    const sel = ['none', 'read', 'manage'].map(t =>
-      `<option value="${t}"${cur === t ? ' selected' : ''}>${t}</option>`).join('');
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${escapeHtml(role.name)}</td>` +
-      `<td><select onchange="setRoleTierUI('${role.id}', this.value)">${sel}</select></td>`;
+    tr.innerHTML = `<td>${escapeHtml(role.name)}</td><td></td>`;
+    const sel = document.createElement('select');
+    for (const t of ['none', 'read', 'manage']) {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      if (cur === t) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    sel.addEventListener('change', () => setRoleTierUI(role.id, sel.value));
+    tr.lastElementChild.appendChild(sel);
     rolesBody.appendChild(tr);
   }
 

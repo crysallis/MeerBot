@@ -43,47 +43,98 @@ export function renderScheduledJobs(jobs) {
     const [unit, n] = (job.recurrence || 'daily:1').split(':');
     const count = n || '1';
 
-    const chKey = JOB_CHANNEL_KEY[job.handler_path];
-    const chField = chKey ? `
-        <div class="sj-field">
-          <label>Posts to</label>
-          <select onchange="setJobChannel('${chKey}', this.value)">${channelOptions(state.allConfig.find(c => c.key === chKey)?.value)}</select>
-        </div>` : '';
-
     const card = document.createElement('div');
     card.className = 'sj-card';
     card.style.opacity = job.enabled ? '1' : '0.5';
-    card.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="sj-name" style="margin-bottom:0;${!job.enabled ? 'text-decoration:line-through;color:var(--color-neutral-content)' : ''}">${job.display}</div>
-        <button id="sj-toggle-${job.id}" onclick="toggleScheduledJob(${job.id}, ${job.enabled ? 0 : 1})"
-          style="background:${job.enabled ? 'var(--color-success)' : 'var(--color-base-300)'};color:#fff;border:none;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600">
-          ${job.enabled ? 'Enabled' : 'Disabled'}
-        </button>
-      </div>
-      <div class="sj-fields">
-        <div class="sj-field">
-          <label>Next Fire (your local time)</label>
-          <input type="datetime-local" id="sj-fire-${job.id}" value="${utcToLocal(job.fire_at)}">
-        </div>
-        <div class="sj-field">
-          <label>Repeat every</label>
-          <div class="sj-recur-row">
-            <input type="number" id="sj-count-${job.id}" value="${count}" min="1" style="width:60px">
-            <select id="sj-unit-${job.id}">
-              <option value="daily"  ${unit === 'daily'  ? 'selected' : ''}>Day(s)</option>
-              <option value="weekly" ${unit === 'weekly' ? 'selected' : ''}>Week(s)</option>
-            </select>
-          </div>
-        </div>${chField}
-        <div class="sj-field" style="margin-left:auto;align-items:flex-end">
-          <button class="save-btn" onclick="saveScheduledJob(${job.id})">Save</button>
-          <span class="saved-flash" id="sj-flash-${job.id}">Saved!</span>
-        </div>
-      </div>
-      <div style="margin-top:10px; font-size:11px; color:var(--color-neutral-content)">
-        Current next fire (UTC): ${job.fire_at.slice(0,16).replace('T',' ')}
-      </div>`;
+
+    // Header row: name + toggle button
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'sj-name';
+    nameEl.style.cssText = 'margin-bottom:0' + (!job.enabled ? ';text-decoration:line-through;color:var(--color-neutral-content)' : '');
+    nameEl.textContent = job.display;
+    const toggleBtn = document.createElement('button');
+    toggleBtn.id = `sj-toggle-${job.id}`;
+    toggleBtn.style.cssText = `background:${job.enabled ? 'var(--color-success)' : 'var(--color-base-300)'};color:#fff;border:none;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600`;
+    toggleBtn.textContent = job.enabled ? 'Enabled' : 'Disabled';
+    toggleBtn.addEventListener('click', () => toggleScheduledJob(job.id, job.enabled ? 0 : 1));
+    header.append(nameEl, toggleBtn);
+
+    // Fields
+    const fields = document.createElement('div');
+    fields.className = 'sj-fields';
+
+    // Next fire field
+    const fireField = document.createElement('div');
+    fireField.className = 'sj-field';
+    fireField.innerHTML = '<label>Next Fire (your local time)</label>';
+    const fireInput = document.createElement('input');
+    fireInput.type = 'datetime-local';
+    fireInput.id = `sj-fire-${job.id}`;
+    fireInput.value = utcToLocal(job.fire_at);
+    fireField.appendChild(fireInput);
+
+    // Recurrence field
+    const recurField = document.createElement('div');
+    recurField.className = 'sj-field';
+    recurField.innerHTML = '<label>Repeat every</label>';
+    const recurRow = document.createElement('div');
+    recurRow.className = 'sj-recur-row';
+    const countInput = document.createElement('input');
+    countInput.type = 'number';
+    countInput.id = `sj-count-${job.id}`;
+    countInput.value = count;
+    countInput.min = '1';
+    countInput.style.width = '60px';
+    const unitSel = document.createElement('select');
+    unitSel.id = `sj-unit-${job.id}`;
+    for (const [val, label] of [['daily', 'Day(s)'], ['weekly', 'Week(s)']]) {
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = label;
+      if (unit === val) opt.selected = true;
+      unitSel.appendChild(opt);
+    }
+    recurRow.append(countInput, unitSel);
+    recurField.appendChild(recurRow);
+
+    fields.append(fireField, recurField);
+
+    // Optional "Posts to" channel field
+    const chKey = JOB_CHANNEL_KEY[job.handler_path];
+    if (chKey) {
+      const chField = document.createElement('div');
+      chField.className = 'sj-field';
+      chField.innerHTML = '<label>Posts to</label>';
+      const chSel = document.createElement('select');
+      chSel.innerHTML = channelOptions(state.allConfig.find(c => c.key === chKey)?.value);
+      chSel.addEventListener('change', () => setJobChannel(chKey, chSel.value));
+      chField.appendChild(chSel);
+      fields.appendChild(chField);
+    }
+
+    // Save button field
+    const saveField = document.createElement('div');
+    saveField.className = 'sj-field';
+    saveField.style.cssText = 'margin-left:auto;align-items:flex-end';
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'save-btn';
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', () => saveScheduledJob(job.id));
+    const flashSpan = document.createElement('span');
+    flashSpan.className = 'saved-flash';
+    flashSpan.id = `sj-flash-${job.id}`;
+    flashSpan.textContent = 'Saved!';
+    saveField.append(saveBtn, flashSpan);
+    fields.appendChild(saveField);
+
+    // UTC note
+    const utcNote = document.createElement('div');
+    utcNote.style.cssText = 'margin-top:10px;font-size:11px;color:var(--color-neutral-content)';
+    utcNote.textContent = `Current next fire (UTC): ${job.fire_at.slice(0,16).replace('T',' ')}`;
+
+    card.append(header, fields, utcNote);
     container.appendChild(card);
   }
 }

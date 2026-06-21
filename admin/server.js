@@ -64,6 +64,14 @@ app.use(auth.sessionMiddleware());
 app.use('/auth', rateLimit({ windowMs: 15 * 60 * 1000, max: 30 }));
 auth.registerRoutes(app);
 
+// POST /api/client-error — browser error reports (CSP violations, JS errors, fetch failures)
+// Intentionally before auth middleware so pre-login errors are still captured.
+app.post('/api/client-error', (req, res) => {
+    const { type, message, detail, at } = req.body || {};
+    console.error(`[client-error] [${type || '?'}] ${message || ''}`, detail || '', `at=${at || ''}`);
+    res.json({ ok: true });
+});
+
 // Everything under /api requires authentication, tier authorization, and is audited.
 app.use('/api', rateLimit({ windowMs: 60 * 1000, max: 300 }));
 app.use('/api', auth.authorize);
