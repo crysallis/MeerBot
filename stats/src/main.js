@@ -35,7 +35,7 @@ function applyTheme(theme) {
 }
 
 function initTheme() {
-    const t = localStorage.getItem('meerbot-theme') || 'jewel';
+    const t = localStorage.getItem('meerbot-theme') || 'caramellatte';
     applyTheme(t);
     const sel = document.getElementById('theme-select');
     if (sel) {

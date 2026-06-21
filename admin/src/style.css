@@ -17,14 +17,14 @@ header h1 span { color: var(--color-primary); }
   transition: background .15s;
 }
 .restart-btn:hover { filter: brightness(1.1); }
-.restart-btn:disabled { background: var(--color-base-100); color: var(--color-neutral-content); cursor: default; }
-.restart-status { font-size: 12px; color: var(--color-neutral-content); }
+.restart-btn:disabled { background: var(--color-base-100); color: var(--color-base-content); cursor: default; }
+.restart-status { font-size: 12px; color: var(--color-base-content); }
 
 main { max-width: 900px; margin: 0 auto; }
 
 .info-bar {
   border: 1px solid var(--color-base-300); border-radius: 8px;
-  padding: 10px 16px; margin-bottom: 24px; font-size: 12px; color: var(--color-neutral-content);
+  padding: 10px 16px; margin-bottom: 24px; font-size: 12px; color: var(--color-base-content);
   display: flex; gap: 24px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,.2);
 }
 .info-bar span { display: flex; align-items: center; gap: 6px; }
@@ -37,14 +37,14 @@ main { max-width: 900px; margin: 0 auto; }
 table { width: 100%; border-collapse: collapse; }
 th {
   text-align: left; padding: 8px 12px; font-size: 11px; text-transform: uppercase;
-  letter-spacing: .05em; color: var(--color-neutral-content); border-bottom: 1px solid var(--color-base-300);
+  letter-spacing: .05em; color: var(--color-base-content); border-bottom: 1px solid var(--color-base-300);
 }
 td { padding: 10px 12px; border-bottom: 1px solid var(--color-base-300); vertical-align: middle; }
 tr:last-child td { border-bottom: none; }
 tr:hover td { background: var(--hover-bg); }
 
 .label-col { font-weight: 600; color: var(--color-base-content); min-width: 160px; }
-.desc-col { color: var(--color-neutral-content); font-size: 12px; min-width: 200px; }
+.desc-col { color: var(--color-base-content); font-size: 12px; min-width: 200px; }
 .val-col { min-width: 220px; }
 .config-badge-col { min-width: 70px; }
 .action-col { white-space: nowrap; }
@@ -55,7 +55,7 @@ tr:hover td { background: var(--hover-bg); }
 }
 .config-badge-db      { background: rgba(81,207,102,.15); color: var(--color-success); }
 .config-badge-env     { background: rgba(77,171,247,.15); color: var(--color-info);  }
-.config-badge-default { background: rgba(127,127,127,.15); color: var(--color-neutral-content); }
+.config-badge-default { background: rgba(127,127,127,.15); color: var(--color-base-content); }
 
 input[type=text], input[type=number], input[type=time], select { width: 100%; }
 .channel-filter {
@@ -68,10 +68,10 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
   white-space: nowrap; transition: filter .15s;
 }
 .save-btn:hover { filter: brightness(1.1); }
-.save-btn:disabled { background: var(--color-base-100); color: var(--color-neutral-content); cursor: default; }
+.save-btn:disabled { background: var(--color-base-100); color: var(--color-base-content); cursor: default; }
 
 .reset-btn {
-  background: none; border: 1px solid var(--color-base-300); color: var(--color-neutral-content);
+  background: none; border: 1px solid var(--color-base-300); color: var(--color-base-content);
   padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 11px;
   margin-left: 6px; transition: all .15s;
 }
@@ -83,10 +83,10 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
 .jobs-table { margin-top: 8px; }
 .jobs-table td { font-size: 12px; font-family: monospace; }
 .late-yes { color: var(--color-error); }
-.late-no  { color: var(--color-neutral-content); }
+.late-no  { color: var(--color-base-content); }
 .jobs-header-row th { cursor: pointer; user-select: none; white-space: nowrap; }
 .jobs-header-row th:hover { color: var(--color-primary); }
-.sort-arrow { font-size: 10px; margin-left: 4px; color: var(--color-neutral-content); }
+.sort-arrow { font-size: 10px; margin-left: 4px; color: var(--color-base-content); }
 .sort-arrow.active { color: var(--color-primary); }
 .jobs-filter-row td { padding: 4px 8px; border-bottom: 1px solid var(--color-base-300); }
 .job-filter {
@@ -104,10 +104,10 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
 .sj-name { font-size: 15px; font-weight: 600; color: var(--color-base-content); margin-bottom: 12px; }
 .sj-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
 .sj-field { display: flex; flex-direction: column; gap: 4px; }
-.sj-field label { font-size: 11px; color: var(--color-neutral-content); text-transform: uppercase; letter-spacing: .04em; }
+.sj-field label { font-size: 11px; color: var(--color-base-content); text-transform: uppercase; letter-spacing: .04em; }
 .sj-recur-row { display: flex; gap: 6px; align-items: center; }
 
-.channels-fetched { font-size: 11px; color: var(--color-neutral-content); margin-bottom: 12px; }
+.channels-fetched { font-size: 11px; color: var(--color-base-content); margin-bottom: 12px; }
 
 
 .bot-status-bar {
@@ -123,14 +123,14 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
 .status-stopped { background: var(--color-error);   color: var(--color-error);   }
 .status-other   { background: var(--color-neutral);  color: var(--color-neutral);  }
 .bot-status-bar .stat { display: flex; flex-direction: column; gap: 1px; }
-.bot-status-bar .stat-label { font-size: 10px; color: var(--color-neutral-content); text-transform: uppercase; letter-spacing: .04em; }
+.bot-status-bar .stat-label { font-size: 10px; color: var(--color-base-content); text-transform: uppercase; letter-spacing: .04em; }
 .bot-status-bar .stat-value { color: var(--color-base-content); font-weight: 600; }
 
-.whoami { font-size: 12px; color: var(--color-neutral-content); }
+.whoami { font-size: 12px; color: var(--color-base-content); }
 .user-avatar { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--color-primary); object-fit: cover; }
 
 .presence-stack { display: flex; align-items: center; }
-.presence-label { font-size: 11px; color: var(--color-neutral-content); margin-right: 8px; }
+.presence-label { font-size: 11px; color: var(--color-base-content); margin-right: 8px; }
 .presence-av {
   width: 24px; height: 24px; border-radius: 50%; overflow: hidden;
   margin-left: -8px; border: 2px solid var(--color-primary); background: var(--color-base-200);
@@ -142,7 +142,7 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
 .presence-av img { width: 100%; height: 100%; object-fit: cover; }
 .presence-fallback, .presence-more { font-size: 10px; font-weight: 700; color: var(--color-base-content); }
 .logout-btn {
-  background: transparent; color: var(--color-neutral-content); border: 1px solid var(--color-base-300);
+  background: transparent; color: var(--color-base-content); border: 1px solid var(--color-base-300);
   border-radius: 6px; cursor: pointer; padding: 5px 9px; font-size: 13px;
 }
 .logout-btn:hover { color: var(--color-base-content); border-color: var(--color-primary); }
@@ -156,7 +156,7 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
 .readonly-banner {
   margin: 0 auto 16px; max-width: 900px; text-align: center;
   background: var(--color-base-200); border: 1px solid var(--color-base-300);
-  border-radius: 8px; padding: 8px 16px; font-size: 12px; color: var(--color-neutral-content);
+  border-radius: 8px; padding: 8px 16px; font-size: 12px; color: var(--color-base-content);
 }
 
 .nav-toggle {
@@ -223,6 +223,19 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
   .cards-sm td::before {
     content: attr(data-label); display: block; margin-bottom: 3px;
     font-size: 11px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: .04em; color: var(--color-neutral-content);
+    letter-spacing: .04em; color: var(--color-base-content);
   }
+}
+
+@supports (color: color-mix(in oklab, red, red)) {
+  .restart-status,
+  .desc-col,
+  .sort-arrow,
+  .sj-field label,
+  .channels-fetched,
+  .bot-status-bar .stat-label,
+  .whoami,
+  .presence-label,
+  .readonly-banner,
+  th { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
 }

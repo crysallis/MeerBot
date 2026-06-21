@@ -19,7 +19,7 @@ header h1 { font-size: 18px; color: var(--color-base-content); font-weight: 600;
 header h1 span { color: var(--color-primary); }
 .header-right { display: flex; align-items: center; gap: 12px; }
 .user-ingame { font-weight: 600; color: var(--color-primary); }
-.user-name   { color: var(--color-neutral-content); font-size: .85rem; }
+.user-name   { color: var(--color-base-content); font-size: .85rem; }
 .user-avatar { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--color-primary); object-fit: cover; }
 
 .tabs { margin-bottom: 20px; }
@@ -43,7 +43,7 @@ main { max-width: 900px; margin: 0 auto; padding: 0 16px; }
   box-shadow: 0 1px 3px rgba(0,0,0,.2);
 }
 .stat-value { font-size: 1.6rem; font-weight: 700; color: var(--color-primary); }
-.stat-label { font-size: .8rem; color: var(--color-neutral-content); margin-top: .25rem; }
+.stat-label { font-size: .8rem; color: var(--color-base-content); margin-top: .25rem; }
 
 /* Chart containers */
 .chart-row {
@@ -60,7 +60,7 @@ main { max-width: 900px; margin: 0 auto; padding: 0 16px; }
   box-shadow: 0 1px 3px rgba(0,0,0,.2);
 }
 .chart-box.full { width: 100%; }
-.chart-box h2 { font-size: .9rem; color: var(--color-neutral-content); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: .05em; }
+.chart-box h2 { font-size: .9rem; color: var(--color-base-content); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: .05em; }
 canvas { max-height: 400px; }
 
 /* Controls */
@@ -76,7 +76,7 @@ canvas { max-height: 400px; }
   flex-direction: column;
   gap: .35rem;
   font-size: .8rem;
-  color: var(--color-neutral-content);
+  color: var(--color-base-content);
 }
 .controls select {
   background: var(--color-base-100);
@@ -135,7 +135,7 @@ canvas { max-height: 400px; }
   flex-direction: column;
   gap: .35rem;
   font-size: .8rem;
-  color: var(--color-neutral-content);
+  color: var(--color-base-content);
 }
 .sa-controls select {
   background: var(--color-base-100);
@@ -159,7 +159,7 @@ canvas { max-height: 400px; }
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0,0,0,.2);
 }
-.table-box h2 { font-size: .9rem; color: var(--color-neutral-content); margin-bottom: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+.table-box h2 { font-size: .9rem; color: var(--color-base-content); margin-bottom: .75rem; text-transform: uppercase; letter-spacing: .05em; }
 
 .data-table {
   width: 100%;
@@ -168,7 +168,7 @@ canvas { max-height: 400px; }
 }
 .data-table th {
   text-align: left;
-  color: var(--color-neutral-content);
+  color: var(--color-base-content);
   font-weight: 600;
   font-size: .75rem;
   text-transform: uppercase;
@@ -194,7 +194,7 @@ canvas { max-height: 400px; }
   font-size: .75rem;
   font-weight: 700;
   background: var(--color-base-100);
-  color: var(--color-neutral-content);
+  color: var(--color-base-content);
 }
 .rank-badge.r1 { background: #f0a500; color: #0f1117; }
 .rank-badge.r2 { background: #9ba8b0; color: #0f1117; }
@@ -203,7 +203,7 @@ canvas { max-height: 400px; }
 
 .warband-tag {
   font-size: .7rem;
-  color: var(--color-neutral-content);
+  color: var(--color-base-content);
   background: var(--color-base-200);
   border-radius: 4px;
   padding: .1rem .4rem;
@@ -211,7 +211,7 @@ canvas { max-height: 400px; }
 
 .scan-note {
   font-size: .75rem;
-  color: var(--color-neutral-content);
+  color: var(--color-base-content);
   margin-top: .5rem;
 }
 
@@ -284,7 +284,7 @@ canvas { max-height: 400px; }
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .08em;
-  color: var(--color-neutral-content);
+  color: var(--color-base-content);
   margin-bottom: .75rem;
   padding-bottom: .35rem;
   border-bottom: 1px solid var(--color-base-300);
@@ -347,11 +347,23 @@ canvas { max-height: 400px; }
   .data-table td::before {
     content: attr(data-label);
     font-size: .72rem;
-    color: var(--color-neutral-content);
+    color: var(--color-base-content);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .05em;
     flex-shrink: 0;
     margin-right: .5rem;
   }
+}
+
+@supports (color: color-mix(in oklab, red, red)) {
+  .stat-label,
+  .chart-box h2,
+  .table-box h2,
+  .controls > label,
+  .sa-controls > label,
+  .scan-note,
+  .user-name,
+  .warband-tag,
+  .data-table th { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
 }

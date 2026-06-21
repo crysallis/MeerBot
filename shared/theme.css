@@ -36,8 +36,8 @@
   --wb-sobaquitos-to:   #ff9cbf;
 }
 
-/* Chili is the light theme — override rarity and hover vars to match */
-[data-theme="chili"] {
+/* Autumn is the light theme — override rarity and hover vars to match */
+[data-theme="autumn"] {
   --hover-bg: rgba(0,0,0,.04);
   --hard:     #c0392b;
   --epic:     #7d3c98;

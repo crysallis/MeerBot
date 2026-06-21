@@ -1,11 +1,11 @@
 export const THEMES = [
-    { value: 'jewel',     label: 'Jewel',     mode: 'dark'  },
-    { value: 'chili',     label: 'Chili',     mode: 'light' },
-    { value: 'tigereye',  label: 'Tigereye',  mode: 'dark'  },
-    { value: 'plum',      label: 'Plum',      mode: 'dark'  },
-    { value: 'lapis',     label: 'Lapis',     mode: 'dark'  },
-    { value: 'synthwave', label: 'Synthwave', mode: 'dark'  },
-    { value: 'purple',    label: 'Purple',    mode: 'dark'  },
+    { value: 'caramellatte', label: 'Caramellatte', mode: 'dark'  },
+    { value: 'autumn',       label: 'Autumn',       mode: 'light' },
+    { value: 'fantasy',      label: 'Fantasy',      mode: 'dark'  },
+    { value: 'abyss',        label: 'Abyss',        mode: 'dark'  },
+    { value: 'ocean',        label: 'Ocean',        mode: 'dark'  },
+    { value: 'synthwave',    label: 'Synthwave',    mode: 'dark'  },
+    { value: 'aqua',         label: 'Aqua',         mode: 'dark'  },
 ];
 
 export function themeMode(value) {

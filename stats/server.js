@@ -142,9 +142,11 @@ app.get('/api/arena', (req, res) => {
             ORDER BY ar.rank
         `).all();
         const supArena = db.prepare(`
-            SELECT m.id, m.ingame_name, sar.period_start, sar.rank, sar.scanned_at
+            SELECT m.id, m.ingame_name, m.warband_id, w.name as warband_name,
+                   sar.period_start, sar.rank, sar.scanned_at
             FROM supreme_arena_rankings sar
             JOIN members m ON m.id = sar.member_id
+            LEFT JOIN warbands w ON w.id = m.warband_id
             ORDER BY sar.period_start DESC, sar.rank
         `).all();
         res.json({ arena, supArena });

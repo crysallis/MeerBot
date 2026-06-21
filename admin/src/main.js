@@ -172,7 +172,7 @@ function applyTheme(theme) {
 
 // Restore theme select value + attach listeners (DOM is ready; module is deferred)
 (function () {
-  const t = localStorage.getItem('meerbot-theme') || 'jewel';
+  const t = localStorage.getItem('meerbot-theme') || 'caramellatte';
   applyTheme(t);
   const sel = document.getElementById('theme-select');
   if (sel) {
