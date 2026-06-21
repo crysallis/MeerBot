@@ -100,6 +100,8 @@ function handlePromoCode(message) {
     }
     if (savedAny) {
         message.react('💾').catch(() => {});
+    } else if (codes.length > 0) {
+        message.react('🔁').catch(() => {});
     }
 }
 
