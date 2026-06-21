@@ -893,7 +893,7 @@ app.put('/api/access/role', (req, res) => {
 // Ensure dream_realm_bosses.sort_order exists (added after initial schema creation)
 try { db.exec('ALTER TABLE dream_realm_bosses ADD COLUMN sort_order INTEGER'); } catch {}
 
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
+app.get('*', rateLimit({ windowMs: 60 * 1000, max: 300 }), (req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
 
 app.listen(PORT, '127.0.0.1', () => {
     console.log(`MeerBot admin panel running at http://127.0.0.1:${PORT}`);

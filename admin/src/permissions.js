@@ -70,13 +70,27 @@ export function permRemoveChannel(id) {
   renderPermChips();
 }
 
+function makeChip(label, onRemove) {
+  const span = document.createElement('span');
+  span.setAttribute('style', CHIP_STYLE);
+  span.appendChild(document.createTextNode(label));
+  const btn = document.createElement('button');
+  btn.setAttribute('style', X_STYLE);
+  btn.textContent = '×';
+  btn.addEventListener('click', onRemove);
+  span.appendChild(btn);
+  return span;
+}
+
 export function renderPermChips() {
-  document.getElementById('perm-role-chips').innerHTML = selectedPermRoles
-    .map(r => `<span style="${CHIP_STYLE}">${escHtml(r.name)}<button style="${X_STYLE}" onclick="permRemoveRole('${r.id}')">×</button></span>`)
-    .join('');
-  document.getElementById('perm-channel-chips').innerHTML = selectedPermChannels
-    .map(c => `<span style="${CHIP_STYLE}">#${escHtml(c.name)}<button style="${X_STYLE}" onclick="permRemoveChannel('${c.id}')">×</button></span>`)
-    .join('');
+  const roleEl = document.getElementById('perm-role-chips');
+  const chEl   = document.getElementById('perm-channel-chips');
+  roleEl.replaceChildren(...selectedPermRoles.map(r =>
+    makeChip(r.name, () => permRemoveRole(r.id))
+  ));
+  chEl.replaceChildren(...selectedPermChannels.map(c =>
+    makeChip('#' + c.name, () => permRemoveChannel(c.id))
+  ));
 }
 
 export async function loadPermissions() {
