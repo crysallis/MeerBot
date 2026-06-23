@@ -36,12 +36,11 @@ main { max-width: 900px; margin: 0 auto; flex: 1; width: 100%; padding-bottom: 2
 
 .tabs-scroll {
   overflow-x: auto; overflow-y: visible; margin-bottom: 20px;
-  scrollbar-width: none;
+  scrollbar-width: none; padding: 4px 1px 6px;
 }
 .tabs-scroll::-webkit-scrollbar { display: none; }
 .tabs {
-  display: flex; flex-wrap: nowrap; gap: 4px;
-  padding: 4px 2px 6px; min-width: max-content;
+  display: inline-flex; flex-wrap: nowrap; gap: 4px;
 }
 .tabs .tab { flex-shrink: 0; white-space: nowrap; }
 
