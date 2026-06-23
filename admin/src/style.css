@@ -34,17 +34,7 @@ main { max-width: 900px; margin: 0 auto; flex: 1; width: 100%; padding-bottom: 2
 }
 .info-bar span { display: flex; align-items: center; gap: 6px; }
 
-.tabs-scroll {
-  overflow-x: auto; margin-bottom: 20px;
-  scrollbar-width: none;
-}
-.tabs-scroll::-webkit-scrollbar { display: none; }
-.tabs {
-  display: flex; flex-wrap: nowrap; gap: 4px; width: max-content;
-  padding: 4px 0 6px 3px;
-}
-.tabs::after { content: ''; display: block; width: 3px; flex-shrink: 0; }
-.tabs .tab { flex-shrink: 0; white-space: nowrap; }
+.tabs { margin-bottom: 20px; padding: 3px; }
 
 .section { display: none; }
 .section.visible { display: block; }
@@ -207,8 +197,7 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
   }
   body.nav-open .nav-backdrop { opacity: 1; pointer-events: auto; }
 
-  .tabs-scroll { overflow: visible; margin-bottom: 0; }
-  #tabs { flex-direction: column; gap: 6px; flex-wrap: nowrap; padding: 0; min-width: unset; }
+  #tabs { flex-direction: column; gap: 6px; flex-wrap: nowrap; padding: 0; margin-bottom: 0; }
   #tabs .tab { width: 100%; text-align: left; padding: 12px 14px; font-size: 15px; }
 
   #drawerUtils {
