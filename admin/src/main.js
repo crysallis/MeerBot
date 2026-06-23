@@ -664,5 +664,44 @@ Object.assign(window, {
   applyAccess(me);
   setupMobileChrome(_mobileMQ);
   _mobileMQ.addEventListener('change', setupMobileChrome);
+
+  // Static HTML handlers (CSP blocks onclick= attributes)
+  document.getElementById('logoutBtn')?.addEventListener('click', logout);
+  document.getElementById('restartBtn')?.addEventListener('click', restartBot);
+  document.getElementById('navToggle')?.addEventListener('click', toggleNav);
+  document.getElementById('navBackdrop')?.addEventListener('click', closeNav);
+
+  document.getElementById('rxAddBtn')?.addEventListener('click', () => openReactionForm(null));
+  document.getElementById('rxSaveBtn')?.addEventListener('click', saveReactionRule);
+  document.getElementById('rxCancelBtn')?.addEventListener('click', cancelReactionForm);
+  document.getElementById('rxRefreshBtn')?.addEventListener('click', refreshDiscordData);
+  document.getElementById('rx-pattern-type')?.addEventListener('change', rxPatternTypeChange);
+  document.getElementById('rx-response-type')?.addEventListener('change', rxResponseTypeChange);
+  document.getElementById('rx-response-content')?.addEventListener('input', updatePreview);
+  document.getElementById('rx-resp-channel-filter')?.addEventListener('input', e => rxFilterSelect('rx-response-channel', e.target.value));
+  document.getElementById('rx-embed-title')?.addEventListener('input', updatePreview);
+  document.getElementById('rx-embed-color-picker')?.addEventListener('input', e => { document.getElementById('rx-embed-color').value = e.target.value; updatePreview(); });
+  document.getElementById('rx-embed-color')?.addEventListener('input', () => { rxSyncColorPicker(); updatePreview(); });
+  document.getElementById('rx-embed-description')?.addEventListener('input', updatePreview);
+  document.getElementById('rx-ch-filter')?.addEventListener('input', e => rxFilterSelect('rx-channel-filter-select', e.target.value));
+
+  document.getElementById('sort-th-name')?.addEventListener('click', () => sortJobs('name'));
+  document.getElementById('sort-th-sent_at')?.addEventListener('click', () => sortJobs('sent_at'));
+  document.getElementById('sort-th-late')?.addEventListener('click', () => sortJobs('late'));
+  document.getElementById('jf-name')?.addEventListener('input', e => filterJobs('name', e.target.value));
+  document.getElementById('jf-sent_at')?.addEventListener('input', e => filterJobs('sent_at', e.target.value));
+  document.getElementById('jf-late')?.addEventListener('input', e => filterJobs('late', e.target.value));
+
+  document.getElementById('memberFilter')?.addEventListener('input', renderMembers);
+  document.getElementById('addWarbandBtn')?.addEventListener('click', addWarband);
+  document.getElementById('addSeasonBtn')?.addEventListener('click', addSeason);
+  document.getElementById('addDreamBossBtn')?.addEventListener('click', addDreamBoss);
+
+  document.getElementById('perm-command')?.addEventListener('change', permCommandChanged);
+  document.getElementById('perm-role-pick')?.addEventListener('change', permPickRole);
+  document.getElementById('perm-channel-pick')?.addEventListener('change', permPickChannel);
+  document.getElementById('perm-add-btn')?.addEventListener('click', addPermRule);
+  document.getElementById('perm-cancel-btn')?.addEventListener('click', cancelPermEdit);
+
   init();
 })();

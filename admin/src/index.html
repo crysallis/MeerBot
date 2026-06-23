@@ -16,16 +16,16 @@
     <div class="presence-stack" id="presence"></div>
     <img class="user-avatar" id="userAvatar" alt="" style="display:none">
     <span class="whoami" id="whoami"></span>
-    <button class="logout-btn" onclick="logout()" title="Sign out">⎋</button>
+    <button class="logout-btn" id="logoutBtn" title="Sign out">⎋</button>
     <span class="restart-status" id="restartStatus"></span>
-    <button class="restart-btn needs-local" id="restartBtn" onclick="restartBot()">⟳ Restart Bot</button>
+    <button class="restart-btn needs-local" id="restartBtn">⟳ Restart Bot</button>
     <div class="theme-controls">
       <select id="theme-select" class="theme-picker"></select>
     </div>
-    <button id="navToggle" class="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
+    <button id="navToggle" class="nav-toggle" aria-label="Menu">☰</button>
   </div>
 </header>
-<div id="navBackdrop" class="nav-backdrop" onclick="closeNav()"></div>
+<div id="navBackdrop" class="nav-backdrop"></div>
 
 <main>
   <div class="meerbot_header"><img src="./images/meerbot_header.png" alt="MeerBot Header" style="width: 400px; max-width: 100%; height: auto; display: block; margin: 0 auto;"></div>
@@ -54,7 +54,7 @@
     <div class="section-title">Message Reactions</div>
 
     <div style="margin-bottom:16px">
-      <button class="save-btn" onclick="openReactionForm(null)" style="background:var(--color-success)">+ Add Rule</button>
+      <button id="rxAddBtn" class="save-btn" style="background:var(--color-success)">+ Add Rule</button>
     </div>
 
     <!-- Add / Edit form -->
@@ -68,7 +68,7 @@
           </div>
           <div>
             <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Pattern Type</label>
-            <select id="rx-pattern-type" onchange="rxPatternTypeChange()">
+            <select id="rx-pattern-type">
               <option value="contains">Contains</option>
               <option value="exact">Exact match</option>
               <option value="regex">Regex</option>
@@ -81,7 +81,7 @@
           </div>
           <div>
             <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Response Type</label>
-            <select id="rx-response-type" onchange="rxResponseTypeChange()">
+            <select id="rx-response-type">
               <option value="reply">Reply (threaded)</option>
               <option value="message">Standalone message</option>
               <option value="emoji">Emoji react</option>
@@ -90,11 +90,11 @@
           </div>
           <div>
             <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px" id="rx-content-label">Response Content *</label>
-            <input type="text" id="rx-response-content" placeholder="Text to send (or emoji char)" oninput="updatePreview()">
+            <input type="text" id="rx-response-content" placeholder="Text to send (or emoji char)">
           </div>
           <div id="rx-resp-channel-wrap" style="display:none">
             <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Response Channel (optional)</label>
-            <input type="text" id="rx-resp-channel-filter" placeholder="Filter..." oninput="rxFilterSelect('rx-response-channel', this.value)" style="margin-bottom:4px">
+            <input type="text" id="rx-resp-channel-filter" placeholder="Filter..." style="margin-bottom:4px">
             <select id="rx-response-channel">
               <option value="">— same channel as trigger —</option>
             </select>
@@ -120,25 +120,25 @@
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px">
             <div>
               <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Embed Title</label>
-              <input type="text" id="rx-embed-title" placeholder="e.g. Need help?" oninput="updatePreview()">
+              <input type="text" id="rx-embed-title" placeholder="e.g. Need help?">
             </div>
             <div>
               <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Embed Color (hex)</label>
               <div style="display:flex;gap:6px;align-items:center">
-                <input type="color" id="rx-embed-color-picker" value="#4dabf7" oninput="document.getElementById('rx-embed-color').value=this.value;updatePreview()" style="width:38px;height:32px;padding:2px;border-radius:5px;border:1px solid var(--border-color);background:var(--color-base-100);cursor:pointer">
-                <input type="text" id="rx-embed-color" placeholder="#4dabf7" oninput="rxSyncColorPicker();updatePreview()" style="width:100px">
+                <input type="color" id="rx-embed-color-picker" value="#4dabf7" style="width:38px;height:32px;padding:2px;border-radius:5px;border:1px solid var(--border-color);background:var(--color-base-100);cursor:pointer">
+                <input type="text" id="rx-embed-color" placeholder="#4dabf7" style="width:100px">
               </div>
             </div>
           </div>
           <div>
             <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Embed Description</label>
-            <textarea id="rx-embed-description" placeholder="Supports Discord markdown..." rows="3" oninput="updatePreview()" style="width:100%;background:var(--color-base-100);border:1px solid var(--border-color);color:var(--color-base-content);padding:6px 8px;border-radius:5px;font-size:13px;resize:vertical;outline:none;font-family:inherit"></textarea>
+            <textarea id="rx-embed-description" placeholder="Supports Discord markdown..." rows="3" style="width:100%;background:var(--color-base-100);border:1px solid var(--border-color);color:var(--color-base-content);padding:6px 8px;border-radius:5px;font-size:13px;resize:vertical;outline:none;font-family:inherit"></textarea>
           </div>
         </div>
 
         <div style="margin-bottom:12px">
           <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Channel Filter (leave blank = all channels)</label>
-          <input type="text" id="rx-ch-filter" placeholder="Filter channels..." oninput="rxFilterSelect('rx-channel-filter-select', this.value)" style="margin-bottom:4px;max-width:340px">
+          <input type="text" id="rx-ch-filter" placeholder="Filter channels..." style="margin-bottom:4px;max-width:340px">
           <select id="rx-channel-filter-select" multiple size="4" style="width:100%;max-width:400px;background:var(--color-base-100);border:1px solid var(--border-color);color:var(--color-base-content);border-radius:5px;padding:4px"></select>
           <div style="font-size:11px;color:var(--color-neutral-content);margin-top:4px">Hold Ctrl/Cmd to select multiple channels. No selection = fires in all channels.</div>
         </div>
@@ -166,7 +166,7 @@
             <div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
                 <span style="font-size:11px;font-weight:600;color:#fff">Channels</span>
-                <button class="reset-btn needs-local" style="font-size:10px;padding:2px 7px" onclick="refreshDiscordData()">⟳ Refresh</button>
+                <button id="rxRefreshBtn" class="reset-btn needs-local" style="font-size:10px;padding:2px 7px">⟳ Refresh</button>
               </div>
               <div style="font-size:11px;color:var(--color-neutral-content);margin-bottom:4px">Click to insert</div>
               <div id="rx-channel-chips" style="display:flex;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto"></div>
@@ -181,8 +181,8 @@
         </details>
 
         <div style="display:flex;gap:8px;align-items:center">
-          <button class="save-btn" onclick="saveReactionRule()">Save Rule</button>
-          <button class="reset-btn" onclick="cancelReactionForm()">Cancel</button>
+          <button id="rxSaveBtn" class="save-btn">Save Rule</button>
+          <button id="rxCancelBtn" class="reset-btn">Cancel</button>
           <span id="rx-error" style="color:var(--color-error);font-size:12px"></span>
         </div>
       </div>
@@ -216,14 +216,14 @@
       <table class="jobs-table">
         <thead>
           <tr class="jobs-header-row">
-            <th onclick="sortJobs('name')">Job <span class="sort-arrow" id="sort-name">↕</span></th>
-            <th onclick="sortJobs('sent_at')">Last Run (UTC) <span class="sort-arrow active" id="sort-sent_at">↓</span></th>
-            <th onclick="sortJobs('late')">Late? <span class="sort-arrow" id="sort-late">↕</span></th>
+            <th id="sort-th-name">Job <span class="sort-arrow" id="sort-name">↕</span></th>
+            <th id="sort-th-sent_at">Last Run (UTC) <span class="sort-arrow active" id="sort-sent_at">↓</span></th>
+            <th id="sort-th-late">Late? <span class="sort-arrow" id="sort-late">↕</span></th>
           </tr>
           <tr class="jobs-filter-row">
-            <td><input class="job-filter view-ok" placeholder="Filter job name..." oninput="filterJobs('name', this.value)"></td>
-            <td><input class="job-filter view-ok" placeholder="Filter date..." oninput="filterJobs('sent_at', this.value)"></td>
-            <td><input class="job-filter view-ok" placeholder="yes / —" oninput="filterJobs('late', this.value)"></td>
+            <td><input id="jf-name" class="job-filter view-ok" placeholder="Filter job name..."></td>
+            <td><input id="jf-sent_at" class="job-filter view-ok" placeholder="Filter date..."></td>
+            <td><input id="jf-late" class="job-filter view-ok" placeholder="yes / —"></td>
           </tr>
         </thead>
         <tbody id="jobsBody"><tr><td colspan="3" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
@@ -235,7 +235,7 @@
     <div class="section-title">Members</div>
     <div class="info-bar" style="margin-bottom:12px">
       <span id="membersSummary">Loading...</span>
-      <input id="memberFilter" class="view-ok" placeholder="Filter name / warband..." oninput="renderMembers()"
+      <input id="memberFilter" class="view-ok" placeholder="Filter name / warband..."
              style="max-width:240px">
     </div>
     <div class="panel-card">
@@ -254,7 +254,7 @@
     <div class="section-title">Warbands</div>
     <div style="margin-bottom:16px; display:flex; gap:8px">
       <input id="newWarbandName" placeholder="New warband name" style="max-width:240px">
-      <button class="save-btn" style="background:var(--color-success)" onclick="addWarband()">+ Add Warband</button>
+      <button id="addWarbandBtn" class="save-btn" style="background:var(--color-success)">+ Add Warband</button>
     </div>
     <p style="color:var(--color-neutral-content); font-size:12px; margin-bottom:12px">
       Renaming a warband updates it everywhere (all members and history) in one step.
@@ -285,7 +285,7 @@
         <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em">Season</label>
         <select id="newBossSeason" style="max-width:160px"><option value="">— none —</option></select>
       </div>
-      <button class="save-btn" style="background:var(--color-success)" onclick="addDreamBoss()">+ Add Boss</button>
+      <button id="addDreamBossBtn" class="save-btn" style="background:var(--color-success)">+ Add Boss</button>
     </div>
     <p style="color:var(--color-neutral-content); font-size:12px; margin-bottom:12px">
       Add bosses in their rotation order for each season. The scraper uses order + today's boss to determine which boss was on past scan days.
@@ -304,7 +304,7 @@
     <div class="section-title">Seasons</div>
     <div style="margin-bottom:16px; display:flex; gap:8px">
       <input id="newSeasonName" placeholder="New season name (e.g. S7)" style="max-width:240px">
-      <button class="save-btn" style="background:var(--color-success)" onclick="addSeason()">+ Add Season</button>
+      <button id="addSeasonBtn" class="save-btn" style="background:var(--color-success)">+ Add Season</button>
     </div>
     <p style="color:var(--color-neutral-content); font-size:12px; margin-bottom:12px">
       Expand a season to manage its ally servers. Bulk add supports ranges: <code style="background:var(--discord-code-bg);padding:1px 4px;border-radius:3px">1, 3, 5-10, 14</code>
@@ -329,7 +329,7 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
         <div>
           <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Command *</label>
-          <select id="perm-command" onchange="permCommandChanged()">
+          <select id="perm-command">
             <option value="">-- select command --</option>
           </select>
         </div>
@@ -343,18 +343,18 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
         <div>
           <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Roles <span style="font-weight:normal;text-transform:none;letter-spacing:0">(pick to restrict)</span></label>
-          <select id="perm-role-pick" onchange="permPickRole()"><option value="">-- add role --</option></select>
+          <select id="perm-role-pick"><option value="">-- add role --</option></select>
           <div id="perm-role-chips" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;min-height:20px"></div>
         </div>
         <div>
           <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Channels <span style="font-weight:normal;text-transform:none;letter-spacing:0">(pick to restrict)</span></label>
-          <select id="perm-channel-pick" onchange="permPickChannel()"><option value="">-- add channel --</option></select>
+          <select id="perm-channel-pick"><option value="">-- add channel --</option></select>
           <div id="perm-channel-chips" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;min-height:20px"></div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px">
-        <button id="perm-add-btn" class="save-btn" style="background:var(--color-success)" onclick="addPermRule()">+ Add Rules</button>
-        <button id="perm-cancel-btn" class="reset-btn" style="display:none" onclick="cancelPermEdit()">Cancel</button>
+        <button id="perm-add-btn" class="save-btn" style="background:var(--color-success)">+ Add Rules</button>
+        <button id="perm-cancel-btn" class="reset-btn" style="display:none">Cancel</button>
         <span id="perm-error" style="color:var(--color-error);font-size:12px"></span>
       </div>
     </div>
