@@ -108,7 +108,7 @@
             <input type="checkbox" id="rx-enabled" checked> Enabled
           </label>
         </div>
-        <div style="margin-bottom:12px; padding:12px; border:1px solid var(--border-color); border-radius:6px">
+        <div style="margin-bottom:12px; padding:12px; border:1px solid var(--color-base-300); border-radius:6px">
           <div style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Embed (optional — combine with text or use alone)</div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px">
             <div>
@@ -118,27 +118,27 @@
             <div>
               <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Embed Color (hex)</label>
               <div style="display:flex;gap:6px;align-items:center">
-                <input type="color" id="rx-embed-color-picker" value="#4dabf7" style="width:38px;height:32px;padding:2px;border-radius:5px;border:1px solid var(--border-color);background:var(--color-base-100);cursor:pointer">
+                <input type="color" id="rx-embed-color-picker" value="#4dabf7" style="width:38px;height:32px;padding:2px;border-radius:5px;border:1px solid var(--color-base-300);background:var(--color-base-100);cursor:pointer">
                 <input type="text" id="rx-embed-color" placeholder="#4dabf7" style="width:100px">
               </div>
             </div>
           </div>
           <div>
             <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Embed Description</label>
-            <textarea id="rx-embed-description" placeholder="Supports Discord markdown..." rows="3" style="width:100%;background:var(--color-base-100);border:1px solid var(--border-color);color:var(--color-base-content);padding:6px 8px;border-radius:5px;font-size:13px;resize:vertical;outline:none;font-family:inherit"></textarea>
+            <textarea id="rx-embed-description" placeholder="Supports Discord markdown..." rows="3" style="width:100%;background:var(--color-base-100);border:1px solid var(--color-base-300);color:var(--color-base-content);padding:6px 8px;border-radius:5px;font-size:13px;resize:vertical;outline:none;font-family:inherit"></textarea>
           </div>
         </div>
 
         <div style="margin-bottom:12px">
           <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Channel Filter (leave blank = all channels)</label>
           <input type="text" id="rx-ch-filter" placeholder="Filter channels..." style="margin-bottom:4px;max-width:340px">
-          <select id="rx-channel-filter-select" multiple size="4" style="width:100%;max-width:400px;background:var(--color-base-100);border:1px solid var(--border-color);color:var(--color-base-content);border-radius:5px;padding:4px"></select>
+          <select id="rx-channel-filter-select" multiple size="4" style="width:100%;max-width:400px;background:var(--color-base-100);border:1px solid var(--color-base-300);color:var(--color-base-content);border-radius:5px;padding:4px"></select>
           <div style="font-size:11px;color:var(--color-neutral-content);margin-top:4px">Hold Ctrl/Cmd to select multiple channels. No selection = fires in all channels.</div>
         </div>
         <!-- Preview pane -->
         <div style="margin-bottom:12px">
           <div style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Preview</div>
-          <div id="rx-preview" style="min-height:48px;background:var(--discord-bg);border:1px solid var(--border-color);border-radius:6px;padding:10px 14px;font-size:14px;line-height:1.5;color:var(--discord-fg);white-space:pre-wrap;word-break:break-word">
+          <div id="rx-preview" style="min-height:48px;background:var(--discord-bg);border:1px solid var(--color-base-300);border-radius:6px;padding:10px 14px;font-size:14px;line-height:1.5;color:var(--discord-fg);white-space:pre-wrap;word-break:break-word">
             <span style="color:var(--color-neutral-content);font-style:italic">Start typing to preview...</span>
           </div>
         </div>

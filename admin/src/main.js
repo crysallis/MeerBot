@@ -630,25 +630,6 @@ async function loadBotStatus() {
   }
 }
 
-// ── Window assignments (HTML onclick handlers need globals) ───────────────────
-
-Object.assign(window, {
-  logout, toggleNav, closeNav,
-  setJobChannel, toggleScheduledJob, saveScheduledJob, filterJobs, sortJobs,
-  filterChannel, saveKey, resetKey,
-  restartBot, applyTheme,
-  openReactionForm, cancelReactionForm, saveReactionRule, deleteReactionRule,
-  updatePreview, rxPatternTypeChange, rxResponseTypeChange, rxSyncColorPicker,
-  rxFilterSelect, rxInsert, refreshDiscordData,
-  renderMembers, approveMember, renameMember, linkMember, mergeMemberPrompt,
-  setWarband, setIngameId, addWarband, renameWarbandUI, archiveWarband,
-  addSeason, toggleSeason, deleteSeason, toggleServerPanel,
-  bulkAddServers, removeServer, addDreamBoss, updateDreamBoss, deleteDreamBoss,
-  permCommandChanged, permPickRole, permPickChannel, permRemoveRole, permRemoveChannel,
-  addPermRule, deletePermRule, removePermGroup, editPermGroup, cancelPermEdit,
-  setOpTier, setRoleTierUI,
-});
-
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 (async function bootstrap() {
