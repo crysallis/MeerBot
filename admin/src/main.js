@@ -620,14 +620,11 @@ function fmtUptime(ms) {
 async function loadBotStatus() {
   try {
     const data = await fetch('/api/bot-status').then(r => r.json());
-    const dot  = document.getElementById('statusDot');
-    dot.className = 'status-dot ' + (data.status === 'online' ? 'status-online' : data.status === 'stopped' ? 'status-stopped' : 'status-other');
+    document.getElementById('statusDot').className = 'status-dot ' + (data.status === 'online' ? 'status-online' : data.status === 'stopped' ? 'status-stopped' : 'status-other');
     document.getElementById('statStatus').textContent = data.status ?? '--';
     document.getElementById('statCpu').textContent    = data.cpu != null ? data.cpu + '%' : '--';
     document.getElementById('statMemory').textContent = data.memory ? (data.memory / 1024 / 1024).toFixed(1) + ' MB' : '--';
     document.getElementById('statUptime').textContent = fmtUptime(data.uptime_ms);
-    const footerStatus = document.getElementById('footerBotStatus');
-    if (footerStatus) footerStatus.textContent = `Bot ${data.status ?? '--'} · uptime ${fmtUptime(data.uptime_ms)}`;
   } catch {
     document.getElementById('statStatus').textContent = 'unavailable';
   }

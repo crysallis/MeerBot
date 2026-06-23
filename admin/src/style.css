@@ -16,6 +16,9 @@ footer {
   padding: 10px 24px; background: var(--color-base-100); border-top: 1px solid var(--color-base-300);
   font-size: 11px; color: var(--color-base-content);
 }
+.footer-stats { display: flex; align-items: center; gap: 6px; }
+.footer-sep { opacity: .35; }
+footer .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 5px currentColor; }
 .restart-btn {
   background: var(--color-success); color: #fff; border: none; padding: 7px 16px;
   border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
@@ -116,21 +119,10 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
 .channels-fetched { font-size: 11px; color: var(--color-base-content); margin-bottom: 12px; }
 
 
-.bot-status-bar {
-  display: flex; align-items: center; gap: 20px;
-  border: 1px solid var(--color-base-300); border-radius: 8px;
-  padding: 8px 16px; margin-bottom: 16px; font-size: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.2);
-}
-.status-dot {
-  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-  box-shadow: 0 0 6px currentColor;
-}
 .status-online  { background: var(--color-success); color: var(--color-success); }
 .status-stopped { background: var(--color-error);   color: var(--color-error);   }
 .status-other   { background: var(--color-neutral);  color: var(--color-neutral);  }
-.bot-status-bar .stat { display: flex; flex-direction: column; gap: 1px; }
-.bot-status-bar .stat-label { font-size: 10px; color: var(--color-base-content); text-transform: uppercase; letter-spacing: .04em; }
-.bot-status-bar .stat-value { color: var(--color-base-content); font-weight: 600; }
+.stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
 
 .whoami { font-size: 12px; color: var(--color-base-content); }
 .user-avatar { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--color-primary); object-fit: cover; }
@@ -239,7 +231,7 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
   .sort-arrow,
   .sj-field label,
   .channels-fetched,
-  .bot-status-bar .stat-label,
+  .stat-label,
   .whoami,
   .presence-label,
   .readonly-banner,
