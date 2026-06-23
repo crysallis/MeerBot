@@ -626,6 +626,8 @@ async function loadBotStatus() {
     document.getElementById('statCpu').textContent    = data.cpu != null ? data.cpu + '%' : '--';
     document.getElementById('statMemory').textContent = data.memory ? (data.memory / 1024 / 1024).toFixed(1) + ' MB' : '--';
     document.getElementById('statUptime').textContent = fmtUptime(data.uptime_ms);
+    const footerStatus = document.getElementById('footerBotStatus');
+    if (footerStatus) footerStatus.textContent = `Bot ${data.status ?? '--'} · uptime ${fmtUptime(data.uptime_ms)}`;
   } catch {
     document.getElementById('statStatus').textContent = 'unavailable';
   }

@@ -2,7 +2,7 @@
 @import "../../shared/components.css";
 @plugin "daisyui";
 
-body { font-family: 'Segoe UI', system-ui, sans-serif; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
 header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 24px; background: var(--color-base-100); border-bottom: 1px solid var(--color-base-300);
@@ -11,6 +11,11 @@ header {
 header h1 { font-size: 18px; color: var(--color-base-content); font-weight: 600; }
 header h1 span { color: var(--color-primary); }
 .header-right { display: flex; align-items: center; gap: 12px; }
+footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 24px; background: var(--color-base-100); border-top: 1px solid var(--color-base-300);
+  font-size: 11px; color: var(--color-base-content);
+}
 .restart-btn {
   background: var(--color-success); color: #fff; border: none; padding: 7px 16px;
   border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
@@ -20,7 +25,7 @@ header h1 span { color: var(--color-primary); }
 .restart-btn:disabled { background: var(--color-base-100); color: var(--color-base-content); cursor: default; }
 .restart-status { font-size: 12px; color: var(--color-base-content); }
 
-main { max-width: 900px; margin: 0 auto; }
+main { max-width: 900px; margin: 0 auto; flex: 1; width: 100%; padding-bottom: 24px; }
 
 .info-bar {
   border: 1px solid var(--color-base-300); border-radius: 8px;
@@ -29,10 +34,17 @@ main { max-width: 900px; margin: 0 auto; }
 }
 .info-bar span { display: flex; align-items: center; gap: 6px; }
 
-.tabs { margin-bottom: 20px; }
+.tabs {
+  display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 4px;
+  margin-bottom: 20px; padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tabs .tab { flex-shrink: 0; white-space: nowrap; }
 
 .section { display: none; }
 .section.visible { display: block; }
+#sections { min-height: 480px; }
 
 table { width: 100%; border-collapse: collapse; }
 th {
@@ -237,5 +249,6 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
   .whoami,
   .presence-label,
   .readonly-banner,
+  footer,
   th { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
 }
