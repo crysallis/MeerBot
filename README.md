@@ -177,12 +177,13 @@ MeerBot/
     shared/
         theme.css               @import index for all per-theme files + compat aliases + theme controls.
         themes/
-            jewel.css           Jewel palette (dark + light blocks, DaisyUI var names).
-            chili.css           Chili palette.
-            tigereye.css        Tigereye palette.
-            plum.css            Plum palette.
-            lapis.css           Lapis palette.
-            synthwave.css       Synthwave palette (OKLCH colours from DaisyUI generator).
+            caramellatte.css    Caramellatte palette (dark default).
+            autumn.css          Autumn palette (light).
+            fantasy.css         Fantasy palette.
+            abyss.css           Abyss palette.
+            ocean.css           Ocean palette.
+            synthwave.css       Synthwave palette.
+            aqua.css            Aqua palette.
     stats/                      Public stats site (Vite + Tailwind v4 + DaisyUI v5).
         src/
             index.html          Stats UI — guild stats, charts, member tables.

@@ -11,8 +11,8 @@ import { initLab }        from './charts/lab.js';
 import { getCSSVar, cssVarRgba } from './utils.js';
 
 function updateChartTheme() {
-    const gridColor = cssVarRgba('--color-base-300', 0.6);
-    const tickColor = getCSSVar('--color-primary');
+    const gridColor = getCSSVar('--color-base-content');
+    const tickColor = getCSSVar('--color-base-content');
     Object.values(Chart.instances).forEach(chart => {
         for (const scale of Object.values(chart.options.scales || {})) {
             if (scale.grid)  scale.grid.color  = gridColor;

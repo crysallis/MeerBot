@@ -88,9 +88,9 @@ export async function initOverview(me) {
     // gradPlugin.afterLayout recreates gradients on every chart.update() so no _recolor needed
 
     // Top 10 members horizontal bar
-    const top10  = [...members].slice(0, 10);
+    const top10  = [...members].sort((a, b) => (b.combat_power_value || 0) - (a.combat_power_value || 0)).slice(0, 10);
     const meColors = () => top10.map(m =>
-        m.id === me?.memberId ? getCSSVar('--color-primary') : cssVarRgba('--color-neutral-content', 0.55)
+        m.id === me?.memberId ? getCSSVar('--color-secondary') : getCSSVar('--color-accent')
     );
 
     const topChart = new Chart(document.getElementById('chart-top10'), {
@@ -133,13 +133,13 @@ function chartOpts(extra = {}) {
         scales: {
             ...(extra.scales || {}),
             x: {
-                grid:  { color: 'rgba(45,48,85,.6)' },
-                ticks: { color: '#8b92b8' },
+                grid:  { color: getCSSVar('--color-base-content') },
+                ticks: { color: getCSSVar('--color-base-content') },
                 ...(extra.scales?.x || {}),
             },
             y: {
-                grid:  { color: 'rgba(45,48,85,.6)' },
-                ticks: { color: '#8b92b8' },
+                grid:  { color: getCSSVar('--color-base-content') },
+                ticks: { color: getCSSVar('--color-base-content') },
                 ...(extra.scales?.y || {}),
             },
         },

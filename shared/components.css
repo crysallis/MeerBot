@@ -139,6 +139,7 @@
 }
 
 /* Outside @layer so these beat DaisyUI's unlayered button base styles */
+.tab { color: var(--color-base-content); }
 .tab:hover { color: var(--color-primary); }
 .tab.active { color: var(--color-primary-content); }
 button:focus { outline: var(--color-primary) solid 2px; outline-offset: 2px; }

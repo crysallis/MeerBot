@@ -2,9 +2,10 @@ import { Chart, registerables } from 'chart.js';
 import { getCSSVar, cssVarRgba, escHtml } from '../utils.js';
 Chart.register(...registerables);
 
-let chart   = null;
-let allData = null;
-let meRef   = null;
+let chart    = null;
+let allData  = null;
+let meRef    = null;
+let rowsRef  = [];
 
 export async function initDreamRealm(me) {
     meRef = me;
@@ -62,6 +63,7 @@ function renderDR(me) {
     }
 
     // Bar chart
+    rowsRef = rows;
     const labels = rows.map(r => r.ingame_name);
     const values = rows.map(r => parseScore(r.score));
     const colors = rows.map(r => r.member_id === me?.memberId ? getCSSVar('--color-primary') : tierColor(r.tier));
@@ -89,11 +91,11 @@ function renderDR(me) {
                 indexAxis: 'y',
                 plugins: {
                     legend: { display: false },
-                    tooltip: { callbacks: { label: ctx => ' ' + rows[ctx.dataIndex].score } },
+                    tooltip: { callbacks: { label: ctx => ' ' + rowsRef[ctx.dataIndex].score } },
                 },
                 scales: {
-                    x: { grid: { color: 'rgba(45,48,85,.6)' }, ticks: { color: '#8b92b8', callback: v => fmtScore(v) } },
-                    y: { grid: { color: 'rgba(45,48,85,.6)' }, ticks: { color: '#8b92b8', font: { size: 11 } } },
+                    x: { grid: { color: getCSSVar('--color-base-content') }, ticks: { color: getCSSVar('--color-base-content'), callback: v => fmtScore(v) } },
+                    y: { grid: { color: getCSSVar('--color-base-content') }, ticks: { color: getCSSVar('--color-base-content'), font: { size: 11 } } },
                 },
             },
         });
@@ -135,14 +137,15 @@ function renderDR(me) {
 
 function parseScore(s) {
     if (!s) return 0;
-    const m = String(s).match(/^([\d.]+)([KMG]?)$/i);
+    const m = String(s).match(/^([\d.]+)([KMGB]?)$/i);
     if (!m) return 0;
     const v = parseFloat(m[1]);
     const u = m[2].toUpperCase();
-    return u === 'K' ? v * 1e3 : u === 'M' ? v * 1e6 : u === 'G' ? v * 1e9 : v;
+    return u === 'K' ? v * 1e3 : u === 'M' ? v * 1e6 : u === 'G' ? v * 1e9 : u === 'B' ? v * 1e9 : v;
 }
 
 function fmtScore(v) {
+    if (v >= 1e9) return (v / 1e9).toFixed(0) + 'B';
     if (v >= 1e6) return (v / 1e6).toFixed(0) + 'M';
     if (v >= 1e3) return (v / 1e3).toFixed(0) + 'K';
     return v < 0 ? '-' + fmtScore(-v) : String(v);

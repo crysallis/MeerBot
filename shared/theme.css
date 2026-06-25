@@ -1,13 +1,13 @@
-@import "./themes/jewel.css";
-@import "./themes/chili.css";
-@import "./themes/tigereye.css";
-@import "./themes/plum.css";
-@import "./themes/lapis.css";
+@import "./themes/caramellatte.css";
+@import "./themes/autumn.css";
+@import "./themes/fantasy.css";
+@import "./themes/abyss.css";
+@import "./themes/ocean.css";
 @import "./themes/synthwave.css";
-@import "./themes/purple.css";
+@import "./themes/aqua.css";
 
 :root {
-  /* Rarity colors — dark defaults; chili (light theme) keeps these readable */
+  /* Rarity colors — dark defaults; autumn (light theme) keeps these readable */
   --hover-bg: rgba(255,255,255,.03);
   --hard:     #e05c5c;
   --epic:     #9b6bc7;

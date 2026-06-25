@@ -1,4 +1,5 @@
 import { Chart, registerables } from 'chart.js';
+import { getCSSVar, cssVarRgba } from '../utils.js';
 Chart.register(...registerables);
 
 let chart  = null;
@@ -223,7 +224,7 @@ function render() {
             maintainAspectRatio: true,
             interaction: { mode: 'index', intersect: false },
             plugins: {
-                legend: { display: filtered.length <= 5, labels: { color: '#8b92b8', font: { size: 11 }, boxWidth: 12, boxHeight: 12 } },
+                legend: { display: filtered.length <= 5, labels: { color: getCSSVar('--color-base-content'), font: { size: 11 }, boxWidth: 12, boxHeight: 12 } },
                 tooltip: {
                     callbacks: {
                         label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(1)}M`,
@@ -231,11 +232,11 @@ function render() {
                 },
             },
             scales: {
-                x: { grid: { color: 'rgba(45,48,85,.6)' }, ticks: { color: '#8b92b8' } },
+                x: { grid: { color: getCSSVar('--color-base-content') }, ticks: { color: getCSSVar('--color-base-content') } },
                 y: {
-                    grid:  { color: 'rgba(45,48,85,.6)' },
-                    ticks: { color: '#8b92b8', callback: v => v + 'M' },
-                    title: { display: true, text: 'Power (M)', color: '#8b92b8' },
+                    grid:  { color: getCSSVar('--color-base-content') },
+                    ticks: { color: getCSSVar('--color-base-content'), callback: v => v + 'M' },
+                    title: { display: true, text: 'Power (M)', color: getCSSVar('--color-base-content') },
                 },
             },
         },

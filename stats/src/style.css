@@ -18,7 +18,7 @@ header {
 header h1 { font-size: 18px; color: var(--color-base-content); font-weight: 600; }
 header h1 span { color: var(--color-primary); }
 .header-right { display: flex; align-items: center; gap: 12px; }
-.user-ingame { font-weight: 600; color: var(--color-primary); }
+.user-ingame { font-weight: 600; color: var(--color-base-content); }
 .user-name   { color: var(--color-base-content); font-size: .85rem; }
 .user-avatar { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--color-primary); object-fit: cover; }
 
@@ -42,7 +42,7 @@ main { max-width: 900px; margin: 0 auto; padding: 0 16px; }
   padding: 1rem 1.25rem;
   box-shadow: 0 1px 3px rgba(0,0,0,.2);
 }
-.stat-value { font-size: 1.6rem; font-weight: 700; color: var(--color-primary); }
+.stat-value { font-size: 1.6rem; font-weight: 700; color: var(--color-base-content); }
 .stat-label { font-size: .8rem; color: var(--color-base-content); margin-top: .25rem; }
 
 /* Chart containers */
@@ -357,13 +357,8 @@ canvas { max-height: 400px; }
 }
 
 @supports (color: color-mix(in oklab, red, red)) {
-  .stat-label,
-  .chart-box h2,
-  .table-box h2,
   .controls > label,
   .sa-controls > label,
   .scan-note,
-  .user-name,
-  .warband-tag,
-  .data-table th { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
+  .warband-tag { color: color-mix(in oklab, var(--color-base-content) 75%, transparent); }
 }

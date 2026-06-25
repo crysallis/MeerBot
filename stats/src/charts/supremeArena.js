@@ -1,5 +1,5 @@
 import { Chart, registerables } from 'chart.js';
-import { escHtml } from '../utils.js';
+import { escHtml, getCSSVar, cssVarRgba } from '../utils.js';
 Chart.register(...registerables);
 
 let memberChart  = null;
@@ -138,6 +138,7 @@ function renderMemberChart() {
         data: { labels, datasets: [buildMemberDataset(m, data)] },
         options: rankChartOptions('Rank'),
     });
+    memberChart._recolor = renderMemberChart;
 }
 
 function renderWarbandChart() {
@@ -176,18 +177,19 @@ function renderWarbandChart() {
             ...rankChartOptions('Rank'),
             plugins: {
                 ...rankChartOptions('Rank').plugins,
-                legend: { display: members.length <= 12, labels: { color: '#8b92b8', font: { size: 11 }, boxWidth: 12, boxHeight: 12 } },
+                legend: { display: members.length <= 12, labels: { color: getCSSVar('--color-base-content'), font: { size: 11 }, boxWidth: 12, boxHeight: 12 } },
             },
         },
     });
+    warbandChart._recolor = renderWarbandChart;
 }
 
 function buildMemberDataset(m, data) {
     return {
         label:           m.name,
         data,
-        borderColor:     m.id === meId ? 'hsl(220,80%,65%)' : 'hsl(270,60%,65%)',
-        backgroundColor: m.id === meId ? 'hsl(220,80%,65%)' : 'hsl(270,60%,65%)',
+        borderColor:     m.id === meId ? getCSSVar('--color-secondary') : getCSSVar('--color-accent'),
+        backgroundColor: m.id === meId ? getCSSVar('--color-secondary') : getCSSVar('--color-accent'),
         borderWidth:     2,
         pointRadius:     4,
         spanGaps:        true,
@@ -205,12 +207,12 @@ function rankChartOptions(yLabel) {
             tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: #${ctx.parsed.y}` } },
         },
         scales: {
-            x: { grid: { color: 'rgba(45,48,85,.6)' }, ticks: { color: '#8b92b8' } },
+            x: { grid: { color: getCSSVar('--color-base-content') }, ticks: { color: getCSSVar('--color-base-content') } },
             y: {
                 reverse: true,
-                grid:    { color: 'rgba(45,48,85,.6)' },
-                ticks:   { color: '#8b92b8', callback: v => `#${v}` },
-                title:   { display: true, text: yLabel, color: '#8b92b8' },
+                grid:    { color: getCSSVar('--color-base-content') },
+                ticks:   { color: getCSSVar('--color-base-content'), callback: v => `#${v}` },
+                title:   { display: true, text: yLabel, color: getCSSVar('--color-base-content') },
             },
         },
     };

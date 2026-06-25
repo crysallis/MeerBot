@@ -224,15 +224,9 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
 }
 
 @supports (color: color-mix(in oklab, red, red)) {
-  .restart-status,
-  .desc-col,
   .sort-arrow,
   .sj-field label,
   .channels-fetched,
   .stat-label,
-  .whoami,
-  .presence-label,
-  .readonly-banner,
-  footer,
-  th { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
+  .presence-label { color: color-mix(in oklab, var(--color-base-content) 75%, transparent); }
 }

@@ -9,13 +9,15 @@ export function getCSSVar(name) {
 export function cssVarRgba(name, alpha) {
     const val = getCSSVar(name);
     if (!val) return `rgba(0,0,0,${alpha})`;
-    if (val.startsWith('#')) {
-        const hex = val.replace('#', '');
-        const r = parseInt(hex.slice(0, 2), 16);
-        const g = parseInt(hex.slice(2, 4), 16);
-        const b = parseInt(hex.slice(4, 6), 16);
-        return `rgba(${r},${g},${b},${alpha})`;
-    }
-    // OKLCH and other modern formats: use color-mix for alpha (Canvas 2D + Chrome 111+ / FF 113+ / Safari 16.2+)
-    return `color-mix(in srgb, ${val} ${Math.round(alpha * 100)}%, transparent)`;
+    // Resolve any CSS color (hex, oklch, etc.) to rgb() via a hidden element,
+    // then apply alpha -- Canvas 2D cannot use color-mix() as a fill style.
+    const el = Object.assign(document.createElement('div'), {
+        style: `position:absolute;width:0;height:0;overflow:hidden;color:${val}`
+    });
+    document.body.appendChild(el);
+    const rgb = getComputedStyle(el).color; // always "rgb(r, g, b)"
+    document.body.removeChild(el);
+    const m = rgb.match(/\d+/g);
+    if (!m) return `rgba(0,0,0,${alpha})`;
+    return `rgba(${m[0]},${m[1]},${m[2]},${alpha})`;
 }
