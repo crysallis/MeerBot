@@ -159,7 +159,11 @@ db.exec(`
     created_at       TEXT NOT NULL DEFAULT (datetime('now')),
     embed_title      TEXT,
     embed_description TEXT,
-    embed_color      TEXT
+    embed_color      TEXT,
+    embed_image_url     TEXT,
+    embed_thumbnail_url TEXT,
+    embed_footer_text   TEXT,
+    embed_footer_icon_url TEXT
   );
   CREATE UNIQUE INDEX IF NOT EXISTS idx_mr_one_mention ON message_reactions(pattern_type) WHERE pattern_type = 'mention';
 

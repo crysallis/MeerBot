@@ -294,6 +294,10 @@ export function openReactionForm(id) {
     document.getElementById('rx-embed-description').value = '';
     document.getElementById('rx-embed-color').value = '';
     document.getElementById('rx-embed-color-picker').value = '#4dabf7';
+    document.getElementById('rx-embed-image-url').value = '';
+    document.getElementById('rx-embed-thumbnail-url').value = '';
+    document.getElementById('rx-embed-footer-text').value = '';
+    document.getElementById('rx-embed-footer-icon-url').value = '';
     document.getElementById('rx-error').textContent = '';
     for (const opt of document.getElementById('rx-channel-filter-select').options) opt.selected = false;
   } else {
@@ -316,6 +320,10 @@ export function openReactionForm(id) {
     const color = rule.embed_color || '';
     document.getElementById('rx-embed-color').value = color;
     if (/^#[0-9a-fA-F]{6}$/.test(color)) document.getElementById('rx-embed-color-picker').value = color;
+    document.getElementById('rx-embed-image-url').value = rule.embed_image_url || '';
+    document.getElementById('rx-embed-thumbnail-url').value = rule.embed_thumbnail_url || '';
+    document.getElementById('rx-embed-footer-text').value = rule.embed_footer_text || '';
+    document.getElementById('rx-embed-footer-icon-url').value = rule.embed_footer_icon_url || '';
 
     const selectedChannels = rule.channel_filter ? JSON.parse(rule.channel_filter) : [];
     for (const opt of document.getElementById('rx-channel-filter-select').options) {
@@ -356,11 +364,15 @@ export async function saveReactionRule() {
 
   const response_type    = document.getElementById('rx-response-type').value;
   const response_content = document.getElementById('rx-response-content').value.trim();
-  const embed_title       = document.getElementById('rx-embed-title').value.trim();
-  const embed_description = document.getElementById('rx-embed-description').value.trim();
-  const embed_color       = document.getElementById('rx-embed-color').value.trim();
+  const embed_title           = document.getElementById('rx-embed-title').value.trim();
+  const embed_description     = document.getElementById('rx-embed-description').value.trim();
+  const embed_color           = document.getElementById('rx-embed-color').value.trim();
+  const embed_image_url       = document.getElementById('rx-embed-image-url').value.trim();
+  const embed_thumbnail_url   = document.getElementById('rx-embed-thumbnail-url').value.trim();
+  const embed_footer_text     = document.getElementById('rx-embed-footer-text').value.trim();
+  const embed_footer_icon_url = document.getElementById('rx-embed-footer-icon-url').value.trim();
 
-  if (!response_content && !embed_title && !embed_description && response_type !== 'emoji') {
+  if (!response_content && !embed_title && !embed_description && !embed_image_url && !embed_thumbnail_url && !embed_footer_text && response_type !== 'emoji') {
     errEl.textContent = 'Provide response text, an embed title/description, or both.';
     return;
   }
@@ -378,9 +390,13 @@ export async function saveReactionRule() {
     channel_filter,
     cooldown_seconds:  parseInt(document.getElementById('rx-cooldown').value, 10) || 60,
     enabled:           document.getElementById('rx-enabled').checked,
-    embed_title:       embed_title || null,
-    embed_description: embed_description || null,
-    embed_color:       embed_color || null,
+    embed_title:            embed_title || null,
+    embed_description:      embed_description || null,
+    embed_color:            embed_color || null,
+    embed_image_url:        embed_image_url || null,
+    embed_thumbnail_url:    embed_thumbnail_url || null,
+    embed_footer_text:      embed_footer_text || null,
+    embed_footer_icon_url:  embed_footer_icon_url || null,
   };
 
   const url    = editingRxId === null ? '/api/message-reactions' : `/api/message-reactions/${editingRxId}`;

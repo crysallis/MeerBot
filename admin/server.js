@@ -353,14 +353,15 @@ app.get('/api/message-reactions', (req, res) => {
 app.post('/api/message-reactions', (req, res) => {
     const { name, pattern, pattern_type, ignore_case, channel_filter, require_mention,
             response_type, response_content, response_channel, cooldown_seconds, enabled,
-            embed_title, embed_description, embed_color } = req.body;
+            embed_title, embed_description, embed_color,
+            embed_image_url, embed_thumbnail_url, embed_footer_text, embed_footer_icon_url } = req.body;
 
     if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
     if (!VALID_PATTERN_TYPES.includes(pattern_type)) return res.status(400).json({ error: `pattern_type must be one of: ${VALID_PATTERN_TYPES.join(', ')}` });
     if (!VALID_RESPONSE_TYPES.includes(response_type)) return res.status(400).json({ error: `response_type must be one of: ${VALID_RESPONSE_TYPES.join(', ')}` });
 
     const hasContent = response_content && response_content.trim();
-    const hasEmbed   = embed_title || embed_description;
+    const hasEmbed   = embed_title || embed_description || embed_image_url || embed_thumbnail_url || embed_footer_text;
     if (!hasContent && !hasEmbed && response_type !== 'emoji') {
         return res.status(400).json({ error: 'Provide response text, an embed, or both' });
     }
@@ -380,8 +381,9 @@ app.post('/api/message-reactions', (req, res) => {
             INSERT INTO message_reactions
                 (name, pattern, pattern_type, ignore_case, channel_filter, require_mention,
                  response_type, response_content, response_channel, cooldown_seconds, enabled,
-                 embed_title, embed_description, embed_color)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 embed_title, embed_description, embed_color,
+                 embed_image_url, embed_thumbnail_url, embed_footer_text, embed_footer_icon_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
             name.trim(),
             pattern || '',
@@ -397,6 +399,10 @@ app.post('/api/message-reactions', (req, res) => {
             embed_title || null,
             embed_description || null,
             embed_color || null,
+            embed_image_url || null,
+            embed_thumbnail_url || null,
+            embed_footer_text || null,
+            embed_footer_icon_url || null,
         );
         res.json({ ok: true, id: result.lastInsertRowid });
     } catch (err) {
@@ -412,7 +418,8 @@ app.put('/api/message-reactions/:id', (req, res) => {
 
     const { name, pattern, pattern_type, ignore_case, channel_filter, require_mention,
             response_type, response_content, response_channel, cooldown_seconds, enabled,
-            embed_title, embed_description, embed_color } = req.body;
+            embed_title, embed_description, embed_color,
+            embed_image_url, embed_thumbnail_url, embed_footer_text, embed_footer_icon_url } = req.body;
 
     if (pattern_type && !VALID_PATTERN_TYPES.includes(pattern_type)) return res.status(400).json({ error: `pattern_type must be one of: ${VALID_PATTERN_TYPES.join(', ')}` });
     if (response_type && !VALID_RESPONSE_TYPES.includes(response_type)) return res.status(400).json({ error: `response_type must be one of: ${VALID_RESPONSE_TYPES.join(', ')}` });
@@ -443,7 +450,11 @@ app.put('/api/message-reactions/:id', (req, res) => {
                 enabled          = COALESCE(?, enabled),
                 embed_title      = ?,
                 embed_description = ?,
-                embed_color      = ?
+                embed_color      = ?,
+                embed_image_url     = ?,
+                embed_thumbnail_url = ?,
+                embed_footer_text   = ?,
+                embed_footer_icon_url = ?
             WHERE id = ?
         `).run(
             name?.trim() ?? null,
@@ -460,6 +471,10 @@ app.put('/api/message-reactions/:id', (req, res) => {
             embed_title !== undefined ? (embed_title || null) : existing.embed_title,
             embed_description !== undefined ? (embed_description || null) : existing.embed_description,
             embed_color !== undefined ? (embed_color || null) : existing.embed_color,
+            embed_image_url !== undefined ? (embed_image_url || null) : existing.embed_image_url,
+            embed_thumbnail_url !== undefined ? (embed_thumbnail_url || null) : existing.embed_thumbnail_url,
+            embed_footer_text !== undefined ? (embed_footer_text || null) : existing.embed_footer_text,
+            embed_footer_icon_url !== undefined ? (embed_footer_icon_url || null) : existing.embed_footer_icon_url,
             id,
         );
         res.json({ ok: true });

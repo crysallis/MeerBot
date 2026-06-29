@@ -62,7 +62,8 @@ function substituteVars(text, message) {
 }
 
 function buildPayload(rule) {
-    const hasEmbed = rule.embed_title || rule.embed_description;
+    const hasEmbed = rule.embed_title || rule.embed_description
+        || rule.embed_image_url || rule.embed_thumbnail_url || rule.embed_footer_text;
     if (!hasEmbed) return rule.response_content || '';
 
     const embed = new EmbedBuilder();
@@ -71,6 +72,12 @@ function buildPayload(rule) {
     if (rule.embed_color) {
         try { embed.setColor(rule.embed_color); } catch {}
     }
+    if (rule.embed_image_url)     embed.setImage(rule.embed_image_url);
+    if (rule.embed_thumbnail_url) embed.setThumbnail(rule.embed_thumbnail_url);
+    if (rule.embed_footer_text)   embed.setFooter({
+        text:     rule.embed_footer_text,
+        iconURL:  rule.embed_footer_icon_url || undefined,
+    });
 
     const payload = { embeds: [embed] };
     if (rule.response_content) payload.content = rule.response_content;
@@ -103,7 +110,10 @@ async function handleMessage(message, client) {
         }
 
         // Cooldown
-        if (isOnCooldown(message.author.id, rule.id, rule.cooldown_seconds)) continue;
+        if (isOnCooldown(message.author.id, rule.id, rule.cooldown_seconds)) {
+            console.log(`[Reactions] Rule "${rule.name}" skipped (cooldown) for @${message.author.username}`);
+            continue;
+        }
         setCooldown(message.author.id, rule.id);
 
         console.log(`[Reactions] Rule "${rule.name}" matched for @${message.author.username} in #${message.channel.name ?? message.channelId}`);

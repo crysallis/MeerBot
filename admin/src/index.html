@@ -127,6 +127,30 @@
             <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Embed Description</label>
             <textarea id="rx-embed-description" placeholder="Supports Discord markdown..." rows="3" style="width:100%;background:var(--color-base-100);border:1px solid var(--color-base-300);color:var(--color-base-content);padding:6px 8px;border-radius:5px;font-size:13px;resize:vertical;outline:none;font-family:inherit"></textarea>
           </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:8px">
+            <div>
+              <label style="font-size:11px;color:var(--color-base-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:2px">Image URL</label>
+              <div style="font-size:11px;color:var(--color-base-content);opacity:0.6;margin-bottom:4px">Large banner shown below the embed body</div>
+              <input type="text" id="rx-embed-image-url" placeholder="https://i.imgur.com/...">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--color-base-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:2px">Thumbnail URL</label>
+              <div style="font-size:11px;color:var(--color-base-content);opacity:0.6;margin-bottom:4px">Small image pinned to the top-right corner</div>
+              <input type="text" id="rx-embed-thumbnail-url" placeholder="https://i.imgur.com/...">
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:8px">
+            <div>
+              <label style="font-size:11px;color:var(--color-base-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:2px">Footer Text</label>
+              <div style="font-size:11px;color:var(--color-base-content);opacity:0.6;margin-bottom:4px">Small text at the bottom of the embed</div>
+              <input type="text" id="rx-embed-footer-text" placeholder="e.g. RiffRaff Bot · v1.0">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--color-base-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:2px">Footer Icon URL</label>
+              <div style="font-size:11px;color:var(--color-base-content);opacity:0.6;margin-bottom:4px">Tiny icon shown left of the footer text</div>
+              <input type="text" id="rx-embed-footer-icon-url" placeholder="https://i.imgur.com/...">
+            </div>
+          </div>
         </div>
 
         <div style="margin-bottom:12px">
