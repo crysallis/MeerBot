@@ -71,6 +71,7 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 |---|---|
 | `/ping` | Latency check with tiered quips · tiers in config.js |
 | `/scan` | Runs Python scraper, posts results · then posts inactivity alert (active members only, AFK excluded) · authorized user only |
+| `/sa-manual` | Submit a Supreme Arena screenshot (any resolution/aspect ratio, e.g. off-server members' own phone captures) for parsing · calls `manual_scan.py` in the miner repo · replies ephemeral · unmatched names ping crysallis (member id 6) in `COMMAND_LOG_CHANNEL_ID` with the image attached, never auto-created as members · no code-level permission gate, configure via admin Permissions tab |
 | `/member` | Member stats + power growth line chart (QuickChart GET URL) |
 | `/invasion` | Alert the Homestead role that a homestead is being invaded · optional `name` (in-game, autocomplete) or `user` (linked Discord) · defaults to caller · posts an embed + role ping to `HOMESTEAD_CHANNEL_ID` |
 | `/guild chart` | Multi-line power growth for all members (QuickChart POST → short URL) |
