@@ -89,6 +89,9 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `/newsletter note add/list/remove` | Capture notes/events between issues for the next newsletter |
 | `/newsletter generate` | Claude-drafted newsletter using notes + DB context (new members, anniversaries, season) since last newsletter |
 | `/newsletter seed` | Import past newsletters from the Discord newsletter channel into DB (re-runnable) |
+| `/clashfronts signedup` | List members who signed up for Clashfronts, with selected/unselected status · ephemeral |
+| `/clashfronts notsigned` | Active, non-AFK members not yet in `clashfronts_signups` · ephemeral |
+| `/clashfronts remind` | Posts to `CLASHFRONTS_REMINDER_CHANNEL_ID`, `@mention`s every not-signed-up linked member (chunked in batches of 50 for Discord's content/mention limits), lists unlinked members separately · no code-level permission gate |
 
 ## Database Tables (key ones)
 
@@ -187,6 +190,7 @@ Channels referenced by env vars (snapshot · check the JSON for everything else)
 - AFK expiry checked daily at midnight UTC · date-only return_date means no finer precision needed
 - `GatewayIntentBits.GuildMembers` is enabled (privileged · must also be on in Discord Dev Portal → Bot → Server Members Intent) · required for `guildMemberUpdate` events
 - Both slash command interactions and autocomplete drop silently if `interaction.guildId !== GUILD_ID` (foreign guild guard in index.js)
+- `/scan` pings crysallis (member id 6) directly if a Clashfronts scan leaves `REVIEW_NAMES` unresolved — higher stakes than other modes' unmatched names, since an unresolved signed-up member is silently absent from `clashfronts_signups` and `/clashfronts remind` would otherwise publicly ping someone who already signed up. Not persisted state — a scan-time check in `scan.js`'s execFile callback, gated on `modeFlags.includes("--clashfronts")`, same reviewNames already parsed for the general review note
 - `enforcePermissions` fails closed on DB error · returns false + "temporarily unavailable" message · never fails open
 - Translation role (`1516271538217943131`) is a one-shot trigger · bot DMs the member then removes the role immediately · not a persistent role
 - Admin panel `local` tier is granted by request ORIGIN, not by any role · a request is local iff Host is loopback AND no Cloudflare headers (`cf-connecting-ip`/`cf-ray`) · cloudflared also connects from 127.0.0.1, so the Host (not remoteAddress) is the real discriminator · do NOT "simplify" the Host guard or the local check to just an IP test, it would either lock out the local PC or leak reserved ops to the tunnel

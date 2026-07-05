@@ -15,6 +15,7 @@ const MODE_FLAGS = {
 	SCAN_SUPREME_ARENA: "--supreme-arena",
 	SCAN_HONOR_DUEL: "--honor-duel",
 	SCAN_ARCANE_LAB: "--arcane-lab",
+	SCAN_CLASHFRONTS: "--clashfronts",
 };
 
 function enabledModeFlags() {
@@ -25,6 +26,11 @@ function enabledModeFlags() {
 
 function getLatestSnapshot() {
 	return db.prepare("SELECT id FROM snapshots ORDER BY id DESC LIMIT 1").get();
+}
+
+function getReviewerDiscordId() {
+	const row = db.prepare("SELECT discord_id FROM members WHERE id = 6").get();
+	return row?.discord_id ?? null;
 }
 
 async function postInactivityAlert(client) {
@@ -121,7 +127,7 @@ module.exports = {
 					.filter(Boolean),
 			)].join(", ");
 			const modeResults = lines.filter((l) =>
-				/^(DREAM_REALM|AFK_STAGES|ARENA|SUPREME_ARENA|HONOR_DUEL|ARCANE_LAB|MODE_FAILED):/.test(l));
+				/^(DREAM_REALM|AFK_STAGES|ARENA|SUPREME_ARENA|HONOR_DUEL|ARCANE_LAB|CLASHFRONTS|MODE_FAILED):/.test(l));
 
 			let reply = `✅ Scan complete!\n${done || saved || "Snapshot saved."}`;
 			if (modeResults.length) {
@@ -131,6 +137,19 @@ module.exports = {
 				reply += `\n\n⚠️ **Name review needed** · these were saved as-is (ambiguous OCR characters, no history match):\n\`${reviewNames}\`\nUse \`/rename\` to correct if any look wrong.`;
 			}
 			await interaction.channel.send(reply);
+
+			// Clashfronts unresolved names are higher-stakes than other modes: a
+			// dropped/unmatched signup means /clashfronts remind could publicly
+			// ping someone who already signed up. Ping crysallis directly rather
+			// than relying on the general reviewNames note above.
+			if (reviewNames && modeFlags.includes("--clashfronts")) {
+				const reviewerId = getReviewerDiscordId();
+				if (reviewerId) {
+					await interaction.channel.send(
+						`<@${reviewerId}> ⚠️ Clashfronts scan had unresolved names (see above) · review before running \`/clashfronts remind\` to avoid pinging someone who already signed up.`
+					);
+				}
+			}
 
 			await postInactivityAlert(interaction.client);
 		});

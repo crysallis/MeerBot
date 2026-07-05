@@ -15,6 +15,7 @@ const CONFIG_META = {
     ROSTER_WELCOME_RIFFRAFF_CHANNEL_ID: { label: 'Roster Welcome - RiffRaff',       description: 'Channel for new RiffRaff member welcome posts',  category: 'channels',    default: '' },
     ROSTER_WELCOME_FROP_CHANNEL_ID:     { label: 'Roster Welcome - Frop',           description: 'Channel for new Frop member welcome posts',      category: 'channels',    default: '' },
     HOMESTEAD_CHANNEL_ID:               { label: 'Homestead Channel',               description: 'Channel for /invasion alerts',                  category: 'channels',    default: '1403623893444329564' },
+    CLASHFRONTS_REMINDER_CHANNEL_ID:    { label: 'Clashfronts Reminder Channel',    description: 'Channel for /clashfronts remind posts',         category: 'channels',    default: '' },
     // --- Thresholds ---
     INACTIVITY_DAYS:             { label: 'Inactivity Days',           description: 'Days before flagging a member inactive',  category: 'thresholds',  default: '3' },
     LATE_WARNING_MINUTES:        { label: 'Late Warning Minutes',      description: 'Minutes late before adding a late footer',category: 'thresholds',  default: '30' },
@@ -27,6 +28,7 @@ const CONFIG_META = {
     SCAN_SUPREME_ARENA:          { label: 'Supreme Arena Scan',        description: 'Include Supreme Arena rankings in /scan', category: 'scan_modes',  default: 'false' },
     SCAN_HONOR_DUEL:             { label: 'Honor Duel Scan',           description: 'Include Honor Duel rankings in /scan',    category: 'scan_modes',  default: 'false' },
     SCAN_ARCANE_LAB:             { label: 'Arcane Lab Scan',           description: 'Include Arcane Labyrinth rankings in /scan', category: 'scan_modes', default: 'false' },
+    SCAN_CLASHFRONTS:            { label: 'Clashfronts Scan',          description: 'Include Clashfronts sign-ups in /scan',   category: 'scan_modes',  default: 'false' },
 };
 
 function get(key, fallback = '') {
