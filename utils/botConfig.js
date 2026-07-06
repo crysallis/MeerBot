@@ -29,6 +29,7 @@ const CONFIG_META = {
     SCAN_HONOR_DUEL:             { label: 'Honor Duel Scan',           description: 'Include Honor Duel rankings in /scan',    category: 'scan_modes',  default: 'false' },
     SCAN_ARCANE_LAB:             { label: 'Arcane Lab Scan',           description: 'Include Arcane Labyrinth rankings in /scan', category: 'scan_modes', default: 'false' },
     SCAN_CLASHFRONTS:            { label: 'Clashfronts Scan',          description: 'Include Clashfronts sign-ups in /scan',   category: 'scan_modes',  default: 'false' },
+    SCAN_GUILD_DUEL:             { label: 'Guild Duel Scan',           description: 'Include Guild Duel crest rankings in /scan', category: 'scan_modes', default: 'false' },
 };
 
 function get(key, fallback = '') {

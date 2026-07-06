@@ -220,6 +220,15 @@ Every list command (`power`, `top`, `inactive`, `activeness`, `nogrowth`) calls 
 
 ### member.js
 
+Displays the latest row (`ORDER BY scanned_at DESC LIMIT 1`, no period filtering
+even for period-keyed tables like `supreme_arena_rankings`/`guild_duel_rankings`)
+from each mode's ranking table: AFK Stages, Supreme Arena, Arena, Honor Duel,
+Arcane Lab, Guild Duel Crests, plus a separate multi-row Dream Realm field
+(per-boss). Guild Duel Crests shows `{crests} (#{rank})` rather than just a
+rank, since crests (not placement alone) is the tracked stat — see
+AFKDataMining's `guild_duel_rankings` schema (owned by the Python miner, this
+repo only reads it).
+
 Supports two lookup modes selected at runtime:
 
 ```javascript

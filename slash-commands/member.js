@@ -126,6 +126,10 @@ module.exports = {
             SELECT rank FROM arcane_lab_rankings WHERE member_id = ?
             ORDER BY scanned_at DESC LIMIT 1
         `).get(mid);
+        const guildDuel = db.prepare(`
+            SELECT rank, crests FROM guild_duel_rankings WHERE member_id = ?
+            ORDER BY scanned_at DESC LIMIT 1
+        `).get(mid);
         const dreamRealm = db.prepare(`
             SELECT ds.boss_name, ds.rank, MAX(ds.scanned_at) AS scanned_at
             FROM dream_realm_scores ds
@@ -156,6 +160,9 @@ module.exports = {
             .setColor(color);
 
         const rankStr = (row) => (row && row.rank != null) ? `#${row.rank}` : '·';
+        const guildDuelValue = guildDuel && guildDuel.crests != null
+            ? `${guildDuel.crests}${guildDuel.rank != null ? ` (#${guildDuel.rank})` : ''}`
+            : '·';
 
         embed.addFields(
             { name: '🏔️ AFK Stages',    value: afkStagesValue,        inline: true },
@@ -163,7 +170,7 @@ module.exports = {
             { name: '🥊 Arena',          value: rankStr(arena),        inline: true },
             { name: '🎖️ Honor Duel',     value: rankStr(honor),        inline: true },
             { name: '🧪 Arcane Lab',     value: rankStr(arcaneLab),    inline: true },
-            { name: '​',            value: '​',              inline: true },
+            { name: '⚜️ Guild Duel Crests', value: guildDuelValue,     inline: true },
         );
 
         if (dreamRealm.length) {

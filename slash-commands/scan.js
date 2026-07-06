@@ -16,6 +16,7 @@ const MODE_FLAGS = {
 	SCAN_HONOR_DUEL: "--honor-duel",
 	SCAN_ARCANE_LAB: "--arcane-lab",
 	SCAN_CLASHFRONTS: "--clashfronts",
+	SCAN_GUILD_DUEL: "--guild-duel",
 };
 
 function enabledModeFlags() {
