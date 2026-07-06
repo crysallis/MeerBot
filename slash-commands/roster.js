@@ -4,8 +4,8 @@ const { pickColor } = require('../utils/colors');
 const botConfig = require('../utils/botConfig');
 
 const GUILDS = {
-    riffraff: { id: '1401783863960666143', name: 'RiffRaffians', label: 'RKF RiffRaff', welcomeKey: 'ROSTER_WELCOME_RIFFRAFF_CHANNEL_ID' },
-    frop:     { id: '1482484067965599846', name: 'Penguins',     label: 'RKR Frop',     welcomeKey: 'ROSTER_WELCOME_FROP_CHANNEL_ID' },
+    riffraff: { id: '1401783863960666143', label: 'RKF RiffRaff', welcomeKey: 'ROSTER_WELCOME_RIFFRAFF_CHANNEL_ID' },
+    frop:     { id: '1482484067965599846', label: 'RKR Frop',     welcomeKey: 'ROSTER_WELCOME_FROP_CHANNEL_ID' },
 };
 
 const GUILD_ROLE_IDS = Object.values(GUILDS).map(g => g.id);
@@ -63,7 +63,7 @@ module.exports = {
 
             if (!target.roles.cache.has(guild.id)) {
                 await target.roles.add(guild.id);
-                added.push(guild.name);
+                added.push(interaction.guild.roles.cache.get(guild.id)?.name ?? guild.label);
             }
 
             if (target.roles.cache.has(WHO_DIS_ROLE_ID)) {
@@ -98,8 +98,10 @@ module.exports = {
         if (sub === 'remove') {
             const guild = GUILDS[interaction.options.getString('guild')];
 
+            const roleName = interaction.guild.roles.cache.get(guild.id)?.name ?? guild.label;
+
             if (!target.roles.cache.has(guild.id)) {
-                return interaction.editReply({ content: `${target.displayName} does not have the **${guild.name}** role.` });
+                return interaction.editReply({ content: `${target.displayName} does not have the **${roleName}** role.` });
             }
 
             await target.roles.remove(guild.id);
@@ -107,7 +109,7 @@ module.exports = {
             return interaction.editReply({
                 embeds: [new EmbedBuilder()
                     .setTitle(`${guild.label} · ${target.displayName} removed`)
-                    .setDescription(`**Removed:** ${guild.name}`)
+                    .setDescription(`**Removed:** ${roleName}`)
                     .setColor(pickColor())
                     .setFooter({ text: `By ${interaction.user.username}` })],
             });
@@ -126,7 +128,7 @@ module.exports = {
             for (const g of Object.values(GUILDS)) {
                 if (target.roles.cache.has(g.id)) {
                     await target.roles.remove(g.id);
-                    removed.push(g.name);
+                    removed.push(interaction.guild.roles.cache.get(g.id)?.name ?? g.label);
                 }
             }
 
@@ -134,7 +136,7 @@ module.exports = {
 
             const lines = [];
             if (removed.length) lines.push(`**From:** ${removed.join(', ')}`);
-            lines.push(`**To:** ${toGuild.name}`);
+            lines.push(`**To:** ${interaction.guild.roles.cache.get(toGuild.id)?.name ?? toGuild.label}`);
 
             return interaction.editReply({
                 embeds: [new EmbedBuilder()

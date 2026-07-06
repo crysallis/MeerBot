@@ -148,19 +148,19 @@ Local-only (gitignored) · the repo is public, server layout stays out of it.
 
 Key roles for code references:
 
-| ID | Name | Members | Purpose |
-|---|---|---|---|
-| `1229572649651404830` | Riff | 1 | Top leader |
-| `1229554049788018808` | Raff | 5 | Co-leaders |
-| `1401783863960666143` | RiffRaffians | 30 | Main guild membership |
-| `1434417743616147557` | Kingdom | 32 | Sister guild |
-| `1482484067965599846` | Penguins | 15 | Sister guild |
-| `1299596817402695680` | Frog | 16 | Sister guild |
-| `1269053193996996709` | Senior | 17 | Tenure tier |
-| `1269053550156058634` | Junior | 4 | Tenure tier |
-| `1269053789239771187` | Newbie | 6 | Tenure tier |
-| `1269052266682519582` | AFK Forever | 15 | Inactive members |
-| `1516271538217943131` | Translation | — | One-shot trigger · bot DMs instructions then removes it |
+| ID | Name | Purpose |
+|---|---|---|
+| `1229572649651404830` | Riff | Top leader |
+| `1229554049788018808` | Raff | Co-leaders |
+| `1401783863960666143` | Warband-RiffRaff | Main guild membership |
+| `1434417743616147557` | Warband-Kingdom | Sister guild |
+| `1482484067965599846` | Penguins | Sister guild |
+| `1299596817402695680` | Frog | Sister guild |
+| `1269053193996996709` | Senior | Tenure tier |
+| `1269053550156058634` | Junior | Tenure tier |
+| `1269053789239771187` | Newbie | Tenure tier |
+| `1269052266682519582` | AFK Forever | Inactive members |
+| `1516271538217943131` | Translation | One-shot trigger · bot DMs instructions then removes it |
 
 ## Discord Channels Reference
 

@@ -23,10 +23,17 @@ module.exports = async function handleDailyReset(client, job) {
 
     try {
         const embed = new EmbedBuilder()
-            .setTitle('Daily Reset for DR and Guild Supremacy')
+            .setTitle('Daily Reset for Guild Duel')
             .setDescription(
-                "It's server reset, hop on if you can, let's take down that Supremacy boss... " +
-                "or get the our daily activity in so we can get the next boss!"
+                "It's server reset, hop on and knock out some Duel Quests! " +
+                "Not everyone needs to do all of them, so check the list and pitch in wherever you can:\n" +
+                "• Run Arcane Lab\n" +
+                "• Run Honor Duel\n" +
+                "• Push AFK Stages\n" +
+                "• Finish 20 Homestead requests\n" +
+                "• Collect materials\n" +
+                "• Jump into Arena / Supreme Arena / Dream Realm\n\n" +
+                "Every bit helps the guild!"
             )
             .setColor(pickColor());
 
