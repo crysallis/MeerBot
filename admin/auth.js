@@ -64,6 +64,7 @@ const OPERATIONS = [
     { key: 'reactions',       group: 'Reactions',      label: 'Edit message reactions',   defaultTier: 'manage', match: r => /^\/api\/message-reactions/.test(r.path) },
     { key: 'members',         group: 'Members',        label: 'Edit members',             defaultTier: 'manage', match: r => /^\/api\/members/.test(r.path) },
     { key: 'warbands',        group: 'Warbands',       label: 'Edit warbands',            defaultTier: 'manage', match: r => /^\/api\/warbands/.test(r.path) },
+    { key: 'guilds',          group: 'Warbands',       label: 'Edit guild override roles',defaultTier: 'manage', match: r => /^\/api\/guilds/.test(r.path) },
     { key: 'dream_bosses',    group: 'DR Bosses',      label: 'Edit Dream Realm bosses',  defaultTier: 'manage', match: r => /^\/api\/dream-realm-bosses/.test(r.path) },
     { key: 'seasons',         group: 'Seasons',        label: 'Edit seasons & servers',   defaultTier: 'manage', match: r => /^\/api\/seasons/.test(r.path) },
 ];

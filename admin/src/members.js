@@ -1,19 +1,23 @@
+import { state } from './state.js';
 import { escapeHtml } from './utils.js';
 
 let memberList   = [];
 let warbandsList = [];
+let guildsList   = [];
 
 export async function loadMembers() {
   try {
-    [memberList, warbandsList] = await Promise.all([
+    [memberList, warbandsList, guildsList] = await Promise.all([
       fetch('/api/members').then(r => r.json()),
       fetch('/api/warbands').then(r => r.json()),
+      fetch('/api/guilds').then(r => r.json()),
     ]);
   } catch {
-    memberList = []; warbandsList = [];
+    memberList = []; warbandsList = []; guildsList = [];
   }
   renderMembers();
   renderWarbands();
+  renderGuilds();
 }
 
 export function renderMembers() {
@@ -120,20 +124,52 @@ export function renderMembers() {
   }
 }
 
+function roleSelect(selectedId, onChange) {
+  const sel = document.createElement('select');
+  sel.appendChild(new Option('-- none --', ''));
+  for (const r of state.roleList) {
+    sel.appendChild(new Option(r.name, r.id));
+  }
+  sel.value = selectedId || '';
+  sel.addEventListener('change', () => onChange(sel.value || null));
+  return sel;
+}
+
+function guildSelect(selectedId, onChange) {
+  const sel = document.createElement('select');
+  sel.appendChild(new Option('-- none --', ''));
+  for (const g of guildsList) {
+    sel.appendChild(new Option(g.name, g.id));
+  }
+  sel.value = selectedId || '';
+  sel.addEventListener('change', () => onChange(sel.value || null));
+  return sel;
+}
+
 export function renderWarbands() {
   const body = document.getElementById('warbandsBody');
   if (!body) return;
   if (!warbandsList.length) {
-    body.innerHTML = '<tr><td colspan="4" style="color:var(--color-neutral-content)">No warbands.</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" style="color:var(--color-neutral-content)">No warbands.</td></tr>';
     return;
   }
   body.replaceChildren();
   for (const w of warbandsList) {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td><b>${escapeHtml(w.name)}</b></td>
-      <td>${w.members}</td>
-      <td>${w.archived ? '<span style="color:var(--color-neutral-content)">archived</span>' : '<span style="color:var(--color-success)">active</span>'}</td>
-      <td style="white-space:nowrap"></td>`;
+    const tdName = document.createElement('td');
+    tdName.innerHTML = `<b>${escapeHtml(w.name)}</b>`;
+    const tdGuild = document.createElement('td');
+    tdGuild.appendChild(guildSelect(w.guild_id, v => setWarbandGuild(w.id, v)));
+    const tdLeader = document.createElement('td');
+    tdLeader.appendChild(roleSelect(w.leader_role_id, v => setWarbandRoles(w.id, { leader_role_id: v })));
+    const tdMember = document.createElement('td');
+    tdMember.appendChild(roleSelect(w.member_role_id, v => setWarbandRoles(w.id, { member_role_id: v })));
+    const tdCount = document.createElement('td');
+    tdCount.textContent = w.members;
+    const tdStat = document.createElement('td');
+    tdStat.innerHTML = w.archived ? '<span style="color:var(--color-neutral-content)">archived</span>' : '<span style="color:var(--color-success)">active</span>';
+    const tdAct = document.createElement('td');
+    tdAct.style.whiteSpace = 'nowrap';
     const renBtn = document.createElement('button');
     renBtn.className = 'save-btn';
     renBtn.style.padding = '3px 8px';
@@ -144,9 +180,92 @@ export function renderWarbands() {
     archBtn.style.padding = '3px 8px';
     archBtn.textContent = w.archived ? 'Unarchive' : 'Archive';
     archBtn.addEventListener('click', () => archiveWarband(w.id, w.archived ? 0 : 1));
-    tr.lastElementChild.append(renBtn, archBtn);
+    tdAct.append(renBtn, archBtn);
+    tr.append(tdName, tdGuild, tdLeader, tdMember, tdCount, tdStat, tdAct);
     body.appendChild(tr);
   }
+}
+
+const GUILD_CHIP_STYLE = 'background:var(--color-base-300);border-radius:3px;padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px';
+const GUILD_X_STYLE = 'background:none;border:none;color:var(--color-neutral-content);cursor:pointer;padding:0;font-size:14px;line-height:1';
+
+function guildChip(label, onRemove) {
+  const span = document.createElement('span');
+  span.setAttribute('style', GUILD_CHIP_STYLE);
+  span.appendChild(document.createTextNode(label));
+  const btn = document.createElement('button');
+  btn.setAttribute('style', GUILD_X_STYLE);
+  btn.textContent = '×';
+  btn.addEventListener('click', onRemove);
+  span.appendChild(btn);
+  return span;
+}
+
+export function renderGuilds() {
+  const body = document.getElementById('guildsBody');
+  if (!body) return;
+  if (!guildsList.length) {
+    body.innerHTML = '<tr><td colspan="2" style="color:var(--color-neutral-content)">No guilds.</td></tr>';
+    return;
+  }
+  body.replaceChildren();
+  for (const g of guildsList) {
+    const tr = document.createElement('tr');
+    const tdName = document.createElement('td');
+    tdName.innerHTML = `<b>${escapeHtml(g.name)}</b>`;
+    const tdRoles = document.createElement('td');
+
+    const chips = document.createElement('div');
+    chips.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;min-height:20px';
+    chips.replaceChildren(...g.override_role_ids.map(id => {
+      const name = state.roleList.find(r => r.id === id)?.name ?? id;
+      return guildChip(name, () => setGuildOverrideRoles(g.id, g.override_role_ids.filter(x => x !== id)));
+    }));
+
+    const sel = document.createElement('select');
+    sel.appendChild(new Option('-- add override role --', ''));
+    for (const r of state.roleList) {
+      if (!g.override_role_ids.includes(r.id)) sel.appendChild(new Option(r.name, r.id));
+    }
+    sel.addEventListener('change', () => {
+      if (!sel.value) return;
+      setGuildOverrideRoles(g.id, [...g.override_role_ids, sel.value]);
+    });
+
+    tdRoles.append(chips, sel);
+    tr.append(tdName, tdRoles);
+    body.appendChild(tr);
+  }
+}
+
+export async function setWarbandGuild(id, guild_id) {
+  const res = await fetch(`/api/warbands/${id}/guild`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ guild_id }),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Failed: ' + data.error); }
+  await loadMembers();
+}
+
+export async function setWarbandRoles(id, patch) {
+  const res = await fetch(`/api/warbands/${id}/roles`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Failed: ' + data.error); }
+  await loadMembers();
+}
+
+export async function setGuildOverrideRoles(id, roleIds) {
+  const res = await fetch(`/api/guilds/${id}/override-roles`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role_ids: roleIds }),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Failed: ' + data.error); }
+  await loadMembers();
 }
 
 export async function approveMember(id) {

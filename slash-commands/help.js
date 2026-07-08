@@ -151,11 +151,10 @@ const COMMANDS = {
     },
     roster: {
         description: 'Manage guild membership roles (RKF RiffRaff · RKR Frop).',
-        perm: 'riffOrRaff',
         subcommands: [
-            { name: '/roster add guild: user:',      desc: 'Add a member to a guild. Removes the Who Dis? role if present and sends a welcome message.' },
-            { name: '/roster remove guild: user:',   desc: 'Remove a member from a guild.' },
-            { name: '/roster transfer user: to_guild:', desc: 'Move a member from one guild to the other, removing all existing guild roles first.' },
+            { name: '/roster add guild: user:',         desc: 'Add a member to a guild. Removes the Who Dis? role if present and sends a welcome message.' },
+            { name: '/roster remove guild: user:',      desc: 'Remove a member from a guild.' },
+            { name: '/roster transfer user: to_warband:', desc: 'Request moving a member to a different warband (autocomplete). If the initiator leads only one side, the OTHER side\'s warband leader (or their guild\'s override role, e.g. Riff/Raff) must approve via buttons posted in the-not-so-round-table and DMed to them -- executes immediately only if the initiator leads both warbands or holds an override role. Roles update on approval; guild.db catches up on the next scan.' },
         ],
     },
 };

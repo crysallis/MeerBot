@@ -7,6 +7,7 @@ const { logCommand } = require('./utils/commandLogger');
 const { handleMessage } = require('./utils/messageReactions');
 const { handleTranslationRole } = require('./utils/handlers/translationRoleHandler');
 const { handlePromoCode } = require('./utils/handlers/promoCodeHandler');
+const { handleTransferButton } = require('./utils/handlers/transferButtonHandler');
 const { rateLimit } = require('./config');
 
 require('./utils/db');
@@ -62,6 +63,15 @@ client.on('messageCreate', message => {
 client.on('guildMemberUpdate', (oldMember, newMember) => handleTranslationRole(oldMember, newMember, client));
 
 client.on('interactionCreate', async interaction => {
+  if (interaction.isButton()) {
+    try {
+      await handleTransferButton(interaction);
+    } catch (err) {
+      console.error('Button interaction error:', err);
+    }
+    return;
+  }
+
   if (interaction.isAutocomplete()) {
     if (interaction.guildId !== process.env.GUILD_ID) return;
     const cmd = client.slashCommands.get(interaction.commandName);

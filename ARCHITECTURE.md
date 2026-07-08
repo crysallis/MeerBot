@@ -119,8 +119,15 @@ members             Guild members. Linked by discord_id to Discord users.
                     to an existing member (awaiting /review).
                     warband_id = current warband (synced from scan, manually overridable).
                     last_scanned_at = when the member was last read by a scan (set by scraper).
-warbands            Canonical warband list (id, name UNIQUE, sort_order, archived).
-                    Rename here propagates everywhere via renameWarband().
+guilds              Top-level guild (RKF RiffRaff, RKF Frop). id, name UNIQUE,
+                    override_role_ids (JSON array of Discord role IDs that bypass
+                    transfer approval entirely for moves touching this guild).
+warbands            Sub-unit within a guild (id, name UNIQUE, sort_order, archived,
+                    guild_id FK, leader_role_id -- must approve transfers into/out of
+                    this warband, member_role_id -- granted/removed on transfer).
+                    Rename here propagates everywhere via renameWarband(). Bot-owned
+                    (Discord role management is a bot concern); the miner still reads
+                    this table read-only to resolve OCR'd warbands during scanning.
 member_name_history Audit log of name changes from /rename and admin panel.
 name_corrections    OCR correction map. Written by scraper and /rename, readable by bot.
 member_notes        Admin notes on members. Multiple notes per member (/note command).
@@ -162,6 +169,20 @@ panel_audit         Admin-panel audit log. One row per login + per successful mu
 panel_presence      Presence heartbeat. discord_id -> name/avatar/last_seen. Drives the
                     "who's viewing" avatar stack; active = seen within 2 min.
 sessions            Admin-panel login sessions (auto-managed by better-sqlite3-session-store).
+transfer_approvals  Pending/resolved /roster transfer requests. transfer_id (UUID, used
+                    in button custom_id), member_id, from/to_warband_id, direction
+                    (pull|push, informational -- audits which side initiated), status
+                    (requested|approved|denied), approver_user_id + acted_at (who
+                    resolved it and when -- null while requested), message_id (the
+                    channel post, edited on resolution).
+transfer_approval_eligibility  One row per Discord user id eligible to approve/deny a
+                    specific transfer, recorded at request time. message_id is the
+                    DM sent to them (null if their DMs were closed). This is the
+                    authorization source for button clicks -- checked by recorded
+                    eligibility rather than a live role re-check, so the DM'd set and
+                    the clickable set can never diverge (matters on the vacant-leader
+                    fallback path, where multiple guild override roles can all be
+                    eligible but only one is stored as transfer_approvals.approving_role_id).
 ```
 
 The `members` table is the join hub. It links:
@@ -257,13 +278,33 @@ The callback runs `postInactivityAlert()` after a successful scan. This queries 
 
 ### roster.js
 
-Manages Discord role assignment for RiffRaff and Frog guild membership. Three subcommands:
+Manages Discord role assignment for guild/warband membership. Three subcommands:
 
-- **`add guild: user:`** -- adds the guild's role to the target member, removes the `Who Dis?` onboarding role if present, and optionally sends a welcome message to the guild's configured welcome channel (keyed by `ROSTER_WELCOME_<GUILD>_CHANNEL_ID` in `bot_config`).
+- **`add guild: user:`** -- adds the guild's role to the target member, removes the `Who Dis?` onboarding role if present, and optionally sends a welcome message to the guild's configured welcome channel (keyed by `ROSTER_WELCOME_<GUILD>_CHANNEL_ID` in `bot_config`). Guild-level only (RiffRaff/Frop) -- unrelated to warbands.
 - **`remove guild: user:`** -- removes the guild role.
-- **`transfer user: to_guild:`** -- removes all guild roles from the member then adds the destination guild's role. `currentGuild()` determines which guild role(s) the member currently holds.
+- **`transfer user: to_warband:`** -- requests moving a member to a different warband (autocomplete over the live `warbands` table). The target must already be linked (`members.discord_id` set via `/link`) -- blocks with an error otherwise, since there'd be nothing to key `transfer_approvals.member_id` off. No-ops with an error reply if the target is already in that warband.
 
-Permission is entirely DB-backed via `enforcePermissions(interaction, 'roster', subcommand)` -- no hardcoded role check. Access is granted by configuring role allowlists in the admin Permissions tab.
+  Approval routing (`resolveApprover()` in `utils/transferApproval.js`), in precedence order:
+  1. Initiator holds a guild override role (`guilds.override_role_ids`) for either side's guild -> bypass, executes immediately.
+  2. Initiator holds the `leader_role_id` for BOTH the source and destination warband -> bypass (no other party has standing to approve).
+  3. Initiator leads exactly one side -> the OTHER side's warband leader must approve ("pull": initiator leads destination, source approves; "push": initiator leads source, destination approves). Falls back to that side's guild override roles if `leader_role_id` is unset or currently held by nobody in Discord.
+  4. Initiator leads neither side and holds no override role (shouldn't normally be reachable past `command_permissions`) -> still creates a request, defaulting the approver to the destination warband's leader, so an eligible approver can deny it.
+
+  A bypass calls `applyTransferRoles()` (also exported for the button handler to reuse) directly. Otherwise it creates a `transfer_approvals` row, posts an Approve/Deny-button embed to `TRANSFER_APPROVAL_CHANNEL_ID` (the-not-so-round-table), and DMs every currently-eligible approver the same embed -- recording each of them in `transfer_approval_eligibility` regardless of whether the DM actually sent, since that table (not a live role check) is what authorizes a later button click.
+
+  **Approval only changes Discord roles, never `guild.db`.** `members.warband_id` is left for the next mining scan to resolve via OCR -- the in-game guild/warband move is a separate, human-driven action in AFK Journey that may not happen at the same moment as the Discord-side approval.
+
+Permission to run `/roster transfer` at all is entirely DB-backed via `enforcePermissions(interaction, 'roster', subcommand)` -- no hardcoded role check. The override/leader roles above are a separate, later gate (can this approval be bypassed / who must approve), not a replacement for that command-level permission.
+
+### transferButtonHandler.js
+
+`index.js`'s `interactionCreate` handler's only `isButton()` branch (added for this feature -- previously the bot had no button interactions at all). Dispatches on `custom_id` prefix `transfer_approve:`/`transfer_deny:`.
+
+Clickable from either the channel post or a DM. A DM interaction has no `interaction.guild`/`interaction.member` (DMs aren't inside any guild), so the handler resolves the bot's one managed guild explicitly via `process.env.GUILD_ID` instead of relying on interaction context -- the same code path handles both origins.
+
+Authorization checks `transfer_approval_eligibility` (was this user recorded eligible for this specific request) rather than re-deriving role membership at click time. This matters on the vacant-leader-role fallback path: `resolveEligibleApprovers()` can return multiple eligible people across several guild override roles, but only one role id is stored on `transfer_approvals.approving_role_id` -- checking that single role at click time would incorrectly reject some of the people who were actually DM'd.
+
+Calls `interaction.deferUpdate()` immediately after the eligibility/status gates, before any role edits or REST fetches -- `applyTransferRoles()` plus several member/user lookups can exceed Discord's 3s interaction ack deadline. On resolution it edits whichever message was clicked, then syncs every other surviving copy (the channel post, if the click came from a DM or vice versa, and every other eligible approver's DM) to the resolved state via `Promise.all`.
 
 ### note.js / afk.js
 
@@ -411,6 +452,10 @@ REST API:
 | `POST` | `/api/warbands` | `{ name }` · add a warband |
 | `PUT` | `/api/warbands/:id` | Rename (propagates everywhere via `renameWarband`) |
 | `POST` | `/api/warbands/:id/archive` | `{ archived }` · hide from scans/filters, keep history |
+| `PUT` | `/api/warbands/:id/roles` | `{ leader_role_id, member_role_id }` · either may be `null` to clear |
+| `PUT` | `/api/warbands/:id/guild` | `{ guild_id }` · assign a warband to a parent guild |
+| `GET` | `/api/guilds` | Guild list (`override_role_ids` parsed to an array) |
+| `PUT` | `/api/guilds/:id/override-roles` | `{ role_ids: [...] }` · whole-array replace of transfer-approval-bypass roles |
 | `GET` | `/api/seasons` | Season list with server counts |
 | `POST` | `/api/seasons` | `{ name }` · create a season (inactive by default) |
 | `PUT` | `/api/seasons/:id` | Update name and/or active status |

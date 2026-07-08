@@ -9,16 +9,66 @@ db.pragma('foreign_keys = ON');
 db.pragma('busy_timeout = 5000');
 
 // Schema ownership: the bot owns its BOT-ONLY tables below. The shared scan +
-// member-identity tables (members, snapshots, member_snapshots, warbands,
-// name_corrections, member_name_history) are owned and created by the miner
-// (AFKDataMining/src/db.py) · the bot reads and writes them but never defines
-// them. CREATE statements always reflect the CURRENT shape: when the schema
-// changes, run the ALTER once against guild.db and fold the column in here ·
-// no migration trail replayed on startup.
+// member-identity tables (members, snapshots, member_snapshots, name_corrections,
+// member_name_history) are owned and created by the miner (AFKDataMining/src/db.py)
+// · the bot reads and writes them but never defines them. guilds and warbands are
+// bot-owned (Discord role/membership management is a bot concern, not a mining
+// concern) even though the miner still reads warbands to resolve OCR'd names.
+// CREATE statements always reflect the CURRENT shape: when the schema changes, run
+// the ALTER once against guild.db and fold the column in here · no migration trail
+// replayed on startup.
 const sharedReady = db.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'members'").get();
 if (!sharedReady) {
-    console.warn('[DB] Shared schema missing (members/snapshots/warbands) · it is owned by the AFKDataMining scraper · run a scan (or db.py init_db) to create it.');
+    console.warn('[DB] Shared schema missing (members/snapshots) · it is owned by the AFKDataMining scraper · run a scan (or db.py init_db) to create it.');
+}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS guilds (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    name              TEXT NOT NULL UNIQUE,
+    override_role_ids TEXT NOT NULL DEFAULT '[]'
+  );
+
+  CREATE TABLE IF NOT EXISTS warbands (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    name           TEXT NOT NULL UNIQUE,
+    sort_order     INTEGER NOT NULL DEFAULT 0,
+    archived       INTEGER NOT NULL DEFAULT 0,
+    guild_id       INTEGER REFERENCES guilds(id),
+    leader_role_id TEXT,
+    member_role_id TEXT
+  );
+`);
+
+// warbands may already exist (created by the miner pre-migration) without the
+// guild_id/leader_role_id/member_role_id columns · SQLite has no ADD COLUMN IF
+// NOT EXISTS, so check first. Safe to run every startup.
+const warbandCols = new Set(db.prepare("PRAGMA table_info(warbands)").all().map(c => c.name));
+for (const [col, ddl] of [
+    ['guild_id', 'ALTER TABLE warbands ADD COLUMN guild_id INTEGER REFERENCES guilds(id)'],
+    ['leader_role_id', 'ALTER TABLE warbands ADD COLUMN leader_role_id TEXT'],
+    ['member_role_id', 'ALTER TABLE warbands ADD COLUMN member_role_id TEXT'],
+]) {
+    if (!warbandCols.has(col)) db.exec(ddl);
+}
+
+// Seed guilds + backfill the known warbands' guild_id (idempotent). RKF Frop's
+// own warbands aren't seeded here since the miner can't scan that guild to
+// discover them · add via the admin panel once known.
+const SEED_GUILDS = ['RKF RiffRaff', 'RKF Frop'];
+for (const name of SEED_GUILDS) {
+    db.prepare('INSERT OR IGNORE INTO guilds (name) VALUES (?)').run(name);
+}
+const riffRaffGuildId = db.prepare('SELECT id FROM guilds WHERE name = ?').get('RKF RiffRaff')?.id;
+const SEED_WARBANDS = ['RKF RiffRaff', 'RKF Kings', 'Sobaquitos'];
+if (riffRaffGuildId) {
+    for (const name of SEED_WARBANDS) {
+        db.prepare('INSERT OR IGNORE INTO warbands (name, sort_order) VALUES (?, ?)')
+            .run(name, SEED_WARBANDS.indexOf(name));
+        db.prepare('UPDATE warbands SET guild_id = ? WHERE name = ? AND guild_id IS NULL')
+            .run(riffRaffGuildId, name);
+    }
 }
 
 db.exec(`
@@ -226,6 +276,37 @@ db.exec(`
     message_id TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_promo_codes_posted ON promo_codes(posted_at);
+
+  CREATE TABLE IF NOT EXISTS transfer_approvals (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    transfer_id       TEXT NOT NULL UNIQUE,
+    member_id         INTEGER NOT NULL REFERENCES members(id),
+    from_warband_id   INTEGER REFERENCES warbands(id),
+    to_warband_id     INTEGER NOT NULL REFERENCES warbands(id),
+    direction         TEXT NOT NULL CHECK(direction IN ('pull', 'push')),
+    requested_by      TEXT NOT NULL,
+    approving_role_id TEXT NOT NULL,
+    status            TEXT NOT NULL DEFAULT 'requested' CHECK(status IN ('requested', 'approved', 'denied')),
+    approver_user_id  TEXT,
+    acted_at          TEXT,
+    message_id        TEXT,
+    created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_ta_status ON transfer_approvals(status);
+
+  -- One row per Discord user determined eligible to approve/deny a transfer
+  -- request, whether or not their DM actually sent (message_id is NULL if it
+  -- didn't). This is also the authorization source for button clicks: whoever
+  -- was eligible when the request was created may act on it, checked by user
+  -- id rather than re-deriving role membership at click time.
+  CREATE TABLE IF NOT EXISTS transfer_approval_eligibility (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    transfer_id  TEXT NOT NULL REFERENCES transfer_approvals(transfer_id),
+    user_id      TEXT NOT NULL,
+    message_id   TEXT,
+    UNIQUE(transfer_id, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_tae_transfer ON transfer_approval_eligibility(transfer_id);
 `);
 
 /**
@@ -287,6 +368,37 @@ function getWarbands(includeArchived = false) {
                        ORDER BY archived, sort_order, name COLLATE NOCASE`).all();
 }
 
+/** List guilds. */
+function getGuilds() {
+    return db.prepare('SELECT * FROM guilds ORDER BY name COLLATE NOCASE').all();
+}
+
+/** Discord role IDs allowed to bypass transfer approval for this guild. */
+function getGuildOverrideRoles(guildId) {
+    const row = db.prepare('SELECT override_role_ids FROM guilds WHERE id = ?').get(guildId);
+    if (!row) return [];
+    try {
+        return JSON.parse(row.override_role_ids);
+    } catch {
+        return [];
+    }
+}
+
+function setGuildOverrideRoles(guildId, roleIds) {
+    db.prepare('UPDATE guilds SET override_role_ids = ? WHERE id = ?')
+        .run(JSON.stringify(roleIds), guildId);
+}
+
+/** Set a warband's leader role (must approve transfers into/out of the warband). */
+function setWarbandLeaderRole(warbandId, roleId) {
+    db.prepare('UPDATE warbands SET leader_role_id = ? WHERE id = ?').run(roleId || null, warbandId);
+}
+
+/** Set a warband's member role (granted/removed on transfer). */
+function setWarbandMemberRole(warbandId, roleId) {
+    db.prepare('UPDATE warbands SET member_role_id = ? WHERE id = ?').run(roleId || null, warbandId);
+}
+
 /**
  * Rename a warband in one place. Updates the canonical row and re-syncs the
  * denormalized text cache on member_snapshots so every view follows immediately.
@@ -322,8 +434,66 @@ function setMemberWarband(memberId, warbandId) {
     tx();
 }
 
+/** Create a pending transfer_approvals row. Returns the row. */
+function createTransferApproval({ transferId, memberId, fromWarbandId, toWarbandId, direction, requestedBy, approvingRoleId }) {
+    db.prepare(`INSERT INTO transfer_approvals
+        (transfer_id, member_id, from_warband_id, to_warband_id, direction, requested_by, approving_role_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`)
+        .run(transferId, memberId, fromWarbandId, toWarbandId, direction, requestedBy, approvingRoleId);
+    return getTransferApproval(transferId);
+}
+
+function getTransferApproval(transferId) {
+    return db.prepare('SELECT * FROM transfer_approvals WHERE transfer_id = ?').get(transferId);
+}
+
+function setTransferApprovalMessage(transferId, messageId) {
+    db.prepare('UPDATE transfer_approvals SET message_id = ? WHERE transfer_id = ?').run(messageId, transferId);
+}
+
+/** Resolve a pending transfer (approve/deny). No-op (returns false) if already resolved. */
+function resolveTransferApproval(transferId, status, approverUserId) {
+    const r = db.prepare(`UPDATE transfer_approvals
+        SET status = ?, approver_user_id = ?, acted_at = datetime('now')
+        WHERE transfer_id = ? AND status = 'requested'`)
+        .run(status, approverUserId, transferId);
+    return r.changes > 0;
+}
+
+/** Record a user as eligible to approve/deny this transfer (regardless of DM delivery). */
+function addTransferApprovalEligibility(transferId, userId) {
+    db.prepare('INSERT OR IGNORE INTO transfer_approval_eligibility (transfer_id, user_id) VALUES (?, ?)')
+        .run(transferId, userId);
+}
+
+function setTransferApprovalDmMessage(transferId, userId, messageId) {
+    db.prepare('UPDATE transfer_approval_eligibility SET message_id = ? WHERE transfer_id = ? AND user_id = ?')
+        .run(messageId, transferId, userId);
+}
+
+function isTransferApprovalEligible(transferId, userId) {
+    return !!db.prepare('SELECT 1 FROM transfer_approval_eligibility WHERE transfer_id = ? AND user_id = ?').get(transferId, userId);
+}
+
+function getTransferApprovalDms(transferId) {
+    return db.prepare('SELECT user_id, message_id FROM transfer_approval_eligibility WHERE transfer_id = ? AND message_id IS NOT NULL').all(transferId);
+}
+
 module.exports = db;
 module.exports.mergeMembers = mergeMembers;
 module.exports.getWarbands = getWarbands;
 module.exports.renameWarband = renameWarband;
 module.exports.setMemberWarband = setMemberWarband;
+module.exports.getGuilds = getGuilds;
+module.exports.getGuildOverrideRoles = getGuildOverrideRoles;
+module.exports.setGuildOverrideRoles = setGuildOverrideRoles;
+module.exports.setWarbandLeaderRole = setWarbandLeaderRole;
+module.exports.setWarbandMemberRole = setWarbandMemberRole;
+module.exports.createTransferApproval = createTransferApproval;
+module.exports.getTransferApproval = getTransferApproval;
+module.exports.setTransferApprovalMessage = setTransferApprovalMessage;
+module.exports.resolveTransferApproval = resolveTransferApproval;
+module.exports.addTransferApprovalEligibility = addTransferApprovalEligibility;
+module.exports.setTransferApprovalDmMessage = setTransferApprovalDmMessage;
+module.exports.isTransferApprovalEligible = isTransferApprovalEligible;
+module.exports.getTransferApprovalDms = getTransferApprovalDms;

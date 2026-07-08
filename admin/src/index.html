@@ -276,13 +276,30 @@
     <p style="color:var(--color-neutral-content); font-size:12px; margin-bottom:12px">
       Renaming a warband updates it everywhere (all members and history) in one step.
       Archived warbands are hidden from scans and filters but keep their history.
+      Leader Role must approve transfers into/out of that warband; Member Role is granted/removed
+      on an approved transfer.
     </p>
     <div class="panel-card">
       <table class="jobs-table">
         <thead>
-          <tr class="jobs-header-row"><th>Warband</th><th>Active Members</th><th>Status</th><th>Actions</th></tr>
+          <tr class="jobs-header-row"><th>Warband</th><th>Guild</th><th>Leader Role</th><th>Member Role</th><th>Active Members</th><th>Status</th><th>Actions</th></tr>
         </thead>
-        <tbody id="warbandsBody"><tr><td colspan="4" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
+        <tbody id="warbandsBody"><tr><td colspan="7" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="section-title" style="margin-top:24px">Guild Override Roles</div>
+    <p style="color:var(--color-neutral-content); font-size:12px; margin-bottom:12px">
+      Roles that can bypass transfer approval entirely for a guild (e.g. top guild leaders).
+      A transfer initiated by someone holding one of these roles executes immediately, no
+      approval request is created.
+    </p>
+    <div class="panel-card">
+      <table class="jobs-table">
+        <thead>
+          <tr class="jobs-header-row"><th>Guild</th><th>Override Roles</th></tr>
+        </thead>
+        <tbody id="guildsBody"><tr><td colspan="2" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>

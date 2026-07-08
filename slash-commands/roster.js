@@ -1,19 +1,28 @@
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { enforcePermissions } = require('../utils/permissions');
 const { pickColor } = require('../utils/colors');
 const botConfig = require('../utils/botConfig');
+const db = require('../utils/db');
+const { resolveApprover, resolveEligibleApprovers, newTransferId, buildApprovalEmbed } = require('../utils/transferApproval');
 
 const GUILDS = {
     riffraff: { id: '1401783863960666143', label: 'RKF RiffRaff', welcomeKey: 'ROSTER_WELCOME_RIFFRAFF_CHANNEL_ID' },
     frop:     { id: '1482484067965599846', label: 'RKR Frop',     welcomeKey: 'ROSTER_WELCOME_FROP_CHANNEL_ID' },
 };
 
-const GUILD_ROLE_IDS = Object.values(GUILDS).map(g => g.id);
-
 const WHO_DIS_ROLE_ID = '1330742760306638889';
 
-function currentGuild(member) {
-    return Object.values(GUILDS).find(g => member.roles.cache.has(g.id)) ?? null;
+// Maps a warbands.guild_id (DB row) to this file's GUILDS entry, so a
+// cross-guild transfer also swaps the top-level RiffRaff/Frop Discord role.
+// Keyed by DB guild name since guild_id is a bot-assigned autoincrement id
+// with no fixed relationship to the hardcoded GUILDS keys above.
+function guildEntryForDbGuild(dbGuildId) {
+    if (!dbGuildId) return null;
+    const dbGuild = db.getGuilds().find(g => g.id === dbGuildId);
+    if (!dbGuild) return null;
+    if (dbGuild.name === 'RKF RiffRaff') return GUILDS.riffraff;
+    if (dbGuild.name === 'RKF Frop') return GUILDS.frop;
+    return null;
 }
 
 const GUILD_CHOICES = [
@@ -39,10 +48,18 @@ module.exports = {
         )
         .addSubcommand(s => s
             .setName('transfer')
-            .setDescription('Move a member from one guild to the other')
+            .setDescription('Move a member to a different warband (may require approval)')
             .addUserOption(o => o.setName('user').setDescription('Discord member').setRequired(true))
-            .addStringOption(o => o.setName('to_guild').setDescription('Destination guild').setRequired(true).addChoices(...GUILD_CHOICES))
+            .addStringOption(o => o.setName('to_warband').setDescription('Destination warband').setRequired(true).setAutocomplete(true))
         ),
+
+    async autocomplete(interaction) {
+        const focused = interaction.options.getFocused().toLowerCase();
+        const filtered = db.getWarbands()
+            .filter(w => w.name.toLowerCase().includes(focused))
+            .slice(0, 25);
+        await interaction.respond(filtered.map(w => ({ name: w.name, value: w.name })));
+    },
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
@@ -116,35 +133,109 @@ module.exports = {
         }
 
         if (sub === 'transfer') {
-            const toGuild   = GUILDS[interaction.options.getString('to_guild')];
-            const fromGuild = currentGuild(target);
-
-            if (fromGuild?.id === toGuild.id) {
-                return interaction.editReply({ content: `${target.displayName} is already in **${toGuild.label}**.` });
+            const toWarbandName = interaction.options.getString('to_warband');
+            const toWarband = db.getWarbands().find(w => w.name === toWarbandName);
+            if (!toWarband) {
+                return interaction.editReply({ content: `No warband named **${toWarbandName}**.` });
             }
 
-            const removed = [];
+            const memberRow = db.prepare('SELECT id, warband_id FROM members WHERE discord_id = ?').get(target.id);
+            if (!memberRow) {
+                return interaction.editReply({ content: `${target.displayName} isn't linked to a roster entry yet — use /link first.` });
+            }
+            const fromWarband = memberRow.warband_id
+                ? db.getWarbands(true).find(w => w.id === memberRow.warband_id)
+                : null;
 
-            for (const g of Object.values(GUILDS)) {
-                if (target.roles.cache.has(g.id)) {
-                    await target.roles.remove(g.id);
-                    removed.push(interaction.guild.roles.cache.get(g.id)?.name ?? g.label);
+            if (fromWarband?.id === toWarband.id) {
+                return interaction.editReply({ content: `${target.displayName} is already in **${toWarband.name}**.` });
+            }
+
+            const { bypass, direction } = resolveApprover({ guildMember: interaction.member, fromWarband, toWarband });
+
+            if (bypass) {
+                await applyTransferRoles(interaction.guild, target, fromWarband, toWarband);
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setTitle(`Transfer · ${target.displayName}`)
+                        .setDescription(`**From:** ${fromWarband?.name ?? '_none_'}\n**To:** ${toWarband.name}\n\n_No approval needed._`)
+                        .setColor(pickColor())
+                        .setFooter({ text: `By ${interaction.user.username}` })],
+                });
+            }
+
+            const fromGuild = fromWarband?.guild_id ? db.getGuilds().find(g => g.id === fromWarband.guild_id) : null;
+            const toGuild = toWarband.guild_id ? db.getGuilds().find(g => g.id === toWarband.guild_id) : null;
+            const approvingWarband = direction === 'pull' ? fromWarband : toWarband;
+            const approvingGuild = direction === 'pull' ? fromGuild : toGuild;
+
+            const { roleId, members: eligibleMembers } = await resolveEligibleApprovers(interaction.guild, approvingWarband, approvingGuild);
+            if (!roleId) {
+                return interaction.editReply({ content: `No leader role or guild override role is configured for **${approvingWarband?.name ?? 'the approving side'}** — set one in the admin panel before requesting this transfer.` });
+            }
+
+            const transferId = newTransferId();
+            db.createTransferApproval({
+                transferId,
+                memberId: memberRow.id,
+                fromWarbandId: fromWarband?.id ?? null,
+                toWarbandId: toWarband.id,
+                direction,
+                requestedBy: interaction.user.id,
+                approvingRoleId: roleId,
+            });
+
+            const embed = buildApprovalEmbed({
+                target, fromWarband, toWarband, direction, status: 'requested',
+                eligibleMembers, requestedByTag: interaction.user.username,
+            });
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`transfer_approve:${transferId}`).setLabel('Approve').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`transfer_deny:${transferId}`).setLabel('Deny').setStyle(ButtonStyle.Danger),
+            );
+
+            const channelId = botConfig.get('TRANSFER_APPROVAL_CHANNEL_ID');
+            const channel = channelId ? interaction.guild.channels.cache.get(channelId) : null;
+            if (channel) {
+                const posted = await channel.send({ embeds: [embed], components: [row] });
+                db.setTransferApprovalMessage(transferId, posted.id);
+            }
+
+            for (const approver of eligibleMembers) {
+                db.addTransferApprovalEligibility(transferId, approver.id);
+                try {
+                    const dm = await approver.send({ embeds: [embed], components: [row] });
+                    db.setTransferApprovalDmMessage(transferId, approver.id, dm.id);
+                } catch {
+                    // DMs closed — the channel post + panel remain the fallback,
+                    // and they're still recorded as eligible to click there.
                 }
             }
 
-            await target.roles.add(toGuild.id);
-
-            const lines = [];
-            if (removed.length) lines.push(`**From:** ${removed.join(', ')}`);
-            lines.push(`**To:** ${interaction.guild.roles.cache.get(toGuild.id)?.name ?? toGuild.label}`);
-
-            return interaction.editReply({
-                embeds: [new EmbedBuilder()
-                    .setTitle(`Transfer · ${target.displayName}`)
-                    .setDescription(lines.join('\n'))
-                    .setColor(pickColor())
-                    .setFooter({ text: `By ${interaction.user.username}` })],
-            });
+            return interaction.editReply({ content: `Transfer request sent — waiting on approval from **${approvingWarband?.name ?? 'the approving side'}**.` });
         }
     },
 };
+
+/** Apply the Discord role changes for an approved (or bypassed) transfer. Does not touch guild.db. */
+async function applyTransferRoles(discordGuild, target, fromWarband, toWarband) {
+    if (fromWarband?.member_role_id && target.roles.cache.has(fromWarband.member_role_id)) {
+        await target.roles.remove(fromWarband.member_role_id);
+    }
+    if (toWarband.member_role_id) {
+        await target.roles.add(toWarband.member_role_id);
+    }
+
+    const fromGuildEntry = guildEntryForDbGuild(fromWarband?.guild_id);
+    const toGuildEntry = guildEntryForDbGuild(toWarband.guild_id);
+    if (fromGuildEntry?.id !== toGuildEntry?.id) {
+        if (fromGuildEntry && target.roles.cache.has(fromGuildEntry.id)) {
+            await target.roles.remove(fromGuildEntry.id);
+        }
+        if (toGuildEntry) {
+            await target.roles.add(toGuildEntry.id);
+        }
+    }
+}
+
+module.exports.applyTransferRoles = applyTransferRoles;

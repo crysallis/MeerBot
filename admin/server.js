@@ -631,7 +631,7 @@ app.post('/api/members/:id/warband', (req, res) => {
 app.get('/api/warbands', (req, res) => {
     try {
         const rows = db.prepare(`
-            SELECT w.id, w.name, w.sort_order, w.archived,
+            SELECT w.id, w.name, w.sort_order, w.archived, w.guild_id, w.leader_role_id, w.member_role_id,
                    (SELECT COUNT(*) FROM members m WHERE m.warband_id = w.id AND m.active = 1) AS members
             FROM warbands w
             ORDER BY w.archived, w.sort_order, w.name COLLATE NOCASE
@@ -674,6 +674,58 @@ app.post('/api/warbands/:id/archive', (req, res) => {
     try {
         const r = db.prepare('UPDATE warbands SET archived = ? WHERE id = ?').run(archived, id);
         if (r.changes === 0) return res.status(404).json({ error: 'Warband not found' });
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT /api/warbands/:id/roles — { leader_role_id, member_role_id } (either may be null to clear)
+app.put('/api/warbands/:id/roles', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+        const warband = db.prepare('SELECT id FROM warbands WHERE id = ?').get(id);
+        if (!warband) return res.status(404).json({ error: 'Warband not found' });
+        if ('leader_role_id' in req.body) db.setWarbandLeaderRole(id, req.body.leader_role_id);
+        if ('member_role_id' in req.body) db.setWarbandMemberRole(id, req.body.member_role_id);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT /api/warbands/:id/guild — { guild_id }
+app.put('/api/warbands/:id/guild', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const guildId = req.body.guild_id ? parseInt(req.body.guild_id, 10) : null;
+    try {
+        const r = db.prepare('UPDATE warbands SET guild_id = ? WHERE id = ?').run(guildId, id);
+        if (r.changes === 0) return res.status(404).json({ error: 'Warband not found' });
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── Guilds ───────────────────────────────────────────────────────────────────
+
+// GET /api/guilds
+app.get('/api/guilds', (req, res) => {
+    try {
+        res.json(db.getGuilds().map(g => ({ ...g, override_role_ids: JSON.parse(g.override_role_ids) })));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT /api/guilds/:id/override-roles — { role_ids: [...] } (whole-array replace)
+app.put('/api/guilds/:id/override-roles', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const roleIds = Array.isArray(req.body.role_ids) ? req.body.role_ids : [];
+    try {
+        const guild = db.prepare('SELECT id FROM guilds WHERE id = ?').get(id);
+        if (!guild) return res.status(404).json({ error: 'Guild not found' });
+        db.setGuildOverrideRoles(id, roleIds);
         res.json({ ok: true });
     } catch (err) {
         res.status(500).json({ error: err.message });

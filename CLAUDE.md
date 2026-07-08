@@ -55,7 +55,7 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `admin/auth.js` | Admin panel auth/RBAC · Discord OAuth2 login, session, three tiers (read/manage/local), CSRF, audit · `OPERATIONS` registry maps each editable action to a tab + default tier (override via `panel_op_access`) · `panel_roles` = role->tier · new tabs add an `OPERATIONS` entry so they appear in the Access tab automatically |
 | `admin/REMOTE_ACCESS.md` | How to expose the panel via Cloudflare Tunnel (`admin.meerbot.dev`) + OAuth setup · for going beyond localhost |
 | `admin/` Vite app | Vite + Tailwind v4 + DaisyUI v5 build (mirrors `stats/`) · own `package.json` + `vite.config.mjs` (`root: src`, `outDir: ../dist`, `publicDir: ../public`) · build with `npm run build --prefix admin` (or root `npm run build`) · `admin/public/` is now image-only (publicDir); old inline `index.html`/`style.css`/`theme-demo.html` deleted in the migration |
-| `admin/src/index.html` | Admin UI markup · **Commands** tab (command/event channel settings · the old "Channels" tab, renamed; job-owned channels are NOT here) + thresholds + **Members** tab (rename/link/merge/approve/warband) + **Warbands** tab (add/rename/archive) + **Access** tab (local-only · per-op tiers, role->tier, audit log) + **Scheduled Jobs** cards (each job-owned channel renders as a "Posts to" select in its card · `JOB_CHANNEL_KEY` map) · login overlay + tier-gated controls · responsive ≤768px: hamburger drawer nav (header utilities relocate into it via matchMedia), Members table reflows to cards, other tables scroll · keeps inline FOUC theme-init `<script>` in `<head>` + `<script type=module src=./main.js>` |
+| `admin/src/index.html` | Admin UI markup · **Commands** tab (command/event channel settings · the old "Channels" tab, renamed; job-owned channels are NOT here) + thresholds + **Members** tab (rename/link/merge/approve/warband) + **Warbands** tab (add/rename/archive · per-warband guild assignment, leader role, member role · a Guild Override Roles table for transfer-approval-bypass roles per guild) + **Access** tab (local-only · per-op tiers, role->tier, audit log) + **Scheduled Jobs** cards (each job-owned channel renders as a "Posts to" select in its card · `JOB_CHANNEL_KEY` map) · login overlay + tier-gated controls · responsive ≤768px: hamburger drawer nav (header utilities relocate into it via matchMedia), Members table reflows to cards, other tables scroll · keeps inline FOUC theme-init `<script>` in `<head>` + `<script type=module src=./main.js>` |
 | `admin/src/main.js` | Admin entry point · imports `../../shared/theme.css` + `./style.css` + all tab modules · AUTH/CSRF fetch override, `applyAccess`/`lockTiers`, theme system, config-tab rendering, bootstrap · assigns all HTML `onclick` handlers to `window.*` |
 | `admin/src/*.js` | Tab modules split from the old inline script: `jobs.js` `reactions.js` `members.js` `seasons.js` `permissions.js` `access.js` · shared mutable state in `state.js` (allConfig/channelList/roleList/COMMAND_SUBS) · `utils.js` = `escHtml`/`utcToLocal` |
 | `admin/src/style.css` | Tailwind v4 + DaisyUI v5 entry (`@import "tailwindcss"; @plugin "daisyui" { themes: false; }`) + all admin layout overrides · uses `var(--border-color)` (our border-color var -- NOT DaisyUI's `--border` which is a width) |
@@ -95,9 +95,10 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 
 ## Database Tables (key ones)
 
-Schema ownership: the miner (`AFKDataMining/src/db.py`) owns the shared scan/identity tables (members, snapshots, member_snapshots, warbands, name_corrections, member_name_history); the bot owns everything else. CREATE statements always reflect the current shape · schema changes are ALTERed once against guild.db then folded into the owner's CREATE, no migration trail on startup.
+Schema ownership: the miner (`AFKDataMining/src/db.py`) owns the shared scan/identity tables (members, snapshots, member_snapshots, name_corrections, member_name_history); the bot owns everything else, including `guilds`/`warbands` (Discord role/membership management is a bot concern, even though the miner still reads `warbands` to resolve OCR'd names during scanning). CREATE statements always reflect the current shape · schema changes are ALTERed once against guild.db then folded into the owner's CREATE, no migration trail on startup.
 - `members` · ingame_name (canonical, UNIQUE), discord_id, first_seen, `active` (latest-scan-only · 1 iff read in the most recent scan, else 0 · re-found = auto-reactivated), `last_scanned_at` (when last actually read by a scan), `pending` (scanner couldn't match read → awaiting /review), `warband_id` (current warband · synced from scan, manually overridable)
-- `warbands` · canonical warband list (id, name UNIQUE, sort_order, archived) · rename here propagates everywhere
+- `guilds` · top-level guild (RKF RiffRaff, RKF Frop) · id, name UNIQUE, `override_role_ids` (JSON array of Discord role IDs that bypass transfer approval for this guild, e.g. Riff/Raff)
+- `warbands` · sub-unit within a guild (id, name UNIQUE, sort_order, archived, `guild_id` FK, `leader_role_id` · must approve transfers into/out of this warband, `member_role_id` · granted/removed on transfer) · rename here propagates everywhere
 - `snapshots` · one row per scan run
 - `member_snapshots` · power/activeness per member per snapshot
 - `member_afk` · active AFK records · return_date is YYYY-MM-DD
@@ -200,3 +201,36 @@ Channels referenced by env vars (snapshot · check the JSON for everything else)
 - DaisyUI base var convention: `base-100`=lightest/raised cards+header+inputs · `base-200`=page background (body) · `base-300`=borders/dividers ONLY, never a fill · always pair surface+content: primary+primary-content, base-100+base-content etc. · `--border-color` custom var REMOVED -- use `var(--color-base-300)` directly
 - Adding a new theme: create `shared/themes/X.css` with `@plugin "daisyui/theme"` block (paste DaisyUI generator output, keep `--radius-*` `--size-*` `--border` `--depth` `--noise`, strip `--border-color`/`--card-shadow` if pasted from old theme) · import in `shared/theme.css` · add entry to `shared/themes.js` THEMES array · add to FOUC `THEME_MODES` map in `admin/src/index.html` · if light theme add `[data-theme="X"]` override in `theme.css` for `--hover-bg`, `--hard`, `--epic`, `--common`
 - `cssVarRgba()` in stats JS handles both hex and OKLCH via `color-mix` fallback (ec7d0ef) · Canvas 2D supports `color-mix` in Chrome 111+ / FF 113+ / Safari 16.2+
+
+## Roster Transfer Approval (2026-07)
+`/roster transfer` moves a member between **warbands**, not guilds (guild is now the
+top-level container — RKF RiffRaff merged Riffraff/Kingdom/Sobaquitos into one 90-member
+guild with those as warbands inside it; RKF Frop is a separate, second guild with its own
+warbands). `add`/`remove` stay guild-level, unchanged.
+
+A transfer needs sign-off from whichever side (source or destination warband) did **not**
+initiate it, unless the initiator holds a guild-level override role (`guilds.override_role_ids`
+— Riff/Raff for RKF RiffRaff, Queen of the Frogs for RKF Frop) or leads both warbands
+themselves (no one else would have standing to approve). See `resolveApprover()` in
+`utils/transferApproval.js` for the full precedence order.
+
+Approval only changes Discord roles — `guild.db`'s `members.warband_id` is left for the next
+mining scan to resolve via OCR, since the in-game move is a separate human action that may not
+happen at the same time as the Discord-side approval.
+
+This is the bot's first button-interaction flow (`utils/handlers/transferButtonHandler.js`,
+new `interaction.isButton()` branch in `index.js`). Buttons are clickable from either the
+channel post (`the-not-so-round-table`, configurable via `TRANSFER_APPROVAL_CHANNEL_ID`) or a
+DM — a DM interaction has no `interaction.guild`, so the handler resolves the bot's one managed
+guild explicitly via `GUILD_ID` rather than relying on interaction context. Authorization checks
+`transfer_approval_eligibility` (who was recorded eligible at request time) instead of
+re-deriving role membership at click time — found live-testing-adjacent during build: the
+vacant-leader-role fallback can make several different guild-override-role holders all eligible,
+but only one role id is stored on `transfer_approvals.approving_role_id`, so a live role
+re-check would incorrectly reject some of the people actually DM'd. `interaction.deferUpdate()`
+fires immediately after the eligibility/status gates, before any role edits — `applyTransferRoles()`
+plus several member/user REST fetches can exceed Discord's 3s ack deadline.
+
+`guilds`/`warbands` schema ownership moved from the miner to the bot as part of this feature
+(Discord role/membership management is a bot concern) — see Database Tables above and the
+miner's own CLAUDE.md.

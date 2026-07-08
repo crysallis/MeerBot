@@ -118,7 +118,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/scan` | Trigger a live guild scrape (authorized user only) · always runs the roster scan; enabled mode scans run alongside |
 | `/roster add guild: user:` | Add a Discord member to a guild role (RiffRaff or Frop) · removes Who Dis? role |
 | `/roster remove guild: user:` | Remove a Discord member from a guild role |
-| `/roster transfer user: to_guild:` | Move a member from one guild to the other |
+| `/roster transfer user: to_warband:` | Request moving a member to a different warband (autocomplete) · executes immediately if the initiator leads both warbands or holds a guild override role, otherwise posts an Approve/Deny request to the other side's warband leader |
 | `/rename old: new:` | Rename a member · merges into the target if that name already exists (dedupe) |
 | `/review list` | List members the scanner flagged as new/unrecognized (`pending`) |
 | `/review approve name:` | Confirm a pending member is real and correctly named |
@@ -205,7 +205,9 @@ MeerBot/
         link.js                 /link with autocomplete.
         scan.js                 /scan + post-scan inactivity alert. Always passes --guild.
         roster.js               /roster add/remove/transfer · Discord role management for
-                                RiffRaff and Frop guilds.
+                                RiffRaff and Frop guilds. transfer moves between warbands,
+                                requesting Approve/Deny from the other side's leader unless
+                                the initiator leads both sides or holds a guild override role.
         rename.js               /rename with autocomplete · merges on name collision.
         review.js               /review list/approve/merge for scanner-flagged pending members.
         note.js                 /note add/view/delete.
@@ -220,7 +222,13 @@ MeerBot/
         wishlist.js             /wishlist management.
         recruitment.js          /recruitment prospect tracking.
     utils/
-        db.js                   SQLite connection + bot-only table creation (shared scan tables owned by the miner).
+        db.js                   SQLite connection + bot-only table creation. Miner owns the
+                                scan/identity tables (members, snapshots, ...); bot owns
+                                everything else, including guilds/warbands (Discord role
+                                management is a bot concern) and transfer_approvals.
+        transferApproval.js     /roster transfer resolution logic: who must approve a
+                                warband move (or whether it bypasses), eligible-approver
+                                lookup, and the shared approval embed builder.
         botConfig.js            DB-backed config store. get(key) reads DB > ENV > default.
         jobScheduler.js         Unified job queue. Single 30s poller dispatches all job types.
         jobLog.js               Shared helper for scheduled jobs to record runs to scheduler_log.
@@ -240,6 +248,12 @@ MeerBot/
                                 gains the translation role -- DMs a bilingual embed
                                 with instructions, then removes the role. Falls back
                                 to a general channel message if DMs are off.
+            transferButtonHandler.js  Button handler for transfer_approve:/transfer_deny:
+                                clicks (channel post or DM -- resolves the bot's one
+                                managed guild explicitly via GUILD_ID since a DM
+                                interaction has no interaction.guild). Authorization is
+                                by recorded eligibility, not a live role re-check, so
+                                the DM'd set and the clickable set can never diverge.
     scripts/
         merge-dupes.js          One-shot cleanup that collapses OCR phantom duplicate members.
         sync-join-dates.js      One-time backfill of first_seen from Discord join dates.
