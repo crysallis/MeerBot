@@ -115,6 +115,19 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
 .sj-field label { font-size: 11px; color: var(--color-base-content); text-transform: uppercase; letter-spacing: .04em; }
 .sj-recur-row { display: flex; gap: 6px; align-items: center; }
 
+.mentions-picker { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.mention-chip {
+  background: var(--discord-bg-alt); border: 1px solid var(--color-base-300); border-radius: 4px;
+  padding: 3px 8px; font-size: 12px; cursor: pointer; user-select: none;
+}
+.mention-chip.selected { background: var(--color-info); color: #fff; border-color: var(--color-info); }
+.dow-picker { display: flex; gap: 4px; }
+.dow-chip {
+  background: var(--discord-bg-alt); border: 1px solid var(--color-base-300); border-radius: 4px;
+  padding: 3px 7px; font-size: 11px; cursor: pointer; user-select: none; min-width: 26px; text-align: center;
+}
+.dow-chip.selected { background: var(--color-info); color: #fff; border-color: var(--color-info); }
+
 .channels-fetched { font-size: 11px; color: var(--color-base-content); margin-bottom: 12px; }
 
 

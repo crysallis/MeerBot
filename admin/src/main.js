@@ -5,7 +5,7 @@ import './style.css';
 import { state } from './state.js';
 import { escHtml as escapeHtml } from './utils.js';
 
-import { renderScheduledJobs, toggleScheduledJob, saveScheduledJob, renderJobs, filterJobs, sortJobs, setJobChannel } from './jobs.js';
+import { renderScheduledJobs, toggleScheduledJob, saveScheduledJob, renderJobs, filterJobs, sortJobs, setJobChannel, toggleCreateJobForm } from './jobs.js';
 import { loadReactions, openReactionForm, cancelReactionForm, saveReactionRule, deleteReactionRule, updatePreview, rxPatternTypeChange, rxResponseTypeChange, rxSyncColorPicker, rxFilterSelect, rxInsert, refreshDiscordData } from './reactions.js';
 import { loadMembers, renderMembers, approveMember, renameMember, linkMember, mergeMemberPrompt, setWarband, setIngameId, addWarband, renameWarbandUI, archiveWarband } from './members.js';
 import { loadSeasons, addSeason, toggleSeason, deleteSeason, toggleServerPanel, bulkAddServers, removeServer, loadDreamBosses, addDreamBoss, updateDreamBoss, deleteDreamBoss } from './seasons.js';
@@ -663,6 +663,7 @@ async function loadBotStatus() {
   document.getElementById('rx-embed-description')?.addEventListener('input', updatePreview);
   document.getElementById('rx-ch-filter')?.addEventListener('input', e => rxFilterSelect('rx-channel-filter-select', e.target.value));
 
+  document.getElementById('cjOpenBtn')?.addEventListener('click', toggleCreateJobForm);
   document.getElementById('sort-th-name')?.addEventListener('click', () => sortJobs('name'));
   document.getElementById('sort-th-sent_at')?.addEventListener('click', () => sortJobs('sent_at'));
   document.getElementById('sort-th-late')?.addEventListener('click', () => sortJobs('late'));

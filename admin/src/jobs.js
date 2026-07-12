@@ -13,6 +13,68 @@ function channelOptions(selectedId) {
   }).join('');
 }
 
+const DOW = [['1','Mon'],['2','Tue'],['3','Wed'],['4','Thu'],['5','Fri'],['6','Sat'],['7','Sun']];
+
+function dowPicker(id, selectedCsv) {
+  const selected = new Set((selectedCsv || '1,2,3,4,5,6,7').split(',').filter(Boolean));
+  const wrap = document.createElement('div');
+  wrap.className = 'dow-picker';
+  wrap.id = id;
+  for (const [val, label] of DOW) {
+    const chip = document.createElement('span');
+    chip.className = 'dow-chip' + (selected.has(val) ? ' selected' : '');
+    chip.textContent = label;
+    chip.dataset.value = val;
+    chip.addEventListener('click', () => chip.classList.toggle('selected'));
+    wrap.appendChild(chip);
+  }
+  return wrap;
+}
+
+function readDowPicker(id) {
+  const wrap = document.getElementById(id);
+  const values = [...wrap.querySelectorAll('.dow-chip.selected')].map(c => c.dataset.value);
+  return values.length === 7 ? null : values.join(',');
+}
+
+function mentionsPicker(id, selectedMentions) {
+  const selected = selectedMentions || [];
+  const wrap = document.createElement('div');
+  wrap.className = 'mentions-picker';
+  wrap.id = id;
+
+  const isSelected = (type, roleId) => selected.some(m => m.type === type && (type !== 'role' || m.id === roleId));
+
+  for (const type of ['everyone', 'here']) {
+    const chip = document.createElement('span');
+    chip.className = 'mention-chip' + (isSelected(type) ? ' selected' : '');
+    chip.textContent = '@' + type;
+    chip.dataset.type = type;
+    chip.addEventListener('click', () => chip.classList.toggle('selected'));
+    wrap.appendChild(chip);
+  }
+
+  for (const r of state.roleList.filter(r => r.name !== '@everyone' && !r.managed)) {
+    const chip = document.createElement('span');
+    chip.className = 'mention-chip' + (isSelected('role', r.id) ? ' selected' : '');
+    chip.textContent = '@' + r.name;
+    chip.dataset.type = 'role';
+    chip.dataset.id = r.id;
+    chip.addEventListener('click', () => chip.classList.toggle('selected'));
+    wrap.appendChild(chip);
+  }
+
+  return wrap;
+}
+
+function readMentionsPicker(id) {
+  const wrap = document.getElementById(id);
+  return [...wrap.querySelectorAll('.mention-chip.selected')].map(c => ({
+    type: c.dataset.type,
+    ...(c.dataset.type === 'role' ? { id: c.dataset.id } : {}),
+  }));
+}
+
 export async function setJobChannel(key, value) {
   const res = await fetch('/api/config/' + key, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -114,6 +176,60 @@ export function renderScheduledJobs(jobs) {
       fields.appendChild(chField);
     }
 
+    if (job.type === 'text_job') {
+      const chField = document.createElement('div');
+      chField.className = 'sj-field';
+      chField.innerHTML = '<label>Posts to</label>';
+      const chSel = document.createElement('select');
+      chSel.id = `tj-channel-${job.id}`;
+      chSel.innerHTML = channelOptions(job.channel_id);
+      chField.appendChild(chSel);
+      fields.appendChild(chField);
+
+      const dowField = document.createElement('div');
+      dowField.className = 'sj-field';
+      dowField.innerHTML = '<label>Days</label>';
+      dowField.appendChild(dowPicker(`tj-dow-${job.id}`, job.days_of_week));
+      fields.appendChild(dowField);
+
+      const titleField = document.createElement('div');
+      titleField.className = 'sj-field';
+      titleField.style.flexBasis = '100%';
+      titleField.innerHTML = '<label>Title</label>';
+      const titleInput = document.createElement('input');
+      titleInput.type = 'text';
+      titleInput.id = `tj-title-${job.id}`;
+      titleInput.value = job.title || '';
+      titleInput.style.width = '100%';
+      titleField.appendChild(titleInput);
+      fields.appendChild(titleField);
+
+      const bodyField = document.createElement('div');
+      bodyField.className = 'sj-field';
+      bodyField.style.flexBasis = '100%';
+      bodyField.innerHTML = '<label>Body</label>';
+      const bodyInput = document.createElement('textarea');
+      bodyInput.id = `tj-body-${job.id}`;
+      bodyInput.rows = 4;
+      bodyInput.style.width = '100%';
+      bodyInput.value = job.body || '';
+      bodyField.appendChild(bodyInput);
+      fields.appendChild(bodyField);
+
+      const mentionsField = document.createElement('div');
+      mentionsField.className = 'sj-field';
+      mentionsField.style.flexBasis = '100%';
+      mentionsField.innerHTML = '<label>Mentions (pings on send)</label>';
+      mentionsField.appendChild(mentionsPicker(`tj-mentions-${job.id}`, job.mentions));
+      fields.appendChild(mentionsField);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'reset-btn';
+      deleteBtn.textContent = 'Delete Job';
+      deleteBtn.addEventListener('click', () => deleteTextJob(job.id));
+      header.appendChild(deleteBtn);
+    }
+
     // Save button field
     const saveField = document.createElement('div');
     saveField.className = 'sj-field';
@@ -121,7 +237,7 @@ export function renderScheduledJobs(jobs) {
     const saveBtn = document.createElement('button');
     saveBtn.className = 'save-btn';
     saveBtn.textContent = 'Save';
-    saveBtn.addEventListener('click', () => saveScheduledJob(job.id));
+    saveBtn.addEventListener('click', () => job.type === 'text_job' ? saveTextJobFull(job.id) : saveScheduledJob(job.id));
     const flashSpan = document.createElement('span');
     flashSpan.className = 'saved-flash';
     flashSpan.id = `sj-flash-${job.id}`;
@@ -174,6 +290,162 @@ export async function saveScheduledJob(id) {
 
   const flashEl = document.getElementById(`sj-flash-${id}`);
   if (flashEl) { flashEl.classList.add('show'); setTimeout(() => flashEl.classList.remove('show'), 2000); }
+}
+
+export async function saveTextJobFull(id) {
+  await saveScheduledJob(id); // schedule/recurrence fields, existing behavior
+
+  const payload = {
+    channel_id: document.getElementById(`tj-channel-${id}`).value,
+    title:      document.getElementById(`tj-title-${id}`).value,
+    body:       document.getElementById(`tj-body-${id}`).value,
+    days_of_week: readDowPicker(`tj-dow-${id}`),
+    mentions:   readMentionsPicker(`tj-mentions-${id}`),
+  };
+  if (!payload.body.trim()) { alert('Body is required.'); return; }
+
+  const res = await fetch(`/api/text-jobs/${id}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Save failed: ' + data.error); return; }
+
+  const flashEl = document.getElementById(`sj-flash-${id}`);
+  if (flashEl) { flashEl.classList.add('show'); setTimeout(() => flashEl.classList.remove('show'), 2000); }
+}
+
+export async function deleteTextJob(id) {
+  if (!confirm('Delete this job? This cannot be undone.')) return;
+  const res = await fetch(`/api/text-jobs/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (!data.ok) { alert('Delete failed: ' + data.error); return; }
+  const sjRes = await fetch('/api/scheduled-jobs').then(r => r.json());
+  renderScheduledJobs(sjRes);
+}
+
+export function toggleCreateJobForm() {
+  const form = document.getElementById('cjForm');
+  const isHidden = form.style.display === 'none';
+  form.style.display = isHidden ? 'block' : 'none';
+  if (isHidden) renderCreateJobForm();
+}
+
+export function renderCreateJobForm() {
+  const form = document.getElementById('cjForm');
+  form.innerHTML = '';
+
+  const nameField = document.createElement('div');
+  nameField.className = 'sj-field';
+  nameField.innerHTML = '<label>Job Name</label>';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.id = 'cj-name';
+  nameField.appendChild(nameInput);
+
+  const chField = document.createElement('div');
+  chField.className = 'sj-field';
+  chField.innerHTML = '<label>Posts to</label>';
+  const chSel = document.createElement('select');
+  chSel.id = 'cj-channel';
+  chSel.innerHTML = channelOptions('');
+  chField.appendChild(chSel);
+
+  const fireField = document.createElement('div');
+  fireField.className = 'sj-field';
+  fireField.innerHTML = '<label>First Fire (your local time)</label>';
+  const fireInput = document.createElement('input');
+  fireInput.type = 'datetime-local';
+  fireInput.id = 'cj-fire';
+  fireField.appendChild(fireInput);
+
+  const recurField = document.createElement('div');
+  recurField.className = 'sj-field';
+  recurField.innerHTML = '<label>Repeat every</label>';
+  const recurRow = document.createElement('div');
+  recurRow.className = 'sj-recur-row';
+  const countInput = document.createElement('input');
+  countInput.type = 'number'; countInput.id = 'cj-count'; countInput.value = '1'; countInput.min = '1';
+  countInput.style.width = '60px';
+  const unitSel = document.createElement('select');
+  unitSel.id = 'cj-unit';
+  for (const [val, label] of [['daily', 'Day(s)'], ['weekly', 'Week(s)']]) {
+    const opt = document.createElement('option'); opt.value = val; opt.textContent = label;
+    unitSel.appendChild(opt);
+  }
+  recurRow.append(countInput, unitSel);
+  recurField.appendChild(recurRow);
+
+  const dowField = document.createElement('div');
+  dowField.className = 'sj-field';
+  dowField.innerHTML = '<label>Days</label>';
+  dowField.appendChild(dowPicker('cj-dow', null));
+
+  const titleField = document.createElement('div');
+  titleField.className = 'sj-field';
+  titleField.style.flexBasis = '100%';
+  titleField.innerHTML = '<label>Title</label>';
+  const titleInput = document.createElement('input');
+  titleInput.type = 'text'; titleInput.id = 'cj-title'; titleInput.style.width = '100%';
+  titleField.appendChild(titleInput);
+
+  const bodyField = document.createElement('div');
+  bodyField.className = 'sj-field';
+  bodyField.style.flexBasis = '100%';
+  bodyField.innerHTML = '<label>Body</label>';
+  const bodyInput = document.createElement('textarea');
+  bodyInput.id = 'cj-body'; bodyInput.rows = 4; bodyInput.style.width = '100%';
+  bodyField.appendChild(bodyInput);
+
+  const mentionsField = document.createElement('div');
+  mentionsField.className = 'sj-field';
+  mentionsField.style.flexBasis = '100%';
+  mentionsField.innerHTML = '<label>Mentions (pings on send)</label>';
+  mentionsField.appendChild(mentionsPicker('cj-mentions', []));
+
+  const actionsField = document.createElement('div');
+  actionsField.className = 'sj-field';
+  const createBtn = document.createElement('button');
+  createBtn.className = 'save-btn';
+  createBtn.textContent = 'Create Job';
+  createBtn.addEventListener('click', submitNewTextJob);
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'reset-btn';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => { form.style.display = 'none'; });
+  actionsField.append(createBtn, cancelBtn);
+
+  const fields = document.createElement('div');
+  fields.className = 'sj-fields';
+  fields.append(nameField, chField, fireField, recurField, dowField, titleField, bodyField, mentionsField, actionsField);
+  form.appendChild(fields);
+}
+
+export async function submitNewTextJob() {
+  const fireLocal = document.getElementById('cj-fire').value;
+  if (!fireLocal) { alert('Please set a first fire time.'); return; }
+
+  const payload = {
+    name:       document.getElementById('cj-name').value,
+    channel_id: document.getElementById('cj-channel').value,
+    title:      document.getElementById('cj-title').value,
+    body:       document.getElementById('cj-body').value,
+    fire_at:    new Date(fireLocal).toISOString(),
+    recurrence: `${document.getElementById('cj-unit').value}:${document.getElementById('cj-count').value}`,
+    days_of_week: readDowPicker('cj-dow'),
+    mentions:   readMentionsPicker('cj-mentions'),
+  };
+
+  const res = await fetch('/api/text-jobs', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Create failed: ' + data.error); return; }
+
+  document.getElementById('cjForm').style.display = 'none';
+  const sjRes = await fetch('/api/scheduled-jobs').then(r => r.json());
+  renderScheduledJobs(sjRes);
 }
 
 export function renderJobs(rows) {
