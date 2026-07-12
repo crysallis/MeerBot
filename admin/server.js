@@ -408,6 +408,9 @@ app.put('/api/text-jobs/:id', (req, res) => {
     if (mentions !== undefined && !Array.isArray(mentions)) {
         return res.status(400).json({ error: 'mentions must be an array' });
     }
+    if (msgBody !== undefined && (!msgBody || !String(msgBody).trim())) {
+        return res.status(400).json({ error: 'body is required' });
+    }
 
     try {
         const fields = [];

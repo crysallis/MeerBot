@@ -34,7 +34,9 @@ function dowPicker(id, selectedCsv) {
 function readDowPicker(id) {
   const wrap = document.getElementById(id);
   const values = [...wrap.querySelectorAll('.dow-chip.selected')].map(c => c.dataset.value);
-  return values.length === 7 ? null : values.join(',');
+  if (values.length === 7) return null;
+  if (values.length === 0) return '0'; // no valid ISO day (1-7) => shouldFireToday never matches
+  return values.join(',');
 }
 
 function mentionsPicker(id, selectedMentions) {
