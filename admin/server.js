@@ -357,6 +357,7 @@ function validateTextJobBody(body) {
         return 'recurrence must be daily:N or weekly:N (N >= 1)';
     }
     if (body.days_of_week) {
+        if (String(body.days_of_week) === '0') return 'select at least one day, or leave blank for every day';
         const days = String(body.days_of_week).split(',').map(s => parseInt(s.trim(), 10));
         if (days.some(d => isNaN(d) || d < 1 || d > 7)) return 'days_of_week must be comma-separated 1-7';
     }
@@ -410,6 +411,15 @@ app.put('/api/text-jobs/:id', (req, res) => {
     }
     if (msgBody !== undefined && (!msgBody || !String(msgBody).trim())) {
         return res.status(400).json({ error: 'body is required' });
+    }
+    if (days_of_week !== undefined && days_of_week) {
+        if (String(days_of_week) === '0') {
+            return res.status(400).json({ error: 'select at least one day, or leave blank for every day' });
+        }
+        const days = String(days_of_week).split(',').map(s => parseInt(s.trim(), 10));
+        if (days.some(d => isNaN(d) || d < 1 || d > 7)) {
+            return res.status(400).json({ error: 'days_of_week must be comma-separated 1-7' });
+        }
     }
 
     try {
