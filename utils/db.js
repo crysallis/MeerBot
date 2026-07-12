@@ -112,6 +112,18 @@ db.exec(`
     args         TEXT
   );
 
+  CREATE TABLE IF NOT EXISTS text_jobs (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id       INTEGER NOT NULL REFERENCES scheduled_jobs(id) ON DELETE CASCADE,
+    name         TEXT NOT NULL,
+    channel_id   TEXT NOT NULL,
+    title        TEXT,
+    body         TEXT NOT NULL,
+    mentions     TEXT NOT NULL DEFAULT '[]',
+    days_of_week TEXT,
+    log_name     TEXT NOT NULL UNIQUE
+  );
+
   CREATE TABLE IF NOT EXISTS ally_seasons (
     id     INTEGER PRIMARY KEY AUTOINCREMENT,
     name   TEXT NOT NULL UNIQUE,
