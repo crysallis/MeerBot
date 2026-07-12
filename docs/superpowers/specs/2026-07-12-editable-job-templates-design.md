@@ -163,19 +163,28 @@ New routes in `admin/server.js`:
 ### Mention safety
 
 Free text an admin saves has none of the game-data validation the rest of the codebase
-applies to OCR'd input, so:
+applies to OCR'd input. Where the actual risk lives, precisely:
 
-1. **Mentions are never parsed out of template text.** Every job send (text job or future
-   code job) passes `allowedMentions: { parse: [] }` to `channel.send()`. If a saved
-   title/body contains `@everyone`, `@here`, or `<@&roleId>`, Discord renders it as inert
-   plain text — it will not ping anyone. Enforced at the send call, not by scrubbing the
-   saved string, so it can't be bypassed by content that wasn't anticipated.
-2. **Real mentions come from the structured `mentions` field, not typed text.** The admin
-   panel's mentions picker (checkboxes for @everyone/@here, a role multi-select) is the
-   only way to produce a live mention. Only entries from that field are converted to real
-   mention syntax and added to `allowedMentions.parse`/`allowedMentions.roles` at send
-   time. Typing `@everyone` into the body renders literally — visible and correctable via
-   the picker, never silently firing or silently stripped.
+- **`title`/`body` go into the embed** (`EmbedBuilder.setTitle`/`setDescription`), and
+  Discord never scans embed text for mentions to notify on — `@everyone`, `<@&roleId>`,
+  anything typed there renders as inert text by construction, regardless of
+  `allowedMentions`. There is no ping path through these two fields, full stop.
+- **The only path that can ping is `message.content`.** This codebase already sends real
+  mentions this way (see `slash-commands/clashfronts.js`: `content` carries `<@id>` syntax,
+  `allowedMentions: { users: [...] }` allow-lists which of those IDs are honored). Text
+  jobs use the same mechanism: the structured `mentions` field is the only thing that ever
+  writes into `content`, and `allowedMentions` is the enforced allow-list on that content —
+  not decorative, since it's the actual guard on the one field that can notify. If the
+  mention-building logic ever produced something unexpected in `content`, `allowedMentions`
+  is what stops it from pinging.
+- **The admin panel's mentions picker** (checkboxes for @everyone/@here, a role
+  multi-select) is the only UI that writes to the `mentions` field — never derived from
+  parsing `title`/`body`. Typing `@everyone` into the body has no effect beyond rendering
+  as literal text in the embed; it never reaches `content`.
+
+The `mentions` array → `{ content, allowedMentions }` mapping is pure, dependency-free
+logic (no DB, no discord client) and is unit-tested directly — see `buildMentions` in
+Testing below.
 
 Variable *values* (not template text) are not sanitized in this pass — no variable in
 scope carries free text (text jobs have none; a future code job's `{{afk_expired_list}}`
@@ -187,11 +196,17 @@ send still covers it rather than assuming.
 
 - Unit test `renderTemplate` (known key substitutes, unknown key left literal, no-op with
   empty vars).
-- Unit test the generic lateness calc in `tick()` (mock time: on-time run logs
-  `late=0`; run past `LATE_WARNING_MINUTES` logs `late=1` and still sends; run past
-  `MAX_LATE_MINUTES` logs the run but does not send).
-- Unit test `days_of_week` filtering (job with `"1,2,3,4,5"` skips on a mocked Saturday
-  date, fires on a mocked Wednesday date).
+- Unit test the generic lateness calc (`computeLateness`) (on-time run: not late; past
+  `LATE_WARNING_MINUTES`: late but sendable; past `MAX_LATE_MINUTES`: too late to send).
+- Unit test `days_of_week` filtering (`shouldFireToday`) (job with `"1,2,3,4,5"` skips on
+  a mocked Saturday date, fires on a mocked Wednesday date; `null`/`""` fires every day).
+- Unit test `buildMentions` (the `mentions` array → `{ content, allowedMentions }` mapping):
+  empty array → empty content, `parse: []`; `{type:'everyone'}` → content contains
+  `@everyone`, `parse: ['everyone']`; `{type:'here'}` → `parse: ['everyone']` (Discord's
+  `parse` allow-list has no separate `'here'` flag — `'everyone'` covers both `@everyone`
+  and `@here` in content); `{type:'role',id}` → `allowedMentions.roles` includes that id,
+  `parse` stays `[]`; a role + `@everyone` together → both `parse: ['everyone']` and
+  `roles: [id]` set correctly, not conflicting.
 - Manual: create a text job from the panel end-to-end (schedule, channel, title, body,
   mentions), verify it fires and sends correctly, edit it, verify the edit takes effect,
   delete it, verify it's gone from `scheduled_jobs`/`text_jobs` and stops firing.
