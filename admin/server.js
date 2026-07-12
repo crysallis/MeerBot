@@ -267,20 +267,41 @@ const JOB_DISPLAY = {
 // GET /api/scheduled-jobs — system job schedule config
 app.get('/api/scheduled-jobs', (req, res) => {
     try {
-        const rows = db.prepare(`
+        const scriptRows = db.prepare(`
             SELECT sj.id, sj.fire_at, sj.recurrence, sj.enabled, scj.handler_path
             FROM scheduled_jobs sj
             JOIN script_jobs scj ON scj.job_id = sj.id
-            ORDER BY sj.fire_at
-        `).all();
-        res.json(rows.map(r => ({
+        `).all().map(r => ({
             id:           r.id,
+            type:         'script_job',
             display:      JOB_DISPLAY[r.handler_path] ?? r.handler_path,
             handler_path: r.handler_path,
             fire_at:      r.fire_at,
             recurrence:   r.recurrence ?? 'daily:1',
             enabled:      r.enabled ?? 1,
-        })));
+        }));
+
+        const textRows = db.prepare(`
+            SELECT sj.id, sj.fire_at, sj.recurrence, sj.enabled,
+                   tj.name, tj.channel_id, tj.title, tj.body, tj.mentions, tj.days_of_week, tj.log_name
+            FROM scheduled_jobs sj
+            JOIN text_jobs tj ON tj.job_id = sj.id
+        `).all().map(r => ({
+            id:           r.id,
+            type:         'text_job',
+            display:      r.name,
+            fire_at:      r.fire_at,
+            recurrence:   r.recurrence ?? 'daily:1',
+            enabled:      r.enabled ?? 1,
+            channel_id:   r.channel_id,
+            title:        r.title,
+            body:         r.body,
+            mentions:     JSON.parse(r.mentions || '[]'),
+            days_of_week: r.days_of_week,
+            log_name:     r.log_name,
+        }));
+
+        res.json([...scriptRows, ...textRows].sort((a, b) => a.fire_at.localeCompare(b.fire_at)));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -305,7 +326,7 @@ app.put('/api/scheduled-jobs/:id', (req, res) => {
     }
 
     try {
-        const exists = db.prepare('SELECT 1 FROM scheduled_jobs WHERE id = ? AND type = ?').get(id, 'script_job');
+        const exists = db.prepare('SELECT 1 FROM scheduled_jobs WHERE id = ? AND type IN (?, ?)').get(id, 'script_job', 'text_job');
         if (!exists) return res.status(404).json({ error: 'Job not found' });
 
         if (enabled !== undefined) {
@@ -322,6 +343,105 @@ app.put('/api/scheduled-jobs/:id', (req, res) => {
         res.json({ ok: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+function validateTextJobBody(body) {
+    const { name, channel_id, body: msgBody, fire_at, recurrence } = body;
+    if (!name || !String(name).trim()) return 'name is required';
+    if (!channel_id) return 'channel_id is required';
+    if (!msgBody || !String(msgBody).trim()) return 'body is required';
+    if (!fire_at || isNaN(new Date(fire_at))) return 'Invalid fire_at datetime';
+    const [unit, n] = (recurrence || 'daily:1').split(':');
+    const count = parseInt(n || '1', 10);
+    if (!['daily', 'weekly'].includes(unit) || isNaN(count) || count < 1) {
+        return 'recurrence must be daily:N or weekly:N (N >= 1)';
+    }
+    if (body.days_of_week) {
+        const days = String(body.days_of_week).split(',').map(s => parseInt(s.trim(), 10));
+        if (days.some(d => isNaN(d) || d < 1 || d > 7)) return 'days_of_week must be comma-separated 1-7';
+    }
+    if (body.mentions) {
+        if (!Array.isArray(body.mentions)) return 'mentions must be an array';
+        for (const m of body.mentions) {
+            if (!['everyone', 'here', 'role'].includes(m.type)) return 'mentions[].type must be everyone, here, or role';
+            if (m.type === 'role' && !m.id) return 'mentions[].id is required for role mentions';
+        }
+    }
+    return null;
+}
+
+// POST /api/text-jobs — create a panel-authored text job
+app.post('/api/text-jobs', (req, res) => {
+    const err = validateTextJobBody(req.body);
+    if (err) return res.status(400).json({ error: err });
+
+    const { name, channel_id, title, body: msgBody, fire_at, recurrence, days_of_week, mentions } = req.body;
+    const now = new Date().toISOString();
+
+    try {
+        const insertJob = db.prepare(
+            'INSERT INTO scheduled_jobs (type, fire_at, recurrence, created_at) VALUES (?, ?, ?, ?)'
+        ).run('text_job', fire_at, recurrence || 'daily:1', now);
+
+        const jobId = insertJob.lastInsertRowid;
+        const logName = `text_job_${jobId}`;
+
+        db.prepare(`
+            INSERT INTO text_jobs (job_id, name, channel_id, title, body, mentions, days_of_week, log_name)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(jobId, name, channel_id, title || null, msgBody, JSON.stringify(mentions || []), days_of_week || null, logName);
+
+        res.json({ ok: true, id: jobId });
+    } catch (err2) {
+        res.status(500).json({ error: err2.message });
+    }
+});
+
+// PUT /api/text-jobs/:id — update a text job's content/channel/mentions/day-filter
+app.put('/api/text-jobs/:id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const exists = db.prepare('SELECT 1 FROM scheduled_jobs WHERE id = ? AND type = ?').get(id, 'text_job');
+    if (!exists) return res.status(404).json({ error: 'Text job not found' });
+
+    const { name, channel_id, title, body: msgBody, days_of_week, mentions } = req.body;
+
+    if (mentions !== undefined && !Array.isArray(mentions)) {
+        return res.status(400).json({ error: 'mentions must be an array' });
+    }
+
+    try {
+        const fields = [];
+        const values = [];
+        if (name !== undefined)         { fields.push('name = ?');         values.push(name); }
+        if (channel_id !== undefined)   { fields.push('channel_id = ?');   values.push(channel_id); }
+        if (title !== undefined)        { fields.push('title = ?');        values.push(title); }
+        if (msgBody !== undefined)      { fields.push('body = ?');         values.push(msgBody); }
+        if (days_of_week !== undefined) { fields.push('days_of_week = ?'); values.push(days_of_week || null); }
+        if (mentions !== undefined)     { fields.push('mentions = ?');     values.push(JSON.stringify(mentions)); }
+
+        if (fields.length) {
+            values.push(id);
+            db.prepare(`UPDATE text_jobs SET ${fields.join(', ')} WHERE job_id = ?`).run(...values);
+        }
+
+        res.json({ ok: true });
+    } catch (err2) {
+        res.status(500).json({ error: err2.message });
+    }
+});
+
+// DELETE /api/text-jobs/:id — remove a text job entirely
+app.delete('/api/text-jobs/:id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const exists = db.prepare('SELECT 1 FROM scheduled_jobs WHERE id = ? AND type = ?').get(id, 'text_job');
+    if (!exists) return res.status(404).json({ error: 'Text job not found' });
+
+    try {
+        db.prepare('DELETE FROM scheduled_jobs WHERE id = ?').run(id); // cascades to text_jobs
+        res.json({ ok: true });
+    } catch (err2) {
+        res.status(500).json({ error: err2.message });
     }
 });
 
