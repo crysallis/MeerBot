@@ -3,6 +3,8 @@ const { EmbedBuilder } = require('discord.js');
 const db = require('./db');
 const { pickColor } = require('./colors');
 const { logJobRun } = require('./jobLog');
+const botConfig = require('./botConfig');
+const { renderTemplate, shouldFireToday, computeLateness, buildMentions, MAX_LATE_MINUTES } = require('./jobTemplate');
 
 // Compute next fire_at from current fire_at + recurrence interval (prevents clock
 // drift). Fast-forwards past any intervals missed while the bot was down, so a
@@ -125,18 +127,63 @@ async function handleRecruitmentFollowup(client, job) {
     }
 }
 
+async function handleTextJob(client, job) {
+    const now = new Date();
+
+    // Day filter first: a non-firing day (e.g. a Mon-Fri job ticking on a Saturday)
+    // is not a "run" at all, so it must not touch the lateness/log path below --
+    // otherwise a too-late check on a day the job was never going to fire logs a
+    // spurious entry in scheduler_log.
+    if (!shouldFireToday(job.tj_days_of_week, now)) {
+        return;
+    }
+
+    const { lateMinutes, isLate, tooLateToSend } = computeLateness(
+        job.fire_at, now, Number(botConfig.get('LATE_WARNING_MINUTES', '30'))
+    );
+
+    if (tooLateToSend) {
+        console.log(`[TextJob] Skipped ${job.tj_name} (${lateMinutes} min late, max ${MAX_LATE_MINUTES})`);
+        logJobRun(job.tj_log_name, isLate);
+        return;
+    }
+
+    try {
+        const title = renderTemplate(job.tj_title || '', {});
+        const body  = renderTemplate(job.tj_body || '', {});
+        const mentions = JSON.parse(job.tj_mentions || '[]');
+        const { content, allowedMentions } = buildMentions(mentions);
+
+        const embed = new EmbedBuilder()
+            .setDescription(body)
+            .setColor(pickColor());
+        if (title) embed.setTitle(title);
+
+        const channel = await client.channels.fetch(job.tj_channel_id);
+        await channel.send({ content, embeds: [embed], allowedMentions });
+        logJobRun(job.tj_log_name, isLate);
+        console.log(`[TextJob] Sent ${job.tj_name}${isLate ? ` (${lateMinutes} min late)` : ''}`);
+    } catch (err) {
+        console.error(`[TextJob] Error on ${job.tj_name}:`, err);
+    }
+}
+
 async function tick(client) {
     const due = db.prepare(`
         SELECT sj.id, sj.type, sj.recurrence, sj.fire_at, sj.created_at,
                rj.user_id, rj.channel_id, rj.guild_id, rj.message,
                scj.handler_path, scj.args,
                rf.user_id AS rf_user_id, rf.channel_id AS rf_channel_id, rf.recruitment_id,
-               rec.name AS recruit_name
+               rec.name AS recruit_name,
+               tj.name AS tj_name, tj.channel_id AS tj_channel_id, tj.title AS tj_title,
+               tj.body AS tj_body, tj.mentions AS tj_mentions, tj.days_of_week AS tj_days_of_week,
+               tj.log_name AS tj_log_name
         FROM scheduled_jobs sj
         LEFT JOIN remindme_jobs rj ON rj.job_id = sj.id
         LEFT JOIN script_jobs scj ON scj.job_id = sj.id
         LEFT JOIN recruitment_followups rf ON rf.job_id = sj.id
         LEFT JOIN recruitment rec ON rec.id = rf.recruitment_id
+        LEFT JOIN text_jobs tj ON tj.job_id = sj.id
         WHERE datetime(sj.fire_at) <= datetime('now') AND sj.enabled = 1
     `).all();
 
@@ -153,6 +200,10 @@ async function tick(client) {
                 const handlerModule = require(handlerPath);
                 const handler = typeof handlerModule === 'function' ? handlerModule : handlerModule.default;
                 await handler(client, job);
+            } else if (job.type === 'text_job') {
+                db.prepare('UPDATE scheduled_jobs SET fire_at = ? WHERE id = ?')
+                    .run(nextFire(job), job.id);
+                await handleTextJob(client, job);
             } else if (job.type === 'remindme') {
                 await handleRemindme(client, job);
                 db.prepare('DELETE FROM scheduled_jobs WHERE id = ?').run(job.id);
