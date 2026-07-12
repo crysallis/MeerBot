@@ -33,14 +33,15 @@ CREATE TABLE IF NOT EXISTS job_templates (
   handler_path TEXT PRIMARY KEY,
   title        TEXT,
   body         TEXT,
+  mentions     TEXT,   -- JSON array, see Mention safety below
   updated_at   TEXT NOT NULL
 );
 ```
 
 A row exists only once an admin has edited that job's text via the panel — mirrors the
 `bot_config` DB-override-over-code-default pattern already used elsewhere in this repo.
-No row means the handler's hardcoded default title/body is used, so this ships with zero
-required migration/backfill.
+No row means the handler's hardcoded default title/body is used (and no configured
+mentions), so this ships with zero required migration/backfill.
 
 ### Variable substitution: `utils/jobTemplate.js`
 
@@ -90,13 +91,15 @@ that copy is not something to reflect just from the codebase.
 - Title textfield, pre-filled from `job_templates` if present, else the code default.
 - Body textarea, same pre-fill rule.
 - A static hint line listing that job's available variables, e.g. `Variables: {{late_minutes}}`.
+- A mentions picker (checkboxes/select for @everyone, @here, and guild roles) — separate
+  control from the text fields, see Mention safety below.
 - Save button (separate from the existing fire-time/recurrence Save).
 - "Reset to default" link — deletes the `job_templates` row for that handler_path.
 
 New route `PUT /api/scheduled-jobs/:id/template` in `admin/server.js`: looks up the job's
 `handler_path` from `scheduled_jobs`/`script_jobs` by `:id`, upserts
-`(handler_path, title, body, updated_at)` into `job_templates`. `DELETE` on the same route
-removes the row (reset to default).
+`(handler_path, title, body, mentions, updated_at)` into `job_templates`. `DELETE` on the
+same route removes the row (reset to default).
 
 `GET /api/scheduled-jobs` gains `template_title`/`template_body` (current effective values,
 DB override or code default) plus a `variables` array per job, so the panel can render the
@@ -111,6 +114,33 @@ title/body/vars shape (e.g. `module.exports.template = { defaultTitle, defaultBo
 so the admin route can read it directly — avoids the defaults drifting out of sync between
 the handler and a separately maintained list.
 
+### Mention safety
+
+Title/body are free text an admin can save without any of the game state validation the
+rest of the codebase applies to OCR'd data — so two guardrails, decided together:
+
+1. **Mentions are never parsed out of template text.** Every templated send passes
+   `allowedMentions: { parse: [] }` to `channel.send()`. If a saved title/body contains
+   `@everyone`, `@here`, or `<@&roleId>`, Discord renders it as inert plain text — it will
+   not ping anyone. This is enforced at the send call, not by scrubbing the saved string,
+   so it can't be bypassed by a template that wasn't anticipated.
+2. **Real mentions come from a separate structured field, not typed text.** `job_templates`
+   gains a `mentions` column (JSON array of `{ type: 'everyone' | 'here' | 'role' | 'user', id? }`).
+   The admin panel exposes this as an explicit picker (role/channel/@everyone/@here) next to
+   the title/body fields — visually and mechanically distinct from the free-text areas. Only
+   entries from this field are turned into real mention syntax and added to `allowedMentions.parse`
+   / `allowedMentions.roles` at send time. If someone types `@everyone` into the body, it is
+   expected to render literally as text — visible and correctable via the mentions picker,
+   not silently either firing or silently stripped.
+
+`renderTemplate` itself does no escaping of variable values in this pass — the only variable
+today (`{{late_minutes}}`) is a number computed in code, not free text, so there's nothing to
+sanitize yet. **This must be revisited before any future variable carries free text an admin
+didn't type** (e.g. an AFK `{{reason}}` or in-game `{{name}}` for afkExpiry) — those values
+should go through the same "rendered as literal text, never as live mentions" treatment,
+since `allowedMentions: { parse: [] }` on the whole send already covers this case too, but
+it's worth re-confirming when that variable is added rather than assuming it still holds.
+
 ## Testing
 
 - Unit test `renderTemplate` (known key substitutes, unknown key left literal, no keys/no-op).
@@ -119,3 +149,6 @@ the handler and a separately maintained list.
 - Manual: edit Daily Reset (weekday) text in admin panel, verify it saves and the next
   simulated fire uses it; verify "Reset to default" reverts to code default; verify the
   weekend job is a separate, independently toggleable card.
+- Manual: save a template with `@everyone` typed into the body, verify the sent message
+  shows it as plain text with no ping; add `@everyone` via the mentions picker instead,
+  verify that send does ping.
