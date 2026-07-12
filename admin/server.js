@@ -261,7 +261,6 @@ const JOB_DISPLAY = {
     './handlers/anniversaryCheck': 'Anniversary Check',
     './handlers/afkExpiry':        'AFK Expiry',
     './handlers/birthdayCheck':    'Birthday Check',
-    './handlers/dailyReset':       'Daily Reset',
 };
 
 // GET /api/scheduled-jobs — system job schedule config

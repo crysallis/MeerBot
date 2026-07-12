@@ -90,7 +90,6 @@ const JOB_CHANNEL_KEY = {
   './handlers/weeklySummary':    'WEEKLY_SUMMARY_CHANNEL_ID',
   './handlers/anniversaryCheck': 'ANNIVERSARY_CHANNEL_ID',
   './handlers/birthdayCheck':    'BIRTHDAY_CHANNEL_ID',
-  './handlers/dailyReset':       'GENERAL_CHANNEL_ID',
 };
 
 export function renderScheduledJobs(jobs) {

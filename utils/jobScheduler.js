@@ -44,7 +44,6 @@ const SYSTEM_JOBS = [
     { handler_path: './handlers/anniversaryCheck', recurrence: 'daily:1', initialFireAt: () => nextDailyAt(18, 0)       },
     { handler_path: './handlers/afkExpiry',        recurrence: 'daily:1', initialFireAt: () => nextDailyAt(0, 0)        },
     { handler_path: './handlers/birthdayCheck',    recurrence: 'daily:1', initialFireAt: () => nextDailyAt(0, 0)        },
-    { handler_path: './handlers/dailyReset',       recurrence: 'daily:1', initialFireAt: () => nextDailyAt(0, 0)        },
 ];
 
 function bootstrap() {
