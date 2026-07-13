@@ -85,6 +85,14 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
 }
 .reset-btn:hover { border-color: var(--color-error); color: var(--color-error); }
 
+.toggle-btn {
+  background: var(--color-base-300); color: #fff; border: none; padding: 4px 12px;
+  border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600;
+  transition: filter .15s;
+}
+.toggle-btn:hover { filter: brightness(1.1); }
+.toggle-btn.enabled { background: var(--color-success); }
+
 .saved-flash { color: var(--color-success); font-size: 11px; margin-left: 8px; opacity: 0; transition: opacity .3s; }
 .saved-flash.show { opacity: 1; }
 
@@ -108,19 +116,34 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
   overflow: hidden; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.2);
 }
 
-.sj-card { background: var(--color-base-100); border: 1px solid var(--color-base-300); border-radius: 8px; padding: 16px 20px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
-.sj-name { font-size: 15px; font-weight: 600; color: var(--color-base-content); margin-bottom: 12px; }
-.sj-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+#sjContainer { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: start; }
+
+.sj-card { background: var(--color-base-100); border: 1px solid var(--color-base-300); border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.2); overflow: hidden; }
+.sj-card.expanded { grid-column: 1 / -1; }
+
+.sj-tile { padding: 16px 20px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; transition: background .15s; }
+.sj-tile:hover { background: var(--color-base-300); }
+.sj-tile-name { font-size: 15px; font-weight: 600; color: var(--color-base-content); }
+.sj-tile-name.disabled { text-decoration: line-through; color: var(--color-base-content); }
+.sj-tile-status {
+  align-self: flex-start; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
+  background: var(--color-base-300); color: #fff;
+}
+.sj-tile-status.enabled { background: var(--color-success); }
+.sj-tile-fire { font-size: 12px; color: var(--color-base-content); }
+
+.sj-body { display: none; padding: 14px 20px 16px; }
+.sj-card.expanded .sj-body { display: block; }
+.sj-card.expanded .sj-tile { border-bottom: 1px solid var(--color-base-300); }
+
+.muted-note { font-size: 11px; color: var(--color-base-content); }
+
+.sj-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
 .sj-field { display: flex; flex-direction: column; gap: 4px; }
 .sj-field label { font-size: 11px; color: var(--color-base-content); text-transform: uppercase; letter-spacing: .04em; }
 .sj-recur-row { display: flex; gap: 6px; align-items: center; }
+.channel-select { width: 220px; max-width: 100%; }
 
-.mentions-picker { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.mention-chip {
-  background: var(--discord-bg-alt); border: 1px solid var(--color-base-300); border-radius: 4px;
-  padding: 3px 8px; font-size: 12px; cursor: pointer; user-select: none;
-}
-.mention-chip.selected { background: var(--color-info); color: #fff; border-color: var(--color-info); }
 .dow-picker { display: flex; gap: 4px; }
 .dow-chip {
   background: var(--discord-bg-alt); border: 1px solid var(--color-base-300); border-radius: 4px;
@@ -241,5 +264,8 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
   .sj-field label,
   .channels-fetched,
   .stat-label,
-  .presence-label { color: color-mix(in oklab, var(--color-base-content) 75%, transparent); }
+  .presence-label,
+  .sj-tile-name.disabled,
+  .sj-tile-fire,
+  .muted-note { color: color-mix(in oklab, var(--color-base-content) 75%, transparent); }
 }

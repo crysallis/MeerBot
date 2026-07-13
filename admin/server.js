@@ -463,7 +463,17 @@ app.get('/api/jobs', (req, res) => {
         const rows = db.prepare(
             'SELECT name, sent_date, sent_at, late FROM scheduler_log ORDER BY sent_at DESC LIMIT 50'
         ).all();
-        res.json(rows);
+
+        // scheduler_log.name is an internal identifier (e.g. text_job_10, afk_expiry).
+        // For live text jobs, resolve it to the job's current display name so the
+        // panel shows "Duel Reset for Crest" instead of "text_job_10" -- script jobs
+        // and dead/retired log names (e.g. daily_reset, from the now-deleted
+        // dailyReset.js handler) have no such mapping and are shown as-is.
+        const textJobNames = new Map(
+            db.prepare('SELECT log_name, name FROM text_jobs').all().map(r => [r.log_name, r.name])
+        );
+
+        res.json(rows.map(r => ({ ...r, name: textJobNames.get(r.name) ?? r.name })));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

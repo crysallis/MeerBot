@@ -1,9 +1,69 @@
 import { state } from './state.js';
 import { utcToLocal } from './utils.js';
+import { createChipPicker } from './chipPicker.js';
 
 let allJobRows = [];
 let jobSort    = { col: 'sent_at', dir: 'desc' };
 let jobFilters = { name: '', sent_at: '', late: '' };
+
+const mentionPickers = new Map(); // picker id -> chipPicker handle
+
+// Marks a field invalid with a red border + message under it, or clears that
+// state when message is falsy. Reuses the input's existing parent container
+// (a .sj-field div) so the message sits directly beneath the field.
+function setFieldError(input, message) {
+  const field = input.closest('.sj-field') || input.parentElement;
+  let msgEl = field.querySelector('.field-error-msg');
+  if (message) {
+    input.style.borderColor = 'var(--color-error)';
+    if (!msgEl) {
+      msgEl = document.createElement('div');
+      msgEl.className = 'field-error-msg';
+      msgEl.style.cssText = 'font-size:11px;color:var(--color-error);margin-top:4px';
+      field.appendChild(msgEl);
+    }
+    msgEl.textContent = message;
+  } else {
+    input.style.borderColor = '';
+    msgEl?.remove();
+  }
+}
+
+function clearFieldErrors(inputs) {
+  for (const input of inputs) setFieldError(input, '');
+}
+
+function formatTileFireTime(isoStr) {
+  const d = new Date(isoStr);
+  if (isNaN(d)) return '';
+  const pad = n => String(n).padStart(2, '0');
+  let hours = d.getHours();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${hours}:${pad(d.getMinutes())} ${ampm}`;
+}
+
+function formatUtcPreview(fireLocal) {
+  if (!fireLocal) return '';
+  const d = new Date(fireLocal);
+  if (isNaN(d)) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `Will fire at ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC on ${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+}
+
+// Appends a live "will fire at HH:MM UTC" hint under a datetime-local input,
+// updating as the user types -- the field itself always drives the actual
+// scheduled UTC instant (see utils.js utcToLocal), this is just a preview.
+function attachUtcPreview(fireInput) {
+  const hint = document.createElement('div');
+  hint.className = 'muted-note';
+  hint.style.marginTop = '4px';
+  hint.textContent = formatUtcPreview(fireInput.value);
+  fireInput.addEventListener('input', () => {
+    hint.textContent = formatUtcPreview(fireInput.value);
+  });
+  return hint;
+}
 
 function channelOptions(selectedId) {
   return '<option value="">— not set —</option>' + state.channelList.map(ch => {
@@ -39,42 +99,33 @@ function readDowPicker(id) {
   return values.join(',');
 }
 
-function mentionsPicker(id, selectedMentions) {
-  const selected = selectedMentions || [];
-  const wrap = document.createElement('div');
-  wrap.className = 'mentions-picker';
-  wrap.id = id;
+function mentionsPicker(id, initialMentions) {
+  const roleOptions = state.roleList
+    .filter(r => r.name !== '@everyone' && !r.managed)
+    .map(r => ({ value: `role:${r.id}`, label: '@' + r.name }));
 
-  const isSelected = (type, roleId) => selected.some(m => m.type === type && (type !== 'role' || m.id === roleId));
+  const options = [
+    { value: 'everyone', label: '@everyone' },
+    { value: 'here', label: '@here' },
+    ...roleOptions,
+  ];
 
-  for (const type of ['everyone', 'here']) {
-    const chip = document.createElement('span');
-    chip.className = 'mention-chip' + (isSelected(type) ? ' selected' : '');
-    chip.textContent = '@' + type;
-    chip.dataset.type = type;
-    chip.addEventListener('click', () => chip.classList.toggle('selected'));
-    wrap.appendChild(chip);
-  }
+  const initial = (initialMentions || []).map(m =>
+    m.type === 'role'
+      ? { value: `role:${m.id}`, label: '@' + (state.roleList.find(r => r.id === m.id)?.name ?? m.id) }
+      : { value: m.type, label: '@' + m.type }
+  );
 
-  for (const r of state.roleList.filter(r => r.name !== '@everyone' && !r.managed)) {
-    const chip = document.createElement('span');
-    chip.className = 'mention-chip' + (isSelected('role', r.id) ? ' selected' : '');
-    chip.textContent = '@' + r.name;
-    chip.dataset.type = 'role';
-    chip.dataset.id = r.id;
-    chip.addEventListener('click', () => chip.classList.toggle('selected'));
-    wrap.appendChild(chip);
-  }
-
-  return wrap;
+  const picker = createChipPicker({ options, initial, placeholder: '-- add mention --' });
+  mentionPickers.set(id, picker);
+  return picker.el;
 }
 
 function readMentionsPicker(id) {
-  const wrap = document.getElementById(id);
-  return [...wrap.querySelectorAll('.mention-chip.selected')].map(c => ({
-    type: c.dataset.type,
-    ...(c.dataset.type === 'role' ? { id: c.dataset.id } : {}),
-  }));
+  return (mentionPickers.get(id)?.getSelected() ?? []).map(entry => {
+    const [kind, roleId] = entry.value.split(':');
+    return kind === 'role' ? { type: 'role', id: roleId } : { type: kind };
+  });
 }
 
 export async function setJobChannel(key, value) {
@@ -97,7 +148,7 @@ const JOB_CHANNEL_KEY = {
 export function renderScheduledJobs(jobs) {
   const container = document.getElementById('sjContainer');
   if (!jobs || !jobs.length) {
-    container.innerHTML = '<p style="color:var(--color-neutral-content)">No system jobs found.</p>';
+    container.innerHTML = '<p class="muted-note">No system jobs found.</p>';
     return;
   }
 
@@ -110,19 +161,27 @@ export function renderScheduledJobs(jobs) {
     card.className = 'sj-card';
     card.style.opacity = job.enabled ? '1' : '0.5';
 
-    // Header row: name + toggle button
-    const header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px';
-    const nameEl = document.createElement('div');
-    nameEl.className = 'sj-name';
-    nameEl.style.cssText = 'margin-bottom:0' + (!job.enabled ? ';text-decoration:line-through;color:var(--color-neutral-content)' : '');
-    nameEl.textContent = job.display;
+    // Tile summary: name, status badge, next fire (local) -- always visible,
+    // click anywhere on it to expand/collapse the full editing form below.
+    const tile = document.createElement('div');
+    tile.className = 'sj-tile';
+    const tileName = document.createElement('div');
+    tileName.className = 'sj-tile-name' + (!job.enabled ? ' disabled' : '');
+    tileName.textContent = job.display;
+    const tileStatus = document.createElement('span');
+    tileStatus.className = 'sj-tile-status' + (job.enabled ? ' enabled' : '');
+    tileStatus.textContent = job.enabled ? 'Enabled' : 'Disabled';
+    const tileFire = document.createElement('div');
+    tileFire.className = 'sj-tile-fire';
+    tileFire.textContent = formatTileFireTime(job.fire_at);
+    tile.append(tileName, tileStatus, tileFire);
+    tile.addEventListener('click', () => card.classList.toggle('expanded'));
+
     const toggleBtn = document.createElement('button');
     toggleBtn.id = `sj-toggle-${job.id}`;
-    toggleBtn.style.cssText = `background:${job.enabled ? 'var(--color-success)' : 'var(--color-base-300)'};color:#fff;border:none;padding:4px 12px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600`;
+    toggleBtn.className = 'toggle-btn' + (job.enabled ? ' enabled' : '');
     toggleBtn.textContent = job.enabled ? 'Enabled' : 'Disabled';
     toggleBtn.addEventListener('click', () => toggleScheduledJob(job.id, job.enabled ? 0 : 1));
-    header.append(nameEl, toggleBtn);
 
     // Fields
     const fields = document.createElement('div');
@@ -136,7 +195,7 @@ export function renderScheduledJobs(jobs) {
     fireInput.type = 'datetime-local';
     fireInput.id = `sj-fire-${job.id}`;
     fireInput.value = utcToLocal(job.fire_at);
-    fireField.appendChild(fireInput);
+    fireField.append(fireInput, attachUtcPreview(fireInput));
 
     // Recurrence field
     const recurField = document.createElement('div');
@@ -171,6 +230,7 @@ export function renderScheduledJobs(jobs) {
       chField.className = 'sj-field';
       chField.innerHTML = '<label>Posts to</label>';
       const chSel = document.createElement('select');
+      chSel.className = 'channel-select';
       chSel.innerHTML = channelOptions(state.allConfig.find(c => c.key === chKey)?.value);
       chSel.addEventListener('change', () => setJobChannel(chKey, chSel.value));
       chField.appendChild(chSel);
@@ -183,6 +243,7 @@ export function renderScheduledJobs(jobs) {
       chField.innerHTML = '<label>Posts to</label>';
       const chSel = document.createElement('select');
       chSel.id = `tj-channel-${job.id}`;
+      chSel.className = 'channel-select';
       chSel.innerHTML = channelOptions(job.channel_id);
       chField.appendChild(chSel);
       fields.appendChild(chField);
@@ -223,18 +284,21 @@ export function renderScheduledJobs(jobs) {
       mentionsField.innerHTML = '<label>Mentions (pings on send)</label>';
       mentionsField.appendChild(mentionsPicker(`tj-mentions-${job.id}`, job.mentions));
       fields.appendChild(mentionsField);
+    }
 
+    // Action row: Enabled/Disabled, Delete Job (text jobs only), Save -- grouped together
+    const actionsRow = document.createElement('div');
+    actionsRow.style.cssText = 'display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:14px';
+    actionsRow.appendChild(toggleBtn);
+
+    if (job.type === 'text_job') {
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'reset-btn';
       deleteBtn.textContent = 'Delete Job';
       deleteBtn.addEventListener('click', () => deleteTextJob(job.id));
-      header.appendChild(deleteBtn);
+      actionsRow.appendChild(deleteBtn);
     }
 
-    // Save button field
-    const saveField = document.createElement('div');
-    saveField.className = 'sj-field';
-    saveField.style.cssText = 'margin-left:auto;align-items:flex-end';
     const saveBtn = document.createElement('button');
     saveBtn.className = 'save-btn';
     saveBtn.textContent = 'Save';
@@ -243,15 +307,19 @@ export function renderScheduledJobs(jobs) {
     flashSpan.className = 'saved-flash';
     flashSpan.id = `sj-flash-${job.id}`;
     flashSpan.textContent = 'Saved!';
-    saveField.append(saveBtn, flashSpan);
-    fields.appendChild(saveField);
+    actionsRow.append(saveBtn, flashSpan);
 
     // UTC note
     const utcNote = document.createElement('div');
-    utcNote.style.cssText = 'margin-top:10px;font-size:11px;color:var(--color-neutral-content)';
+    utcNote.className = 'sj-utc-note muted-note';
+    utcNote.style.marginTop = '10px';
     utcNote.textContent = `Current next fire (UTC): ${job.fire_at.slice(0,16).replace('T',' ')}`;
 
-    card.append(header, fields, utcNote);
+    const body = document.createElement('div');
+    body.className = 'sj-body';
+    body.append(fields, utcNote, actionsRow);
+
+    card.append(tile, body);
     container.appendChild(card);
   }
 }
@@ -269,11 +337,13 @@ export async function toggleScheduledJob(id, newEnabled) {
 }
 
 export async function saveScheduledJob(id) {
-  const fireLocal = document.getElementById(`sj-fire-${id}`).value;
+  const fireInput = document.getElementById(`sj-fire-${id}`);
+  const fireLocal = fireInput.value;
   const count     = document.getElementById(`sj-count-${id}`).value;
   const unit      = document.getElementById(`sj-unit-${id}`).value;
 
-  if (!fireLocal) { alert('Please set a next fire time.'); return; }
+  if (!fireLocal) { setFieldError(fireInput, 'Next fire time is required'); return false; }
+  setFieldError(fireInput, '');
   const fireAt   = new Date(fireLocal).toISOString();
   const recurrence = `${unit}:${count}`;
 
@@ -283,34 +353,46 @@ export async function saveScheduledJob(id) {
     body: JSON.stringify({ fire_at: fireAt, recurrence }),
   });
   const data = await res.json();
-  if (!data.ok) { alert('Save failed: ' + data.error); return; }
+  if (!data.ok) { setFieldError(fireInput, data.error); return false; }
 
   const card = document.getElementById(`sj-fire-${id}`).closest('.sj-card');
-  const utcLine = card.querySelector('div[style*="margin-top"]');
+  const utcLine = card.querySelector('.sj-utc-note');
   if (utcLine) utcLine.textContent = `Current next fire (UTC): ${fireAt.slice(0,16).replace('T',' ')}`;
+  const tileFire = card.querySelector('.sj-tile-fire');
+  if (tileFire) tileFire.textContent = formatTileFireTime(fireAt);
 
   const flashEl = document.getElementById(`sj-flash-${id}`);
   if (flashEl) { flashEl.classList.add('show'); setTimeout(() => flashEl.classList.remove('show'), 2000); }
+  return true;
 }
 
 export async function saveTextJobFull(id) {
-  await saveScheduledJob(id); // schedule/recurrence fields, existing behavior
+  const channelInput = document.getElementById(`tj-channel-${id}`);
+  const bodyInput    = document.getElementById(`tj-body-${id}`);
+  clearFieldErrors([channelInput, bodyInput]);
+
+  let hasError = false;
+  if (!channelInput.value) { setFieldError(channelInput, 'Channel is required'); hasError = true; }
+  if (!bodyInput.value.trim()) { setFieldError(bodyInput, 'Body is required'); hasError = true; }
+  if (hasError) return;
+
+  const scheduleOk = await saveScheduledJob(id); // schedule/recurrence fields, existing behavior
+  if (!scheduleOk) return;
 
   const payload = {
-    channel_id: document.getElementById(`tj-channel-${id}`).value,
+    channel_id: channelInput.value,
     title:      document.getElementById(`tj-title-${id}`).value,
-    body:       document.getElementById(`tj-body-${id}`).value,
+    body:       bodyInput.value,
     days_of_week: readDowPicker(`tj-dow-${id}`),
     mentions:   readMentionsPicker(`tj-mentions-${id}`),
   };
-  if (!payload.body.trim()) { alert('Body is required.'); return; }
 
   const res = await fetch(`/api/text-jobs/${id}`, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!data.ok) { alert('Save failed: ' + data.error); return; }
+  if (!data.ok) { setFieldError(bodyInput, data.error); return; }
 
   const flashEl = document.getElementById(`sj-flash-${id}`);
   if (flashEl) { flashEl.classList.add('show'); setTimeout(() => flashEl.classList.remove('show'), 2000); }
@@ -349,6 +431,7 @@ export function renderCreateJobForm() {
   chField.innerHTML = '<label>Posts to</label>';
   const chSel = document.createElement('select');
   chSel.id = 'cj-channel';
+  chSel.className = 'channel-select';
   chSel.innerHTML = channelOptions('');
   chField.appendChild(chSel);
 
@@ -358,7 +441,7 @@ export function renderCreateJobForm() {
   const fireInput = document.createElement('input');
   fireInput.type = 'datetime-local';
   fireInput.id = 'cj-fire';
-  fireField.appendChild(fireInput);
+  fireField.append(fireInput, attachUtcPreview(fireInput));
 
   const recurField = document.createElement('div');
   recurField.className = 'sj-field';
@@ -423,15 +506,25 @@ export function renderCreateJobForm() {
 }
 
 export async function submitNewTextJob() {
-  const fireLocal = document.getElementById('cj-fire').value;
-  if (!fireLocal) { alert('Please set a first fire time.'); return; }
+  const nameInput    = document.getElementById('cj-name');
+  const channelInput = document.getElementById('cj-channel');
+  const fireInput    = document.getElementById('cj-fire');
+  const bodyInput    = document.getElementById('cj-body');
+  clearFieldErrors([nameInput, channelInput, fireInput, bodyInput]);
+
+  let hasError = false;
+  if (!nameInput.value.trim()) { setFieldError(nameInput, 'Job name is required'); hasError = true; }
+  if (!channelInput.value) { setFieldError(channelInput, 'Channel is required'); hasError = true; }
+  if (!fireInput.value) { setFieldError(fireInput, 'First fire time is required'); hasError = true; }
+  if (!bodyInput.value.trim()) { setFieldError(bodyInput, 'Body is required'); hasError = true; }
+  if (hasError) return;
 
   const payload = {
-    name:       document.getElementById('cj-name').value,
-    channel_id: document.getElementById('cj-channel').value,
+    name:       nameInput.value,
+    channel_id: channelInput.value,
     title:      document.getElementById('cj-title').value,
-    body:       document.getElementById('cj-body').value,
-    fire_at:    new Date(fireLocal).toISOString(),
+    body:       bodyInput.value,
+    fire_at:    new Date(fireInput.value).toISOString(),
     recurrence: `${document.getElementById('cj-unit').value}:${document.getElementById('cj-count').value}`,
     days_of_week: readDowPicker('cj-dow'),
     mentions:   readMentionsPicker('cj-mentions'),
@@ -442,7 +535,7 @@ export async function submitNewTextJob() {
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!data.ok) { alert('Create failed: ' + data.error); return; }
+  if (!data.ok) { setFieldError(bodyInput, data.error); return; }
 
   document.getElementById('cjForm').style.display = 'none';
   const sjRes = await fetch('/api/scheduled-jobs').then(r => r.json());
@@ -487,7 +580,7 @@ export function updateSortArrows() {
 export function applyJobView() {
   const tbody = document.getElementById('jobsBody');
   if (!allJobRows.length) {
-    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--color-neutral-content)">No runs recorded yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="3" class="muted-note">No runs recorded yet.</td></tr>';
     return;
   }
 
@@ -516,5 +609,5 @@ export function applyJobView() {
           <td>${r.sent_at}</td>
           <td class="${r.lateClass}">${r.late}</td>
         </tr>`).join('')
-    : '<tr><td colspan="3" style="color:var(--color-neutral-content)">No matches.</td></tr>';
+    : '<tr><td colspan="3" class="muted-note">No matches.</td></tr>';
 }

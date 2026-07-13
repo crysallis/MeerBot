@@ -9,7 +9,7 @@ import { renderScheduledJobs, toggleScheduledJob, saveScheduledJob, renderJobs, 
 import { loadReactions, openReactionForm, cancelReactionForm, saveReactionRule, deleteReactionRule, updatePreview, rxPatternTypeChange, rxResponseTypeChange, rxSyncColorPicker, rxFilterSelect, rxInsert, refreshDiscordData } from './reactions.js';
 import { loadMembers, renderMembers, approveMember, renameMember, linkMember, mergeMemberPrompt, setWarband, setIngameId, addWarband, renameWarbandUI, archiveWarband } from './members.js';
 import { loadSeasons, addSeason, toggleSeason, deleteSeason, toggleServerPanel, bulkAddServers, removeServer, loadDreamBosses, addDreamBoss, updateDreamBoss, deleteDreamBoss } from './seasons.js';
-import { loadPermissions, populatePermCommands, permCommandChanged, populatePermCheckboxes, permPickRole, permPickChannel, permRemoveRole, permRemoveChannel, addPermRule, deletePermRule, removePermGroup, editPermGroup, cancelPermEdit } from './permissions.js';
+import { loadPermissions, populatePermCommands, permCommandChanged, populatePermCheckboxes, addPermRule, deletePermRule, removePermGroup, editPermGroup, cancelPermEdit } from './permissions.js';
 import { loadAccess, setOpTier, setRoleTierUI } from './access.js';
 
 // ── Error log (surfaces CSP violations, JS errors, unhandled rejections, fetch failures) ──
@@ -90,7 +90,11 @@ window.fetch = async function (input, init = {}) {
     throw err;
   }
   if (res.status === 401 && url.startsWith('/api/')) showLogin();
-  if (!res.ok && url.startsWith('/api/') && method !== 'GET' && method !== 'HEAD') {
+  // 400s are expected user-input rejections (missing field, bad format) --
+  // the calling code already shows those inline next to the offending field,
+  // so don't also alarm-panel them. Genuinely unexpected failures (403, 5xx,
+  // network errors) still surface here.
+  if (!res.ok && res.status !== 400 && url.startsWith('/api/') && method !== 'GET' && method !== 'HEAD') {
     res.clone().json().then(data => {
       if (data?.error) reportError('API Error', `${method} ${url} → ${res.status}: ${data.error}`);
     }).catch(() => reportError('API Error', `${method} ${url} → ${res.status}`));
@@ -677,8 +681,6 @@ async function loadBotStatus() {
   document.getElementById('addDreamBossBtn')?.addEventListener('click', addDreamBoss);
 
   document.getElementById('perm-command')?.addEventListener('change', permCommandChanged);
-  document.getElementById('perm-role-pick')?.addEventListener('change', permPickRole);
-  document.getElementById('perm-channel-pick')?.addEventListener('change', permPickChannel);
   document.getElementById('perm-add-btn')?.addEventListener('click', addPermRule);
   document.getElementById('perm-cancel-btn')?.addEventListener('click', cancelPermEdit);
 

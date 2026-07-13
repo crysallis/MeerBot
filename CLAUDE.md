@@ -41,7 +41,9 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `config.js` | Rate limit + ping tier constants (static code config only) |
 | `utils/db.js` | DB connection + bot-only table CREATEs (shared scan/identity tables are owned by the miner's `db.py`) · exports `mergeMembers`, `getWarbands`, `renameWarband`, `setMemberWarband` |
 | `utils/botConfig.js` | DB-backed config store · `get(key)` reads DB → ENV → default · `set(key,val)` writes DB · `getAll()` for admin UI |
-| `utils/scheduledMessages.js` | Timed auto-posts · add new messages to MESSAGES array here |
+| `utils/scheduledMessages.js` | Timed auto-posts · add new messages to MESSAGES array here (legacy path · a new recurring post that needs no code-computed content is usually better as a panel-authored `text_job` instead, see below) |
+| `utils/jobScheduler.js` | Unified job queue · `tick()` polls `scheduled_jobs` every 30s, dispatches by `type` (`script_job`, `text_job`, `remindme`, `recruitment_followup`) |
+| `utils/jobTemplate.js` | Pure helpers for text jobs · `renderTemplate` (`{{var}}` substitution, currently a passthrough — no variables registered yet), `shouldFireToday` (days_of_week filter, checked before any lateness/log write), `computeLateness`, `buildMentions` (only function allowed to turn structured `mentions` into real Discord ping syntax — embeds never notify regardless of `allowedMentions`, so this is the actual ping guard) |
 | `utils/afkExpiry.js` | Daily midnight UTC · clears expired AFK records, posts to inactivity channel |
 | `utils/anniversaryCheck.js` | Daily at `ANNIVERSARY_TIME` UTC · posts guild anniversaries for active members (1/3/6 mo + yearly) |
 | `utils/weeklySummary.js` | Monday 09:00 UTC · power growth summary embed |
@@ -50,14 +52,15 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `utils/commandLogger.js` | Posts a Dyno-style audit embed for every slash command to `COMMAND_LOG_CHANNEL_ID` · uses cache.get (not fetch) |
 | `utils/handlers/translationRoleHandler.js` | `guildMemberUpdate` handler · detects translation role gain (ID `1516271538217943131`) · DMs bilingual embed, then removes the role · fallback to general channel if DMs off |
 | `utils/handlers/promoCodeHandler.js` | `messageCreate` handler · watches promo codes channel (`1229551249209430066`) · extracts codes (bold, `Code:` label, solo post, AFKJ prefix, serial codes) · INSERT OR IGNORE into `promo_codes` · exports `getRecentCodes(n)` for future on-join use |
-| `utils/jobLog.js` | Shared helper · scheduled jobs call `logJobRun(name)` to record runs in `scheduler_log` |
+| `utils/jobLog.js` | Shared helper · scheduled jobs call `logJobRun(name, late)` to record every run in `scheduler_log` (no dedup — see below) · also owns 90-day log retention (`pruneOldLogs()`, runs at most once per calendar day) |
 | `admin/server.js` | Express admin panel server (binds 127.0.0.1:3001) · PM2 process `meerbot-admin` · all `/api/*` gated by `auth.js` · serves the Vite build from `admin/dist/` (static + `*` SPA fallback) · no longer serves `/daisyui.css` or `/shared` (bundled by Vite now) |
 | `admin/auth.js` | Admin panel auth/RBAC · Discord OAuth2 login, session, three tiers (read/manage/local), CSRF, audit · `OPERATIONS` registry maps each editable action to a tab + default tier (override via `panel_op_access`) · `panel_roles` = role->tier · new tabs add an `OPERATIONS` entry so they appear in the Access tab automatically |
 | `admin/REMOTE_ACCESS.md` | How to expose the panel via Cloudflare Tunnel (`admin.meerbot.dev`) + OAuth setup · for going beyond localhost |
 | `admin/` Vite app | Vite + Tailwind v4 + DaisyUI v5 build (mirrors `stats/`) · own `package.json` + `vite.config.mjs` (`root: src`, `outDir: ../dist`, `publicDir: ../public`) · build with `npm run build --prefix admin` (or root `npm run build`) · `admin/public/` is now image-only (publicDir); old inline `index.html`/`style.css`/`theme-demo.html` deleted in the migration |
-| `admin/src/index.html` | Admin UI markup · **Commands** tab (command/event channel settings · the old "Channels" tab, renamed; job-owned channels are NOT here) + thresholds + **Members** tab (rename/link/merge/approve/warband) + **Warbands** tab (add/rename/archive · per-warband guild assignment, leader role, member role · a Guild Override Roles table for transfer-approval-bypass roles per guild) + **Access** tab (local-only · per-op tiers, role->tier, audit log) + **Scheduled Jobs** cards (each job-owned channel renders as a "Posts to" select in its card · `JOB_CHANNEL_KEY` map) · login overlay + tier-gated controls · responsive ≤768px: hamburger drawer nav (header utilities relocate into it via matchMedia), Members table reflows to cards, other tables scroll · keeps inline FOUC theme-init `<script>` in `<head>` + `<script type=module src=./main.js>` |
-| `admin/src/main.js` | Admin entry point · imports `../../shared/theme.css` + `./style.css` + all tab modules · AUTH/CSRF fetch override, `applyAccess`/`lockTiers`, theme system, config-tab rendering, bootstrap · assigns all HTML `onclick` handlers to `window.*` |
-| `admin/src/*.js` | Tab modules split from the old inline script: `jobs.js` `reactions.js` `members.js` `seasons.js` `permissions.js` `access.js` · shared mutable state in `state.js` (allConfig/channelList/roleList/COMMAND_SUBS) · `utils.js` = `escHtml`/`utcToLocal` |
+| `admin/src/index.html` | Admin UI markup · **Commands** tab (command/event channel settings · the old "Channels" tab, renamed; job-owned channels are NOT here) + thresholds + **Members** tab (rename/link/merge/approve/warband) + **Warbands** tab (add/rename/archive · per-warband guild assignment, leader role, member role · a Guild Override Roles table for transfer-approval-bypass roles per guild) + **Access** tab (local-only · per-op tiers, role->tier, audit log) + **Scheduled Jobs** tab (collapsible tiles, one per job — system `script_job` or panel-authored `text_job` — each job-owned channel renders as a "Posts to" select in its expanded card · `JOB_CHANNEL_KEY` map · a "Create Job" form at the top makes new text jobs with no code/deploy) + **Permissions** tab (mount points for the shared chip-picker widget, populated by `permissions.js`) · login overlay + tier-gated controls · responsive ≤768px: hamburger drawer nav (header utilities relocate into it via matchMedia), Members table reflows to cards, other tables scroll · keeps inline FOUC theme-init `<script>` in `<head>` + `<script type=module src=./main.js>` |
+| `admin/src/main.js` | Admin entry point · imports `../../shared/theme.css` + `./style.css` + all tab modules · AUTH/CSRF fetch override, `applyAccess`/`lockTiers`, theme system, config-tab rendering, bootstrap · assigns all HTML `onclick` handlers to `window.*` · fetch override skips the global "Client Errors" panel for 400-status `/api/*` responses (those surface as inline field errors instead, see `jobs.js`) |
+| `admin/src/chipPicker.js` | Shared dropdown+chip-collection widget · `createChipPicker({ options, initial, placeholder })` returns `{ el, getSelected() }` · used by the Scheduled Jobs mentions picker and the Permissions tab's role/channel pickers so neither lists every option as a standing chip |
+| `admin/src/*.js` | Tab modules split from the old inline script: `jobs.js` `reactions.js` `members.js` `seasons.js` `permissions.js` `access.js` `chipPicker.js` · shared mutable state in `state.js` (allConfig/channelList/roleList/COMMAND_SUBS) · `utils.js` = `escHtml`/`utcToLocal` |
 | `admin/src/style.css` | Tailwind v4 + DaisyUI v5 entry (`@import "tailwindcss"; @plugin "daisyui" { themes: false; }`) + all admin layout overrides · uses `var(--border-color)` (our border-color var -- NOT DaisyUI's `--border` which is a width) |
 | `shared/theme.css` | `@import` index for all 7 per-theme files + `:root` block (hover-bg, rarity vars, radius, Discord/warband vars) + `[data-theme="autumn"]` light-mode overrides + `.theme-picker` CSS · adding a new theme = new file + import + entry in `shared/themes.js` + FOUC map in `admin/src/index.html` |
 | `shared/themes/*.css` | One file per palette (caramellatte/autumn/fantasy/abyss/ocean/synthwave/aqua) · each is a single `@plugin "daisyui/theme"` block with ALL DaisyUI `--color-*` vars incl. all `-content` pairs -- paste from DaisyUI generator as-is · do NOT define `--border-color` or `--card-shadow` here (removed) · borders use `var(--color-base-300)` directly |
@@ -102,7 +105,9 @@ Schema ownership: the miner (`AFKDataMining/src/db.py`) owns the shared scan/ide
 - `snapshots` · one row per scan run
 - `member_snapshots` · power/activeness per member per snapshot
 - `member_afk` · active AFK records · return_date is YYYY-MM-DD
-- `scheduler_log` · sent_date dedup + full timestamp + late flag for auto-messages
+- `scheduled_jobs` · unified job queue · id, type (`script_job`/`text_job`/`remindme`/`recruitment_followup`), fire_at, recurrence (`daily:N`/`weekly:N`), enabled
+- `text_jobs` · sub-table for type='text_job', FK `job_id` → scheduled_jobs · name, channel_id, title, body, mentions (JSON array), days_of_week (comma-separated ISO 1-7, NULL = every day), log_name (UNIQUE) · fully panel-authored, no code file needed
+- `scheduler_log` · one row per job execution, no uniqueness constraint · every fire logs, including an accidental same-day double-fire — that's deliberate, so duplicates are visible instead of hidden · pruned to 90 days by `jobLog.js`
 - `name_corrections` · OCR correction map
 - `bot_config` · key/value admin overrides · precedence: DB > ENV > hardcoded default
 - `wishlist` · id, item, priority (high/medium/low), submitted_by (Discord user ID), submitted_at
@@ -118,18 +123,13 @@ Schema ownership: the miner (`AFKDataMining/src/db.py`) owns the shared scan/ide
 - `promo_codes` · code (UNIQUE), posted_at (ISO datetime), message_id · auto-populated by `promoCodeHandler` on every new message in the promo codes channel · seeded via `scripts/backfill-promo-codes.js` · use `getRecentCodes(n)` from the handler for the planned on-join welcome feature
 
 ## Scheduled Messages
-Defined in `utils/scheduledMessages.js` MESSAGES array. Each entry has:
-- `name` · unique key used for scheduler_log dedup
-- `channelEnv` · env var name holding the channel ID
-- `utcHour/utcMinute` · when to fire
-- `maxLateMinutes` · skip entirely if bot was down longer than this
+Two paths exist:
 
-Global late warning threshold: `LATE_WARNING_MINUTES` in `bot_config` table (default 30 min) · editable via admin panel.
+**Legacy code path** — `utils/scheduledMessages.js` MESSAGES array. Each entry has `name` (unique key used for scheduler_log), `channelEnv`, `utcHour/utcMinute`, `maxLateMinutes`. Use only when the post needs code-computed content (DB pulls, custom math) that can't be expressed as static text + variables.
 
-### Current messages
-| name | channel env | time UTC | maxLate |
-|---|---|---|---|
-| `daily_reset` | `GENERAL_CHANNEL_ID` | 00:00 | 120 min |
+**Panel-authored path (preferred for plain recurring text)** — a `text_job` row, created and fully edited from the admin panel's Scheduled Jobs tab: name, fire date/time, repeat interval, day-of-week filter, channel, title, body, mentions. No code file or deploy. This is how the Daily Reset weekday/weekend split was built — `dailyReset.js` was retired; the weekday (crest-earning) and weekend (boss-attack) reminders are now two independent text jobs with different `days_of_week` and body text.
+
+Both paths share the same lateness model: `MAX_LATE_MINUTES` = 120 (skip sending entirely if the bot was down longer than this), and a global `LATE_WARNING_MINUTES` threshold in `bot_config` (default 30 min, editable via admin panel) that adds a "late" flag/footer without skipping the send.
 
 ## Environment Notes
 - Node.js v21.7.1 · technically outside better-sqlite3's supported range (20/22/24+) but works fine · don't suggest a Node upgrade just because of the EBADENGINE warning

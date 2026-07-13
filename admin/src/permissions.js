@@ -1,9 +1,10 @@
 import { state } from './state.js';
 import { escHtml } from './utils.js';
+import { createChipPicker } from './chipPicker.js';
 
-let selectedPermRoles    = [];
-let selectedPermChannels = [];
-let editingPermRuleIds   = [];
+let rolePicker          = null;
+let channelPicker       = null;
+let editingPermRuleIds  = [];
 
 const CHIP_STYLE = 'background:var(--color-base-300);border-radius:3px;padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px';
 const X_STYLE   = 'background:none;border:none;color:var(--color-neutral-content);cursor:pointer;padding:0;font-size:14px;line-height:1';
@@ -32,65 +33,24 @@ export function permCommandChanged() {
   subSel.disabled = subs.length === 0;
 }
 
-export function populatePermCheckboxes() {
-  const roleSel = document.getElementById('perm-role-pick');
-  const chSel   = document.getElementById('perm-channel-pick');
-  if (!roleSel || !chSel) return;
-  roleSel.innerHTML = '<option value="">-- add role --</option>' +
-    state.roleList.map(r => `<option value="${r.id}">${escHtml(r.name)}</option>`).join('');
-  chSel.innerHTML = '<option value="">-- add channel --</option>' +
-    state.channelList.map(c => `<option value="${c.id}">#${escHtml(c.name)}</option>`).join('');
-}
+export function populatePermCheckboxes(selectedRoleIds = [], selectedChannelIds = []) {
+  const roleMount = document.getElementById('perm-role-picker');
+  const chMount    = document.getElementById('perm-channel-picker');
+  if (!roleMount || !chMount) return;
 
-export function permPickRole() {
-  const sel = document.getElementById('perm-role-pick');
-  const id  = sel.value;
-  if (!id || selectedPermRoles.some(r => r.id === id)) { sel.value = ''; return; }
-  selectedPermRoles.push({ id, name: state.roleList.find(r => r.id === id)?.name ?? id });
-  sel.value = '';
-  renderPermChips();
-}
+  rolePicker = createChipPicker({
+    options: state.roleList.map(r => ({ value: r.id, label: r.name })),
+    initial: selectedRoleIds.map(id => ({ value: id, label: state.roleList.find(r => r.id === id)?.name ?? id })),
+    placeholder: '-- add role --',
+  });
+  roleMount.replaceChildren(rolePicker.el);
 
-export function permPickChannel() {
-  const sel = document.getElementById('perm-channel-pick');
-  const id  = sel.value;
-  if (!id || selectedPermChannels.some(c => c.id === id)) { sel.value = ''; return; }
-  selectedPermChannels.push({ id, name: state.channelList.find(c => c.id === id)?.name ?? id });
-  sel.value = '';
-  renderPermChips();
-}
-
-export function permRemoveRole(id) {
-  selectedPermRoles = selectedPermRoles.filter(r => r.id !== id);
-  renderPermChips();
-}
-
-export function permRemoveChannel(id) {
-  selectedPermChannels = selectedPermChannels.filter(c => c.id !== id);
-  renderPermChips();
-}
-
-function makeChip(label, onRemove) {
-  const span = document.createElement('span');
-  span.setAttribute('style', CHIP_STYLE);
-  span.appendChild(document.createTextNode(label));
-  const btn = document.createElement('button');
-  btn.setAttribute('style', X_STYLE);
-  btn.textContent = '×';
-  btn.addEventListener('click', onRemove);
-  span.appendChild(btn);
-  return span;
-}
-
-export function renderPermChips() {
-  const roleEl = document.getElementById('perm-role-chips');
-  const chEl   = document.getElementById('perm-channel-chips');
-  roleEl.replaceChildren(...selectedPermRoles.map(r =>
-    makeChip(r.name, () => permRemoveRole(r.id))
-  ));
-  chEl.replaceChildren(...selectedPermChannels.map(c =>
-    makeChip('#' + c.name, () => permRemoveChannel(c.id))
-  ));
+  channelPicker = createChipPicker({
+    options: state.channelList.map(c => ({ value: c.id, label: '#' + c.name })),
+    initial: selectedChannelIds.map(id => ({ value: id, label: '#' + (state.channelList.find(c => c.id === id)?.name ?? id) })),
+    placeholder: '-- add channel --',
+  });
+  chMount.replaceChildren(channelPicker.el);
 }
 
 export async function loadPermissions() {
@@ -167,7 +127,9 @@ export async function addPermRule() {
   const errEl      = document.getElementById('perm-error');
   errEl.textContent = '';
   if (!command) { errEl.textContent = 'Command is required'; return; }
-  if (!selectedPermRoles.length && !selectedPermChannels.length) {
+  const roleIds    = rolePicker?.getSelected().map(e => e.value) ?? [];
+  const channelIds = channelPicker?.getSelected().map(e => e.value) ?? [];
+  if (!roleIds.length && !channelIds.length) {
     errEl.textContent = 'Select at least one role or channel'; return;
   }
   if (editingPermRuleIds.length) {
@@ -177,8 +139,8 @@ export async function addPermRule() {
     editingPermRuleIds = [];
   }
   const toPost = [
-    ...selectedPermRoles.map(r => ({ command, subcommand, type: 'role', value_id: r.id })),
-    ...selectedPermChannels.map(c => ({ command, subcommand, type: 'channel', value_id: c.id })),
+    ...roleIds.map(id => ({ command, subcommand, type: 'role', value_id: id })),
+    ...channelIds.map(id => ({ command, subcommand, type: 'channel', value_id: id })),
   ];
   for (const body of toPost) {
     const res  = await fetch('/api/permissions', {
@@ -190,9 +152,7 @@ export async function addPermRule() {
   }
   document.getElementById('perm-command').value = '';
   permCommandChanged();
-  selectedPermRoles    = [];
-  selectedPermChannels = [];
-  renderPermChips();
+  populatePermCheckboxes();
   document.getElementById('perm-add-btn').textContent          = '+ Add Rules';
   document.getElementById('perm-cancel-btn').style.display     = 'none';
   await loadPermissions();
@@ -216,9 +176,7 @@ export async function editPermGroup(command, subcommand, roleValueIds, channelVa
   permCommandChanged();
   const subSel = document.getElementById('perm-subcommand');
   if (subcommand) subSel.value = subcommand;
-  selectedPermRoles    = roleValueIds.map(id => ({ id, name: state.roleList.find(r => r.id === id)?.name ?? id }));
-  selectedPermChannels = channelValueIds.map(id => ({ id, name: state.channelList.find(c => c.id === id)?.name ?? id }));
-  renderPermChips();
+  populatePermCheckboxes(roleValueIds, channelValueIds);
   editingPermRuleIds = dbIds;
   document.getElementById('perm-add-btn').textContent      = 'Save Changes';
   document.getElementById('perm-cancel-btn').style.display = '';
@@ -230,9 +188,7 @@ export function cancelPermEdit() {
   editingPermRuleIds = [];
   document.getElementById('perm-command').value = '';
   permCommandChanged();
-  selectedPermRoles    = [];
-  selectedPermChannels = [];
-  renderPermChips();
+  populatePermCheckboxes();
   document.getElementById('perm-add-btn').textContent      = '+ Add Rules';
   document.getElementById('perm-cancel-btn').style.display = 'none';
   document.getElementById('perm-error').textContent        = '';

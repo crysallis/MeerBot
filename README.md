@@ -154,9 +154,10 @@ List commands show badges inline with member names:
 | Weekly summary | Every 7 days from Monday 09:00 UTC (default) | Posts power/growth summary · compares latest scan to oldest scan from the past 7 days |
 | AFK expiry | Daily at midnight UTC (default) | Clears AFK records past their return date and notifies the inactivity channel |
 | Anniversary check | Daily at 18:00 UTC (default) | Posts 1mo/3mo/6mo/yearly guild anniversaries for active members |
-| Daily reset | Daily at midnight UTC (default) | Guild Supremacy/DR reminder. Skipped if bot offline more than 2h past fire time. |
 
 All tasks run through a single unified job scheduler (`utils/jobScheduler.js`) backed by the `scheduled_jobs` DB table. **Next fire time and repeat interval for each job are configurable from the admin panel's Scheduled Jobs tab** -- no restart needed for schedule changes. User reminders (`/remindme`) use the same queue as one-shot jobs. The scheduler polls every 30 seconds.
+
+**Panel-authored text jobs:** beyond the code-backed tasks above, the admin panel's Scheduled Jobs tab can create fully self-contained recurring (or one-off) Discord posts -- name, fire date/time, repeat interval, day-of-week filter, channel, title, body, and mentions -- entirely from the UI, no code file or deploy required. The Daily Reset weekday/weekend split (different wording for the Guild Duel crest-earning phase vs. the boss-attack weekend) is built this way: two independent text jobs, not one job with branching logic. Skipped entirely if the bot was offline more than 2h past fire time; a smaller configurable threshold (`LATE_WARNING_MINUTES`, default 30 min) adds a "late" note without skipping the send.
 
 ---
 
@@ -230,8 +231,14 @@ MeerBot/
                                 warband move (or whether it bypasses), eligible-approver
                                 lookup, and the shared approval embed builder.
         botConfig.js            DB-backed config store. get(key) reads DB > ENV > default.
-        jobScheduler.js         Unified job queue. Single 30s poller dispatches all job types.
-        jobLog.js               Shared helper for scheduled jobs to record runs to scheduler_log.
+        jobScheduler.js         Unified job queue. Single 30s poller dispatches all job types
+                                (script_job, text_job, remindme, recruitment_followup).
+        jobTemplate.js          Pure helpers for panel-authored text jobs: renderTemplate,
+                                shouldFireToday (days_of_week filter), computeLateness,
+                                buildMentions (structured mentions -> real Discord ping syntax).
+        jobLog.js               Shared helper for scheduled jobs to record every run to
+                                scheduler_log (no dedup -- repeat fires all log). Also owns
+                                90-day log retention (pruneOldLogs()).
         commandLogger.js        Audit log for every slash command invocation.
         permissions.js          Permission rules + DB-backed runtime enforcement.
                                 enforce() for code-level checks (scanUser, admin).
@@ -243,7 +250,6 @@ MeerBot/
             birthdayCheck.js    Daily birthday check handler + buildBirthdayEmbed() export.
             afkExpiry.js        Daily expired AFK record cleanup handler.
             anniversaryCheck.js Daily guild anniversary handler + milestoneFor() export.
-            dailyReset.js       Daily reset message handler (max 2h late window).
             translationRoleHandler.js  guildMemberUpdate handler. Fires when a member
                                 gains the translation role -- DMs a bilingual embed
                                 with instructions, then removes the role. Falls back

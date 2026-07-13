@@ -133,16 +133,26 @@ name_corrections    OCR correction map. Written by scraper and /rename, readable
 member_notes        Admin notes on members. Multiple notes per member (/note command).
 member_afk          AFK status. One row per member (UNIQUE on member_id).
 scheduled_jobs      Unified job queue. One row per pending or recurring job.
-                    type = 'script_job' | 'remindme' | 'recruitment_followup'.
+                    type = 'script_job' | 'text_job' | 'remindme' | 'recruitment_followup'.
                     fire_at is next execution time.
 remindme_jobs       Sub-table for type='remindme'. Holds user_id, channel_id, message.
                     ON DELETE CASCADE from scheduled_jobs.
 script_jobs         Sub-table for type='script_job'. Holds handler_path to module.
                     ON DELETE CASCADE from scheduled_jobs.
+text_jobs           Sub-table for type='text_job'. Fully panel-authored scheduled
+                    message: name, channel_id, title, body, mentions (JSON array),
+                    days_of_week (comma-separated ISO 1-7, NULL = every day),
+                    log_name (UNIQUE, the scheduler_log key). No code file or deploy
+                    needed to create/edit -- see admin/src/jobs.js.
+                    ON DELETE CASCADE from scheduled_jobs.
 recruitment_followups Sub-table for type='recruitment_followup'. 2-day follow-up reminder
                     for /recruitment add. Holds user_id, recruitment_id, channel_id.
                     ON DELETE CASCADE from scheduled_jobs.
-scheduler_log       Audit log of all job executions. UNIQUE(name, sent_date) for dedup.
+scheduler_log       Audit log of every job execution. No uniqueness constraint --
+                    every fire (including an accidental double-fire from an edited
+                    fire_at) writes its own row, on purpose, so duplicates are visible
+                    instead of silently absorbed. Pruned to the last 90 days by
+                    jobLog.js on each write (see below).
 bot_config          DB-backed config store. key/value overrides editable via admin panel.
                     Lookup order: DB > ENV > hardcoded default in CONFIG_META.
 message_reactions   Configurable auto-response rules. Pattern matching (contains/exact/
@@ -439,9 +449,12 @@ REST API:
 | `DELETE` | `/api/command-permissions/:id` | Remove a constraint row |
 | `GET` | `/api/bot-status` | PM2 status for the `meerbot` process (status, CPU, memory, uptime) |
 | `POST` | `/api/bot/restart` | Runs `pm2 restart meerbot --update-env` |
-| `GET` | `/api/scheduled-jobs` | All system jobs with display name, `fire_at`, `recurrence` |
-| `PUT` | `/api/scheduled-jobs/:id` | Update `fire_at` and/or `recurrence` for a job |
-| `GET` | `/api/jobs` | Last 50 rows from `scheduler_log` (filterable/sortable in UI) |
+| `GET` | `/api/scheduled-jobs` | All jobs (system `script_job` + panel-authored `text_job`) with display name, `fire_at`, `recurrence`, enabled state |
+| `PUT` | `/api/scheduled-jobs/:id` | Update `fire_at`, `recurrence`, and/or `enabled` for a job |
+| `POST` | `/api/text-jobs` | Create a new panel-authored text job (name, channel, title, body, mentions, days_of_week) -- inserts both the `scheduled_jobs` row and its `text_jobs` sub-row |
+| `PUT` | `/api/text-jobs/:id` | Update a text job's content/channel/mentions/day-filter |
+| `DELETE` | `/api/text-jobs/:id` | Remove a text job entirely (cascades via `scheduled_jobs` FK) |
+| `GET` | `/api/jobs` | Last 50 rows from `scheduler_log` (filterable/sortable in UI); `text_job_*` log names are resolved to the job's current display name via a live join against `text_jobs` |
 | `GET` | `/api/members` | Roster with latest power/warband, `pending` flagged first |
 | `PUT` | `/api/members/:id` | Rename (merges via `mergeMembers` if the name already exists) |
 | `POST` | `/api/members/:id/link` | Set or clear the Discord link |
@@ -475,7 +488,28 @@ REST API:
 | `PUT` | `/api/access/role` | `{ role_id, tier }` · set/clear a role's tier (read/manage; **local only**) |
 | `GET` | `/auth/me` · `GET /auth/login` · `GET /auth/callback` · `POST /auth/logout` | Discord OAuth2 login + session identity (outside `/api`) |
 
-The admin panel UI has tabs for: **Commands** (command/event channel settings -- formerly "Channels"; each row reads "feature -> channel"), **Job Timing**, **Thresholds**, **Config** (DB-backed key/value config), **Permissions** (command_permissions allowlists -- role and channel pickers per command/subcommand), **Reactions**, **Scheduled Jobs**, **Job Runs**, **Members**, **Warbands**, **Seasons**, **DR Bosses**, and **Access** (local-only -- per-operation tiers, role->tier grants, audit log). Channel settings owned by a scheduled job (birthday, anniversary, daily reset, scan reminder, weekly summary) are not in the Commands tab -- they render as a "Posts to" channel select inside that job's Scheduled Jobs card (`JOB_CHANNEL_KEY` maps handler_path -> config key). The header shows the logged-in user (circular Discord avatar) and a presence stack of other active viewers; controls above the current tier are disabled (never hidden).
+The admin panel UI has tabs for: **Commands** (command/event channel settings -- formerly "Channels"; each row reads "feature -> channel"), **Job Timing**, **Thresholds**, **Config** (DB-backed key/value config), **Permissions** (command_permissions allowlists -- role and channel pickers per command/subcommand), **Reactions**, **Scheduled Jobs**, **Job Runs**, **Members**, **Warbands**, **Seasons**, **DR Bosses**, and **Access** (local-only -- per-operation tiers, role->tier grants, audit log). Channel settings owned by a system `script_job` (birthday, anniversary, scan reminder, weekly summary) are not in the Commands tab -- they render as a "Posts to" channel select inside that job's Scheduled Jobs card (`JOB_CHANNEL_KEY` maps handler_path -> config key). The header shows the logged-in user (circular Discord avatar) and a presence stack of other active viewers; controls above the current tier are disabled (never hidden).
+
+### Scheduled Jobs tab (admin/src/jobs.js)
+
+Each job -- system `script_job` or panel-authored `text_job` alike -- renders as a
+collapsible `.sj-tile`: a compact grid cell showing name, enabled/disabled status
+badge, and next local fire time. Clicking a tile expands it in place (`.sj-card.expanded`,
+spans the full grid width) into the full edit form: fire date/time (with a live
+"will fire at HH:MM UTC" hint under the input, `attachUtcPreview`), repeat interval,
+channel, and -- for text jobs -- title, body, day-of-week filter, and a mentions
+picker. All three actions (Enabled/Disabled toggle, Delete Job [text jobs only],
+Save) live together in one `actionsRow` at the bottom of the expanded body.
+
+A "Create Job" form (`#cjForm`) at the top of the tab creates new text jobs from
+scratch -- no code file or deploy required. Both create and edit paths validate
+required fields (name, time, channel, body) inline (red border + message under the
+field) before the API call, rather than surfacing a raw 400 as a browser `alert()`.
+
+The mentions picker and the Permissions tab's role/channel pickers share one module,
+`admin/src/chipPicker.js` (`createChipPicker({ options, initial, placeholder })`) --
+a dropdown that adds a removable chip per selection, styled from the active DaisyUI
+theme rather than every option being listed as its own chip up front.
 
 **Responsive layout.** The panel is desktop-first but adds a `@media (max-width: 768px)` layer that leaves the desktop look untouched. On mobile/tablet: a hamburger button opens a slide-out drawer (`#drawer`) holding the section nav, and the header utility controls (theme picker, mode toggle, Restart, logout) are relocated into the drawer via a `matchMedia` listener (`setupMobileChrome`) -- moved, not duplicated, so element IDs, handlers, and `lockTiers()` keep working. The Members table reflows into stacked labeled cards (`.cards-sm` + `data-label` per cell); all other tables scroll horizontally inside their card. Form controls are 16px to avoid iOS zoom-on-focus.
 
@@ -497,6 +531,9 @@ All scheduled work -- system recurring jobs and user-created reminders -- flows 
 scheduled_jobs          -- queue entry: type, fire_at, recurrence
     |
     +-- script_jobs     -- type='script_job': handler_path to require()
+    |
+    +-- text_jobs       -- type='text_job': name, channel_id, title, body,
+    |                      mentions, days_of_week, log_name (panel-authored)
     |
     +-- remindme_jobs   -- type='remindme': user_id, channel_id, message
 ```
@@ -531,6 +568,8 @@ Every 30 seconds, the tick queries `WHERE fire_at <= datetime('now')`. For each 
   }
   ```
 
+- **`text_job`**: fully panel-authored, no handler file. `fire_at` advances the same way as `script_job` (before the send, so a failure doesn't retry every tick). `handleTextJob` checks `days_of_week` first (`shouldFireToday`) and returns immediately on a non-firing day -- before any lateness check or log write, so a Mon-Fri job ticking on a Saturday produces no `scheduler_log` row at all, not a skipped/late one. If it does fire today, `computeLateness` compares `fire_at` to now against `bot_config.LATE_WARNING_MINUTES` (late footer) and the fixed `MAX_LATE_MINUTES` = 120 (skip sending entirely, but still log). Title/body pass through `renderTemplate` (currently a no-op passthrough -- `{{var}}` substitution is wired but no variables are registered yet). `mentions` (JSON array of `{type: 'everyone'|'here'|'role', id?}`) goes through `buildMentions`, the only function allowed to turn that into real Discord mention syntax in the message `content` -- embeds never notify regardless of `allowedMentions`, so content is the actual ping guard, not decoration. See `utils/jobTemplate.js`.
+
 - **`remindme`**: deliver via DM (fallback to channel mention), then `DELETE` the row. `ON DELETE CASCADE` cleans `remindme_jobs` automatically.
 
 - **`recruitment_followup`**: post a 2-day follow-up embed to the channel (and DM the creator). Then `DELETE` the row. `ON DELETE CASCADE` cleans `recruitment_followups` automatically.
@@ -555,9 +594,13 @@ module.exports.buildBirthdayEmbed = buildBirthdayEmbed;
 
 The weekly comparison baseline is the oldest snapshot taken within the past 7 days, falling back to the immediately previous snapshot if only one scan exists in that window. This gives a true weekly delta rather than a scan-to-scan delta.
 
-### dailyReset handler
+### Daily Reset (retired as a handler, now a text_job)
 
-Checks how many minutes late it is (`Date.now() - new Date(job.fire_at)`). If more than 120 minutes, the message is skipped entirely (no longer relevant). If more than `LATE_WARNING_MINUTES` (default 30), a late footer is added to the embed.
+`dailyReset.js` was retired once panel-authored text jobs shipped -- the weekday
+crest-earning reminder and the weekend boss-attack reminder are now two ordinary
+`text_job` rows (different `days_of_week`, different body text), created and edited
+entirely from the admin panel's Scheduled Jobs tab. No handler file, no deploy,
+for either one. See the `text_job` dispatch path above.
 
 ---
 

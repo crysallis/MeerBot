@@ -195,8 +195,7 @@ db.exec(`
     name      TEXT NOT NULL,
     sent_date TEXT NOT NULL,
     sent_at   TEXT NOT NULL DEFAULT '',
-    late      INTEGER NOT NULL DEFAULT 0,
-    UNIQUE(name, sent_date)
+    late      INTEGER NOT NULL DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS bot_config (
