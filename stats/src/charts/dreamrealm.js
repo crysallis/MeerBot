@@ -2,10 +2,31 @@ import { Chart, registerables } from 'chart.js';
 import { getCSSVar, cssVarRgba, escHtml } from '../utils.js';
 Chart.register(...registerables);
 
-let chart    = null;
-let allData  = null;
-let meRef    = null;
-let rowsRef  = [];
+let chartsByTier = new Map();
+let allData      = null;
+let meRef        = null;
+let rowsRef      = [];
+
+const TIER_ORDER = ['common', 'hard', 'epic', 'hell', 'endless'];
+
+function tierRank(tier) {
+    const i = TIER_ORDER.indexOf(tier || 'common');
+    return i === -1 ? TIER_ORDER.length : i; // unrecognized tiers sort after endless, not silently dropped
+}
+
+function groupByTier(rows) {
+    const groups = new Map(); // tier -> rows[]
+    for (const r of rows) {
+        const t = r.tier || 'common';
+        if (!groups.has(t)) groups.set(t, []);
+        groups.get(t).push(r);
+    }
+    for (const list of groups.values()) {
+        list.sort((a, b) => parseScore(b.score) - parseScore(a.score));
+    }
+    // Best tier first (descending tier rank) for display order.
+    return [...groups.entries()].sort((a, b) => tierRank(b[0]) - tierRank(a[0]));
+}
 
 export async function initDreamRealm(me) {
     meRef = me;
@@ -47,8 +68,7 @@ function renderDR(me) {
     const date     = document.getElementById('dr-date').value;
 
     const rows = allData.scores
-        .filter(s => s.boss_id === bossId && s.scan_date === date)
-        .sort((a, b) => a.rank - b.rank);
+        .filter(s => s.boss_id === bossId && s.scan_date === date);
 
     // Previous date for delta
     const prevDate = [...new Set(
@@ -62,19 +82,53 @@ function renderDR(me) {
         }
     }
 
-    // Bar chart
-    rowsRef = rows;
-    const labels = rows.map(r => r.ingame_name);
-    const values = rows.map(r => parseScore(r.score));
-    const colors = rows.map(r => r.member_id === me?.memberId ? getCSSVar('--color-primary') : tierColor(r.tier));
+    const tierGroups = groupByTier(rows);
 
-    if (chart) {
-        chart.data.labels   = labels;
-        chart.data.datasets[0].data            = values;
-        chart.data.datasets[0].backgroundColor = colors;
-        chart.update();
-    } else {
-        chart = new Chart(document.getElementById('chart-dr'), {
+    // Bar charts — one per tier group, each with its own scale so a max Hell
+    // score never visually dwarfs a max Endless score on a shared axis.
+    rowsRef = rows;
+    const container = document.getElementById('chart-dr-container');
+
+    const seenTiers = new Set(tierGroups.map(([t]) => t));
+    for (const tier of [...chartsByTier.keys()]) {
+        if (!seenTiers.has(tier)) {
+            chartsByTier.get(tier).destroy();
+            chartsByTier.delete(tier);
+            const el = document.getElementById(`chart-dr-wrap-${tier}`);
+            if (el) el.remove();
+        }
+    }
+
+    for (const [tier, tierRows] of tierGroups) {
+        let wrap = document.getElementById(`chart-dr-wrap-${tier}`);
+        if (!wrap) {
+            wrap = document.createElement('div');
+            wrap.id = `chart-dr-wrap-${tier}`;
+            wrap.className = 'tier-chart-wrap';
+            const heading = document.createElement('div');
+            heading.className = 'tier-group-heading';
+            heading.innerHTML = `<span class="tier-badge tier-${tier}">${tier}</span>`;
+            const canvas = document.createElement('canvas');
+            canvas.id = `chart-dr-${tier}`;
+            wrap.appendChild(heading);
+            wrap.appendChild(canvas);
+            container.appendChild(wrap);
+        }
+
+        const labels = tierRows.map(r => r.ingame_name);
+        const values = tierRows.map(r => parseScore(r.score));
+        const colors = tierRows.map(r => r.member_id === me?.memberId ? getCSSVar('--color-primary') : tierColor(tier));
+
+        const existing = chartsByTier.get(tier);
+        if (existing) {
+            existing.data.labels = labels;
+            existing.data.datasets[0].data            = values;
+            existing.data.datasets[0].backgroundColor = colors;
+            existing.update();
+            continue;
+        }
+
+        const newChart = new Chart(document.getElementById(`chart-dr-${tier}`), {
             type: 'bar',
             data: {
                 labels,
@@ -91,7 +145,7 @@ function renderDR(me) {
                 indexAxis: 'y',
                 plugins: {
                     legend: { display: false },
-                    tooltip: { callbacks: { label: ctx => ' ' + rowsRef[ctx.dataIndex].score } },
+                    tooltip: { callbacks: { label: ctx => ' ' + tierRows[ctx.dataIndex].score } },
                 },
                 scales: {
                     x: { grid: { color: getCSSVar('--color-base-content') }, ticks: { color: getCSSVar('--color-base-content'), callback: v => fmtScore(v) } },
@@ -99,37 +153,48 @@ function renderDR(me) {
                 },
             },
         });
-        chart._recolor = () => renderDR(meRef);
+        newChart._recolor = () => renderDR(meRef);
+        chartsByTier.set(tier, newChart);
     }
 
-    // Table
+    // Table — grouped by tier, best tier first, sorted by score within each tier
     const hasDelta = Object.keys(prevMap).length > 0;
-    let html = `<table class="data-table"><thead><tr>
-        <th>#</th><th>Member</th><th>Score</th><th>Tier</th>
-        ${hasDelta ? '<th>vs prev</th>' : ''}
-    </tr></thead><tbody>`;
 
-    for (const r of rows) {
-        const isMe  = r.member_id === me?.memberId;
-        const prev  = prevMap[r.member_id];
-        let delta   = '';
-        if (hasDelta && prev) {
-            const diff = parseScore(r.score) - parseScore(prev.score);
-            if (diff > 0) delta = `<span class="delta-pos">+${fmtScore(diff)}</span>`;
-            else if (diff < 0) delta = `<span class="delta-neg">${fmtScore(diff)}</span>`;
-            else delta = `<span class="delta-neu">--</span>`;
-        } else if (hasDelta) {
-            delta = `<span class="delta-neu">new</span>`;
+    let html = '';
+    for (const [tier, tierRows] of tierGroups) {
+        html += `<div class="tier-group">
+            <h3 class="tier-group-heading"><span class="tier-badge tier-${escHtml(tier)}">${escHtml(tier)}</span></h3>
+            <table class="data-table"><thead><tr>
+                <th>#</th><th>Member</th><th>Score</th>
+                ${hasDelta ? '<th>vs prev</th>' : ''}
+            </tr></thead><tbody>`;
+
+        for (const r of tierRows) {
+            const isMe = r.member_id === me?.memberId;
+            const prev = prevMap[r.member_id];
+            let delta  = '';
+            if (hasDelta) {
+                if (prev && prev.tier === r.tier) {
+                    const diff = parseScore(r.score) - parseScore(prev.score);
+                    if (diff > 0) delta = `<span class="delta-pos">+${fmtScore(diff)}</span>`;
+                    else if (diff < 0) delta = `<span class="delta-neg">${fmtScore(diff)}</span>`;
+                    else delta = `<span class="delta-neu">--</span>`;
+                } else if (prev) {
+                    delta = `<span class="delta-neu">tier changed</span>`;
+                } else {
+                    delta = `<span class="delta-neu">new</span>`;
+                }
+            }
+            html += `<tr${isMe ? ' class="me"' : ''}>
+                <td data-label="#">${rankBadge(r.rank)}</td>
+                <td data-label="Member">${escHtml(r.ingame_name)}</td>
+                <td data-label="Score"><strong>${escHtml(r.score)}</strong></td>
+                ${hasDelta ? `<td data-label="Change">${delta}</td>` : ''}
+            </tr>`;
         }
-        html += `<tr${isMe ? ' class="me"' : ''}>
-            <td data-label="#">${rankBadge(r.rank)}</td>
-            <td data-label="Member">${escHtml(r.ingame_name)}</td>
-            <td data-label="Score"><strong>${escHtml(r.score)}</strong></td>
-            <td data-label="Tier"><span class="tier-badge tier-${escHtml(r.tier || 'common')}">${escHtml(r.tier || 'common')}</span></td>
-            ${hasDelta ? `<td data-label="Change">${delta}</td>` : ''}
-        </tr>`;
+        html += '</tbody></table></div>';
     }
-    html += '</tbody></table>';
+
     if (prevDate) html += `<div class="scan-note">Comparing to ${prevDate}</div>`;
 
     document.getElementById('dr-table').innerHTML = html;

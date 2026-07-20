@@ -161,6 +161,14 @@ canvas { max-height: 400px; }
 }
 .table-box h2 { font-size: .9rem; color: var(--color-base-content); margin-bottom: .75rem; text-transform: uppercase; letter-spacing: .05em; }
 
+.tier-group { margin-bottom: 1.25rem; }
+.tier-group:last-child { margin-bottom: 0; }
+.tier-group-heading { margin-bottom: .5rem; }
+
+.tier-chart-wrap { margin-bottom: 1.25rem; }
+.tier-chart-wrap:last-child { margin-bottom: 0; }
+.tier-chart-wrap canvas { max-height: 240px; }
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
