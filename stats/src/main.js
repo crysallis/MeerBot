@@ -8,6 +8,7 @@ import { initDreamRealm } from './charts/dreamrealm.js';
 import { initArena }      from './charts/arena.js';
 import { initSupArena }   from './charts/supremeArena.js';
 import { initLab }        from './charts/lab.js';
+import { initGuildDuel }  from './charts/guildDuel.js';
 import { getCSSVar, cssVarRgba } from './utils.js';
 
 function updateChartTheme() {
@@ -104,7 +105,8 @@ async function activateTab(name) {
         if (name === 'arena')      await initArena(me);
         if (name === 'suparena')   await initSupArena(me);
         if (name === 'lab')        await initLab(me);
-        // preview tab is static HTML — no async init needed
+        if (name === 'guildduel')  await initGuildDuel(me);
+        // preview tab is static HTML · no async init needed
         updateChartTheme();
     } catch (err) {
         console.error('[stats] init error for tab:', name, err);

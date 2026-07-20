@@ -43,6 +43,7 @@
       <button class="tab" data-tab="arena">Arena</button>
       <button class="tab" data-tab="suparena">Sup Arena</button>
       <button class="tab" data-tab="lab">Arcane Lab</button>
+      <button class="tab" data-tab="guildduel">Guild Duel</button>
       <button class="tab" data-tab="preview">Theme Preview</button>
     </div>
 
@@ -146,6 +147,39 @@
             </div>
             <canvas id="chart-sa-warband"></canvas>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Guild Duel -->
+    <section id="tab-guildduel" class="tab-content hidden">
+      <div class="controls">
+        <label>
+          Warband
+          <select id="gd-warband-filter">
+            <option value="">All Warbands</option>
+          </select>
+        </label>
+        <label>
+          Period
+          <select id="gd-period-select"></select>
+        </label>
+        <label>
+          Members
+          <div id="gd-member-wrap"></div>
+        </label>
+      </div>
+      <div class="chart-box full">
+        <canvas id="chart-guildduel"></canvas>
+      </div>
+      <div class="dr-layout">
+        <div class="table-box">
+          <h2>Had Crests</h2>
+          <div id="gd-had-crests"></div>
+        </div>
+        <div class="table-box">
+          <h2>No Crests</h2>
+          <div id="gd-no-crests"></div>
         </div>
       </div>
     </section>
