@@ -156,6 +156,40 @@ app.get('/api/arena', (req, res) => {
     }
 });
 
+// GET /api/guild-duel · crest rankings + who's missing, per period
+app.get('/api/guild-duel', (req, res) => {
+    try {
+        const periods = db.prepare(
+            'SELECT DISTINCT period_start FROM guild_duel_rankings ORDER BY period_start'
+        ).all().map(r => r.period_start);
+
+        const rows = db.prepare(`
+            SELECT m.id as member_id, m.ingame_name, m.warband_id, w.name as warband_name,
+                   g.period_start, g.crests
+            FROM guild_duel_rankings g
+            JOIN members m ON m.id = g.member_id
+            LEFT JOIN warbands w ON w.id = m.warband_id
+            ORDER BY g.period_start, g.crests DESC
+        `).all();
+
+        const absent = db.prepare(`
+            SELECT m.id as member_id, m.ingame_name, m.warband_id, w.name as warband_name,
+                   p.period_start
+            FROM members m
+            CROSS JOIN (SELECT DISTINCT period_start FROM guild_duel_rankings) p
+            LEFT JOIN warbands w ON w.id = m.warband_id
+            LEFT JOIN guild_duel_rankings g ON g.member_id = m.id AND g.period_start = p.period_start
+            WHERE m.active = 1 AND m.pending = 0 AND g.member_id IS NULL
+            ORDER BY p.period_start, m.ingame_name
+        `).all();
+
+        res.json({ periods, rows, absent });
+    } catch (err) {
+        console.error('[stats] /api/guild-duel error:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // GET /api/honor — honor duel rankings
 app.get('/api/honor', (req, res) => {
     try {
