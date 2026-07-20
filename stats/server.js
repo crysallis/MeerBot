@@ -156,7 +156,7 @@ app.get('/api/arena', (req, res) => {
     }
 });
 
-// GET /api/guild-duel — crest rankings + who's missing, per period
+// GET /api/guild-duel · crest rankings + who's missing, per period
 app.get('/api/guild-duel', (req, res) => {
     try {
         const periods = db.prepare(
