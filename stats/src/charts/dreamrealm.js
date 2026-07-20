@@ -152,8 +152,10 @@ function fmtScore(v) {
 }
 
 function tierColor(tier) {
-    if (tier === 'hard')  return cssVarRgba('--hard',   0.75);
-    if (tier === 'epic')  return cssVarRgba('--epic',   0.75);
+    if (tier === 'hard')    return cssVarRgba('--hard',    0.75);
+    if (tier === 'epic')    return cssVarRgba('--epic',    0.75);
+    if (tier === 'hell')    return cssVarRgba('--hell',    0.75);
+    if (tier === 'endless') return cssVarRgba('--endless', 0.75);
     return cssVarRgba('--common', 0.75);
 }
 
