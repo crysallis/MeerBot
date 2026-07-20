@@ -84,7 +84,7 @@ function renderDR(me) {
 
     const tierGroups = groupByTier(rows);
 
-    // Bar charts — one per tier group, each with its own scale so a max Hell
+    // Bar charts · one per tier group, each with its own scale so a max Hell
     // score never visually dwarfs a max Endless score on a shared axis.
     rowsRef = rows;
     const container = document.getElementById('chart-dr-container');
@@ -157,7 +157,7 @@ function renderDR(me) {
         chartsByTier.set(tier, newChart);
     }
 
-    // Table — grouped by tier, best tier first, sorted by score within each tier
+    // Table · grouped by tier, best tier first, sorted by score within each tier
     const hasDelta = Object.keys(prevMap).length > 0;
 
     let html = '';
