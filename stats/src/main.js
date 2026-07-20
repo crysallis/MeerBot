@@ -9,7 +9,7 @@ import { initArena }      from './charts/arena.js';
 import { initSupArena }   from './charts/supremeArena.js';
 import { initLab }        from './charts/lab.js';
 import { initGuildDuel }  from './charts/guildDuel.js';
-import { getCSSVar, cssVarRgba } from './utils.js';
+import { getCSSVar, cssVarRgba, escHtml } from './utils.js';
 
 function updateChartTheme() {
     const gridColor = getCSSVar('--color-base-content');
@@ -84,7 +84,33 @@ async function boot() {
         btn.addEventListener('click', () => activateTab(btn.dataset.tab));
     });
 
+    loadPresence();
+    setInterval(loadPresence, 45000);
+
     activateTab('overview');
+}
+
+async function loadPresence() {
+    let data;
+    try { data = await fetch('/api/presence').then(r => r.ok ? r.json() : null); } catch { return; }
+    if (!data || data.error) return;
+    const el = document.getElementById('presence');
+    if (!el) return;
+    const others = (data.users || []).filter(u => u.discord_id !== data.me);
+    if (!others.length) { el.innerHTML = ''; return; }
+    const MAX   = 5;
+    const shown = others.slice(0, MAX);
+    let html = '<span class="presence-label">Viewing</span>';
+    html += shown.map(u => {
+        const inner = u.avatar
+            ? `<img src="${u.avatar}" alt="">`
+            : `<span class="presence-fallback">${escHtml((u.name || '?').slice(0, 1).toUpperCase())}</span>`;
+        return `<span class="presence-av" title="${escHtml(u.name || '')}">${inner}</span>`;
+    }).join('');
+    if (others.length > MAX) {
+        html += `<span class="presence-av presence-more" title="${others.length - MAX} more">+${others.length - MAX}</span>`;
+    }
+    el.innerHTML = html;
 }
 
 async function activateTab(name) {

@@ -264,7 +264,8 @@ db.exec(`
     discord_id TEXT NOT NULL,
     action     TEXT NOT NULL,
     target     TEXT,
-    at         TEXT NOT NULL
+    at         TEXT NOT NULL,
+    site       TEXT NOT NULL DEFAULT 'admin'
   );
   CREATE INDEX IF NOT EXISTS idx_panel_audit_at ON panel_audit(at);
 
@@ -274,10 +275,12 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS panel_presence (
-    discord_id TEXT PRIMARY KEY,
+    site       TEXT NOT NULL DEFAULT 'admin',
+    discord_id TEXT NOT NULL,
     name       TEXT,
     avatar     TEXT,
-    last_seen  TEXT NOT NULL
+    last_seen  TEXT NOT NULL,
+    PRIMARY KEY (site, discord_id)
   );
 
   CREATE TABLE IF NOT EXISTS promo_codes (

@@ -215,8 +215,8 @@ function registerRoutes(app) {
                 req.session.tier = tier === 'local' ? 'manage' : tier;
                 req.session.csrf = crypto.randomBytes(32).toString('hex');
                 try {
-                    db.prepare('INSERT INTO panel_audit (discord_id, action, target, at) VALUES (?, ?, ?, ?)')
-                        .run(user.id, 'LOGIN', `${req.session.user.name} (${req.session.tier})`, new Date().toISOString());
+                    db.prepare('INSERT INTO panel_audit (discord_id, action, target, at, site) VALUES (?, ?, ?, ?, ?)')
+                        .run(user.id, 'LOGIN', `${req.session.user.name} (${req.session.tier})`, new Date().toISOString(), 'admin');
                 } catch (e) { console.error('[audit] login log failed:', e.message); }
                 res.redirect('/');
             });
@@ -272,9 +272,9 @@ function audit(req, res, next) {
     res.on('finish', () => {
         if (res.statusCode >= 400) return;
         try {
-            db.prepare('INSERT INTO panel_audit (discord_id, action, target, at) VALUES (?, ?, ?, ?)')
+            db.prepare('INSERT INTO panel_audit (discord_id, action, target, at, site) VALUES (?, ?, ?, ?, ?)')
                 .run(req.actor || 'unknown', `${req.method} ${req.path}`,
-                     JSON.stringify(req.body || {}).slice(0, 500), new Date().toISOString());
+                     JSON.stringify(req.body || {}).slice(0, 500), new Date().toISOString(), 'admin');
         } catch (e) {
             console.error('[audit] failed to record:', e.message);
         }
@@ -327,32 +327,32 @@ function setRoleTier(roleId, tier) {
                 ON CONFLICT(role_id) DO UPDATE SET tier = excluded.tier`).run(roleId, tier);
 }
 
-function recentAudit(limit = 100) {
-    return db.prepare('SELECT discord_id, action, target, at FROM panel_audit ORDER BY id DESC LIMIT ?')
-             .all(Math.min(Number(limit) || 100, 500));
+function recentAudit(limit = 100, site = 'admin') {
+    return db.prepare('SELECT discord_id, action, target, at FROM panel_audit WHERE site = ? ORDER BY id DESC LIMIT ?')
+             .all(site, Math.min(Number(limit) || 100, 500));
 }
 
 // ── Presence (who's actively viewing) ──────────────────────────────────────────
 
 // Record a heartbeat for the requester. Returns the actor id (for "is this me?").
-function markPresence(req) {
+function markPresence(req, site = 'admin') {
     let id, name, avatar = null;
     if (isLocalRequest(req)) { id = 'local'; name = 'Local (this PC)'; }
     else if (req.session?.user) { ({ id, name, avatar } = req.session.user); }
     else return null;
-    db.prepare(`INSERT INTO panel_presence (discord_id, name, avatar, last_seen) VALUES (?, ?, ?, ?)
-                ON CONFLICT(discord_id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar, last_seen = excluded.last_seen`)
-        .run(id, name, avatar || null, new Date().toISOString());
+    db.prepare(`INSERT INTO panel_presence (site, discord_id, name, avatar, last_seen) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(site, discord_id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar, last_seen = excluded.last_seen`)
+        .run(site, id, name, avatar || null, new Date().toISOString());
     return id;
 }
 
-// Users seen within the window (default 2 min). Prunes stale rows opportunistically.
-function activePresence(windowSec = 120) {
+// Users seen within the window (default 2 min), for the given site. Prunes stale rows opportunistically.
+function activePresence(windowSec = 120, site = 'admin') {
     const cutoff = new Date(Date.now() - windowSec * 1000).toISOString();
     db.prepare('DELETE FROM panel_presence WHERE last_seen < ?')
         .run(new Date(Date.now() - 24 * 3600 * 1000).toISOString());
-    return db.prepare('SELECT discord_id, name, avatar, last_seen FROM panel_presence WHERE last_seen >= ? ORDER BY last_seen DESC')
-             .all(cutoff);
+    return db.prepare('SELECT discord_id, name, avatar, last_seen FROM panel_presence WHERE site = ? AND last_seen >= ? ORDER BY last_seen DESC')
+             .all(site, cutoff);
 }
 
 module.exports = {

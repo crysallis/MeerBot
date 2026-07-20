@@ -22,6 +22,19 @@ header h1 span { color: var(--color-primary); }
 .user-name   { color: var(--color-base-content); font-size: .85rem; }
 .user-avatar { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--color-primary); object-fit: cover; }
 
+.presence-stack { display: flex; align-items: center; }
+.presence-label { font-size: 11px; color: var(--color-base-content); margin-right: 8px; }
+.presence-av {
+  width: 24px; height: 24px; border-radius: 50%; overflow: hidden;
+  margin-left: -8px; border: 2px solid var(--color-primary); background: var(--color-base-200);
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: margin-left .15s ease; flex: 0 0 auto;
+}
+.presence-av:first-of-type { margin-left: 0; }
+.presence-stack:hover .presence-av { margin-left: 2px; }
+.presence-av img { width: 100%; height: 100%; object-fit: cover; }
+.presence-fallback, .presence-more { font-size: 10px; font-weight: 700; color: var(--color-base-content); }
+
 .tabs { margin-bottom: 20px; }
 
 main { max-width: 900px; margin: 0 auto; padding: 0 16px; }

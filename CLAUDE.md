@@ -116,9 +116,9 @@ Schema ownership: the miner (`AFKDataMining/src/db.py`) owns the shared scan/ide
 - `recruitment` · id, name, power, server_id, dr_rank, sup_arena_rank, lab_rank, dual_rank, interest, response, status (scouting/invited/joined/declined · default scouting), contacted_at, created_by, created_at
 - `recruitment_followups` · id, job_id (→ scheduled_jobs), user_id, recruitment_id, channel_id · 2-day follow-up reminder
 - `panel_roles` · role_id (PK), tier (read/manage/local) · maps Discord roles to admin-panel access tiers · seeded Riff/Raff→manage, RiffRaffians→read
-- `panel_audit` · id, discord_id, action, target, at · one row per successful admin-panel mutation (actor = Discord ID, or `local`)
+- `panel_audit` · id, discord_id, action, target, at, `site` (default `admin`) · one row per successful admin-panel mutation (actor = Discord ID, or `local`) · shared with the stats site (`site='stats'`), which only ever writes a `LOGIN` row (no mutations to audit there) · `admin/auth.js` `recentAudit(limit, site='admin')` filters by site
 - `panel_op_access` · op_key (PK), tier · per-operation tier override (set via the Access tab) · absent = use the code default in `auth.js` `OPERATIONS`
-- `panel_presence` · discord_id (PK), name, avatar, last_seen · heartbeat for "who's actively viewing the panel" · the page polls `GET /api/presence` every 45s, active = seen within 2 min · header shows other active viewers as a hover-fanning avatar stack · logins also write a `LOGIN` row to `panel_audit`
+- `panel_presence` · PK (`site`, `discord_id`) · site defaults `admin` · name, avatar, last_seen · heartbeat for "who's actively viewing" each site independently (same Discord user can show present on both at once, composite key prevents collision) · each page polls its own `GET /api/presence` every 45s, active = seen within 2 min · header shows other active viewers as a hover-fanning avatar stack · logins also write a `LOGIN` row to `panel_audit` tagged with that site
 - `sessions` · auto-created/managed by `better-sqlite3-session-store` for admin-panel logins
 - `promo_codes` · code (UNIQUE), posted_at (ISO datetime), message_id · auto-populated by `promoCodeHandler` on every new message in the promo codes channel · seeded via `scripts/backfill-promo-codes.js` · use `getRecentCodes(n)` from the handler for the planned on-join welcome feature
 

@@ -127,6 +127,10 @@ function registerRoutes(app) {
                     req.session.memberId   = dbMember.id;
                     req.session.ingameName = dbMember.ingame_name;
                 }
+                try {
+                    db.prepare('INSERT INTO panel_audit (discord_id, action, target, at, site) VALUES (?, ?, ?, ?, ?)')
+                        .run(user.id, 'LOGIN', req.session.user.name, new Date().toISOString(), 'stats');
+                } catch (e) { console.error('[stats/auth] login log failed:', e.message); }
                 res.redirect('/');
             });
         } catch (err) {
@@ -154,4 +158,23 @@ function requireMember(req, res, next) {
     next();
 }
 
-module.exports = { sessionMiddleware, registerRoutes, requireMember, LOCAL_HOSTS };
+// Record a heartbeat for the requester. Returns the actor id (for "is this me?").
+function markPresence(req) {
+    if (!req.session?.user) return null;
+    const { id, name, avatar } = req.session.user;
+    db.prepare(`INSERT INTO panel_presence (site, discord_id, name, avatar, last_seen) VALUES ('stats', ?, ?, ?, ?)
+                ON CONFLICT(site, discord_id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar, last_seen = excluded.last_seen`)
+        .run(id, name, avatar || null, new Date().toISOString());
+    return id;
+}
+
+// Users seen within the window (default 2 min). Prunes stale rows opportunistically.
+function activePresence(windowSec = 120) {
+    const cutoff = new Date(Date.now() - windowSec * 1000).toISOString();
+    db.prepare('DELETE FROM panel_presence WHERE last_seen < ?')
+        .run(new Date(Date.now() - 24 * 3600 * 1000).toISOString());
+    return db.prepare("SELECT discord_id, name, avatar, last_seen FROM panel_presence WHERE site = 'stats' AND last_seen >= ? ORDER BY last_seen DESC")
+             .all(cutoff);
+}
+
+module.exports = { sessionMiddleware, registerRoutes, requireMember, LOCAL_HOSTS, markPresence, activePresence };

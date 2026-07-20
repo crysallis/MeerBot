@@ -226,7 +226,18 @@ app.get('/api/lab', (req, res) => {
     }
 });
 
-// SPA fallback — rate-limited to satisfy static-analysis tools
+// GET /api/presence · heartbeat + who else is currently viewing the stats site
+app.get('/api/presence', (req, res) => {
+    try {
+        const me = auth.markPresence(req);
+        res.json({ me, users: auth.activePresence() });
+    } catch (err) {
+        console.error('[stats] /api/presence error:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// SPA fallback · rate-limited to satisfy static-analysis tools
 app.use(rateLimit({ windowMs: 60 * 1000, max: 300 }));
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
