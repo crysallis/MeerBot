@@ -10,7 +10,7 @@ const GUILD_ID    = process.env.GUILD_ID;
 const CLIENT_ID   = process.env.DISCORD_CLIENT_ID || process.env.APPLICATION_ID;
 
 const MEMBER_ROLES = new Set([
-    '1401783863960666143', // RiffRaffians
+    '1523580372208717964', // RFK RiffRaff (Guild)
     '1482484067965599846', // Penguins
 ]);
 
