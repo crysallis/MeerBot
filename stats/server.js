@@ -107,19 +107,25 @@ app.get('/api/power-history', (req, res) => {
     }
 });
 
-// GET /api/activeness-history — all snapshots with per-member activeness scores
+// GET /api/activeness-history — all snapshots with per-member activeness scores.
+// Snapshots before id 15 (2026-05-31) are historical imports backfilled with no
+// real OCR pass -- activeness was hardcoded to 0 for those, not an actual
+// reading -- so they're excluded here rather than showing as a fake drop to zero.
 app.get('/api/activeness-history', (req, res) => {
     try {
-        const snapshots = db.prepare('SELECT id, scraped_at FROM snapshots ORDER BY scraped_at').all();
+        const ACTIVENESS_START_ID = 15;
+        const snapshots = db.prepare(
+            'SELECT id, scraped_at FROM snapshots WHERE id >= ? ORDER BY scraped_at'
+        ).all(ACTIVENESS_START_ID);
         const rows = db.prepare(`
             SELECT m.id as member_id, m.ingame_name, m.warband_id, w.name as warband_name,
                    ms.snapshot_id, ms.activeness
             FROM members m
             LEFT JOIN warbands w ON w.id = m.warband_id
             JOIN member_snapshots ms ON ms.member_id = m.id
-            WHERE m.active = 1 AND m.pending = 0
+            WHERE m.active = 1 AND m.pending = 0 AND ms.snapshot_id >= ?
             ORDER BY m.ingame_name, ms.snapshot_id
-        `).all();
+        `).all(ACTIVENESS_START_ID);
         res.json({ snapshots, rows });
     } catch (err) {
         console.error('[stats] /api/activeness-history error:', err);
