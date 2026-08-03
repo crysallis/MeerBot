@@ -107,6 +107,26 @@ app.get('/api/power-history', (req, res) => {
     }
 });
 
+// GET /api/activeness-history — all snapshots with per-member activeness scores
+app.get('/api/activeness-history', (req, res) => {
+    try {
+        const snapshots = db.prepare('SELECT id, scraped_at FROM snapshots ORDER BY scraped_at').all();
+        const rows = db.prepare(`
+            SELECT m.id as member_id, m.ingame_name, m.warband_id, w.name as warband_name,
+                   ms.snapshot_id, ms.activeness
+            FROM members m
+            LEFT JOIN warbands w ON w.id = m.warband_id
+            JOIN member_snapshots ms ON ms.member_id = m.id
+            WHERE m.active = 1 AND m.pending = 0
+            ORDER BY m.ingame_name, ms.snapshot_id
+        `).all();
+        res.json({ snapshots, rows });
+    } catch (err) {
+        console.error('[stats] /api/activeness-history error:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // GET /api/dream-realm?boss_id=N — boss list + scores
 app.get('/api/dream-realm', (req, res) => {
     try {
