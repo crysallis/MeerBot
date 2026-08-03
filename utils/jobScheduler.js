@@ -6,12 +6,50 @@ const { logJobRun } = require('./jobLog');
 const botConfig = require('./botConfig');
 const { renderTemplate, shouldFireToday, computeLateness, buildMentions, MAX_LATE_MINUTES } = require('./jobTemplate');
 
+const MONTHLY_LAST_DAY = -1;
+
+// Months aren't a fixed number of days, so monthly recurrence can't fit the
+// days*ms formula below -- day_of_month is the source of truth for the day
+// and is never read back off fire_at, otherwise a clamped short month would
+// permanently ratchet the date down next cycle (Jan 31 -> Feb 28 -> Mar 28 ->
+// ...). Clamping happens before the date is constructed, not via Date.UTC
+// overflow (Date.UTC(y, 1, 31) rolls into March rather than clamping to 28).
+function computeMonthlyNext(fireAtIso, count, dayOfMonth, nowMs) {
+    const prev = new Date(fireAtIso);
+    const hh = prev.getUTCHours();
+    const mm = prev.getUTCMinutes();
+    const ss = prev.getUTCSeconds();
+    const year = prev.getUTCFullYear();
+    let month = prev.getUTCMonth();
+
+    function build(m) {
+        const lastDayOfMonth = new Date(Date.UTC(year, m + 1, 0)).getUTCDate();
+        const day = dayOfMonth === MONTHLY_LAST_DAY
+            ? lastDayOfMonth
+            : Math.min(dayOfMonth, lastDayOfMonth);
+        return Date.UTC(year, m, day, hh, mm, ss);
+    }
+
+    month += count;
+    let next = build(month);
+    while (next <= nowMs) {
+        month += count;
+        next = build(month);
+    }
+    return new Date(next).toISOString();
+}
+
 // Compute next fire_at from current fire_at + recurrence interval (prevents clock
 // drift). Fast-forwards past any intervals missed while the bot was down, so a
 // multi-day outage yields one catch-up fire instead of one per tick.
 function nextFire(job) {
     const [unit, n] = (job.recurrence || 'daily:1').split(':');
     const count = parseInt(n || '1', 10);
+
+    if (unit === 'monthly') {
+        return computeMonthlyNext(job.fire_at, count, job.day_of_month, Date.now());
+    }
+
     const days = unit === 'weekly' ? count * 7 : count;
     const intervalMs = days * 24 * 60 * 60 * 1000;
     const now = Date.now();
@@ -169,7 +207,7 @@ async function handleTextJob(client, job) {
 
 async function tick(client) {
     const due = db.prepare(`
-        SELECT sj.id, sj.type, sj.recurrence, sj.fire_at, sj.created_at,
+        SELECT sj.id, sj.type, sj.recurrence, sj.fire_at, sj.created_at, sj.day_of_month,
                rj.user_id, rj.channel_id, rj.guild_id, rj.message,
                scj.handler_path, scj.args,
                rf.user_id AS rf_user_id, rf.channel_id AS rf_channel_id, rf.recruitment_id,
@@ -223,4 +261,4 @@ function initJobScheduler(client) {
     console.log('[JobScheduler] Initialized · polling every 30s');
 }
 
-module.exports = { initJobScheduler };
+module.exports = { initJobScheduler, computeMonthlyNext };

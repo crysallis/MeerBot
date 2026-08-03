@@ -99,6 +99,24 @@ function readDowPicker(id) {
   return values.join(',');
 }
 
+// -1 is the "last day of month" sentinel -- distinct from picking 31, since
+// 31 clamps to a short month's actual last day while -1 always means it.
+function domPicker(id, selectedValue) {
+  const sel = document.createElement('select');
+  sel.id = id;
+  const opts = [];
+  for (let d = 1; d <= 31; d++) opts.push([String(d), String(d)]);
+  opts.push(['-1', 'Last day of month']);
+  for (const [val, label] of opts) {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = label;
+    if (String(selectedValue ?? 1) === val) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  return sel;
+}
+
 function mentionsPicker(id, initialMentions) {
   const roleOptions = state.roleList
     .filter(r => r.name !== '@everyone' && !r.managed)
@@ -211,7 +229,7 @@ export function renderScheduledJobs(jobs) {
     countInput.style.width = '60px';
     const unitSel = document.createElement('select');
     unitSel.id = `sj-unit-${job.id}`;
-    for (const [val, label] of [['daily', 'Day(s)'], ['weekly', 'Week(s)']]) {
+    for (const [val, label] of [['daily', 'Day(s)'], ['weekly', 'Week(s)'], ['monthly', 'Month(s)']]) {
       const opt = document.createElement('option');
       opt.value = val;
       opt.textContent = label;
@@ -221,7 +239,16 @@ export function renderScheduledJobs(jobs) {
     recurRow.append(countInput, unitSel);
     recurField.appendChild(recurRow);
 
-    fields.append(fireField, recurField);
+    const domField = document.createElement('div');
+    domField.className = 'sj-field';
+    domField.innerHTML = '<label>Day of month</label>';
+    domField.appendChild(domPicker(`sj-dom-${job.id}`, job.day_of_month));
+    domField.style.display = unit === 'monthly' ? '' : 'none';
+    unitSel.addEventListener('change', () => {
+      domField.style.display = unitSel.value === 'monthly' ? '' : 'none';
+    });
+
+    fields.append(fireField, recurField, domField);
 
     // Optional "Posts to" channel field
     const chKey = JOB_CHANNEL_KEY[job.handler_path];
@@ -252,6 +279,10 @@ export function renderScheduledJobs(jobs) {
       dowField.className = 'sj-field';
       dowField.innerHTML = '<label>Days</label>';
       dowField.appendChild(dowPicker(`tj-dow-${job.id}`, job.days_of_week));
+      dowField.style.display = unit === 'monthly' ? 'none' : '';
+      unitSel.addEventListener('change', () => {
+        dowField.style.display = unitSel.value === 'monthly' ? 'none' : '';
+      });
       fields.appendChild(dowField);
 
       const titleField = document.createElement('div');
@@ -341,6 +372,8 @@ export async function saveScheduledJob(id) {
   const fireLocal = fireInput.value;
   const count     = document.getElementById(`sj-count-${id}`).value;
   const unit      = document.getElementById(`sj-unit-${id}`).value;
+  const domEl     = document.getElementById(`sj-dom-${id}`);
+  const dayOfMonth = unit === 'monthly' ? parseInt(domEl.value, 10) : null;
 
   if (!fireLocal) { setFieldError(fireInput, 'Next fire time is required'); return false; }
   setFieldError(fireInput, '');
@@ -350,7 +383,7 @@ export async function saveScheduledJob(id) {
   const res = await fetch(`/api/scheduled-jobs/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fire_at: fireAt, recurrence }),
+    body: JSON.stringify({ fire_at: fireAt, recurrence, day_of_month: dayOfMonth }),
   });
   const data = await res.json();
   if (!data.ok) { setFieldError(fireInput, data.error); return false; }
@@ -453,17 +486,28 @@ export function renderCreateJobForm() {
   countInput.style.width = '60px';
   const unitSel = document.createElement('select');
   unitSel.id = 'cj-unit';
-  for (const [val, label] of [['daily', 'Day(s)'], ['weekly', 'Week(s)']]) {
+  for (const [val, label] of [['daily', 'Day(s)'], ['weekly', 'Week(s)'], ['monthly', 'Month(s)']]) {
     const opt = document.createElement('option'); opt.value = val; opt.textContent = label;
     unitSel.appendChild(opt);
   }
   recurRow.append(countInput, unitSel);
   recurField.appendChild(recurRow);
 
+  const domField = document.createElement('div');
+  domField.className = 'sj-field';
+  domField.innerHTML = '<label>Day of month</label>';
+  domField.appendChild(domPicker('cj-dom', null));
+  domField.style.display = 'none';
+
   const dowField = document.createElement('div');
   dowField.className = 'sj-field';
   dowField.innerHTML = '<label>Days</label>';
   dowField.appendChild(dowPicker('cj-dow', null));
+
+  unitSel.addEventListener('change', () => {
+    domField.style.display = unitSel.value === 'monthly' ? '' : 'none';
+    dowField.style.display = unitSel.value === 'monthly' ? 'none' : '';
+  });
 
   const titleField = document.createElement('div');
   titleField.className = 'sj-field';
@@ -501,7 +545,7 @@ export function renderCreateJobForm() {
 
   const fields = document.createElement('div');
   fields.className = 'sj-fields';
-  fields.append(nameField, chField, fireField, recurField, dowField, titleField, bodyField, mentionsField, actionsField);
+  fields.append(nameField, chField, fireField, recurField, domField, dowField, titleField, bodyField, mentionsField, actionsField);
   form.appendChild(fields);
 }
 
@@ -519,13 +563,15 @@ export async function submitNewTextJob() {
   if (!bodyInput.value.trim()) { setFieldError(bodyInput, 'Body is required'); hasError = true; }
   if (hasError) return;
 
+  const unit = document.getElementById('cj-unit').value;
   const payload = {
     name:       nameInput.value,
     channel_id: channelInput.value,
     title:      document.getElementById('cj-title').value,
     body:       bodyInput.value,
     fire_at:    new Date(fireInput.value).toISOString(),
-    recurrence: `${document.getElementById('cj-unit').value}:${document.getElementById('cj-count').value}`,
+    recurrence: `${unit}:${document.getElementById('cj-count').value}`,
+    day_of_month: unit === 'monthly' ? parseInt(document.getElementById('cj-dom').value, 10) : null,
     days_of_week: readDowPicker('cj-dow'),
     mentions:   readMentionsPicker('cj-mentions'),
   };

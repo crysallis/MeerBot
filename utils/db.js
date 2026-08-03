@@ -91,6 +91,7 @@ db.exec(`
     type          TEXT NOT NULL,
     fire_at       TEXT NOT NULL,
     recurrence    TEXT,
+    day_of_month  INTEGER,
     created_at    TEXT NOT NULL,
     enabled       INTEGER NOT NULL DEFAULT 1
   );

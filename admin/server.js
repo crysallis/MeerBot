@@ -267,7 +267,7 @@ const JOB_DISPLAY = {
 app.get('/api/scheduled-jobs', (req, res) => {
     try {
         const scriptRows = db.prepare(`
-            SELECT sj.id, sj.fire_at, sj.recurrence, sj.enabled, scj.handler_path
+            SELECT sj.id, sj.fire_at, sj.recurrence, sj.day_of_month, sj.enabled, scj.handler_path
             FROM scheduled_jobs sj
             JOIN script_jobs scj ON scj.job_id = sj.id
         `).all().map(r => ({
@@ -277,11 +277,12 @@ app.get('/api/scheduled-jobs', (req, res) => {
             handler_path: r.handler_path,
             fire_at:      r.fire_at,
             recurrence:   r.recurrence ?? 'daily:1',
+            day_of_month: r.day_of_month,
             enabled:      r.enabled ?? 1,
         }));
 
         const textRows = db.prepare(`
-            SELECT sj.id, sj.fire_at, sj.recurrence, sj.enabled,
+            SELECT sj.id, sj.fire_at, sj.recurrence, sj.day_of_month, sj.enabled,
                    tj.name, tj.channel_id, tj.title, tj.body, tj.mentions, tj.days_of_week, tj.log_name
             FROM scheduled_jobs sj
             JOIN text_jobs tj ON tj.job_id = sj.id
@@ -291,6 +292,7 @@ app.get('/api/scheduled-jobs', (req, res) => {
             display:      r.name,
             fire_at:      r.fire_at,
             recurrence:   r.recurrence ?? 'daily:1',
+            day_of_month: r.day_of_month,
             enabled:      r.enabled ?? 1,
             channel_id:   r.channel_id,
             title:        r.title,
@@ -306,10 +308,28 @@ app.get('/api/scheduled-jobs', (req, res) => {
     }
 });
 
+// Shared by PUT /api/scheduled-jobs/:id and validateTextJobBody. Returns an
+// error string, or null if recurrence (+ day_of_month, when unit is monthly)
+// is valid.
+function validateRecurrence(recurrence, dayOfMonth) {
+    const [unit, n] = (recurrence || 'daily:1').split(':');
+    const count = parseInt(n || '1', 10);
+    if (!['daily', 'weekly', 'monthly'].includes(unit) || isNaN(count) || count < 1) {
+        return 'recurrence must be daily:N, weekly:N, or monthly:N (N >= 1)';
+    }
+    if (unit === 'monthly') {
+        const dom = parseInt(dayOfMonth, 10);
+        if (dayOfMonth === undefined || dayOfMonth === null || isNaN(dom) || dom === 0 || dom < -1 || dom > 31) {
+            return 'day_of_month is required for monthly recurrence (1-31, or -1 for last day of month)';
+        }
+    }
+    return null;
+}
+
 // PUT /api/scheduled-jobs/:id — update fire_at and/or recurrence
 app.put('/api/scheduled-jobs/:id', (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const { fire_at, recurrence, enabled } = req.body;
+    const { fire_at, recurrence, day_of_month, enabled } = req.body;
 
     if (fire_at) {
         const d = new Date(fire_at);
@@ -317,26 +337,24 @@ app.put('/api/scheduled-jobs/:id', (req, res) => {
     }
 
     if (recurrence) {
-        const [unit, n] = recurrence.split(':');
-        const count = parseInt(n || '1', 10);
-        if (!['daily', 'weekly'].includes(unit) || isNaN(count) || count < 1) {
-            return res.status(400).json({ error: 'recurrence must be daily:N or weekly:N (N >= 1)' });
-        }
+        const err = validateRecurrence(recurrence, day_of_month);
+        if (err) return res.status(400).json({ error: err });
     }
 
     try {
         const exists = db.prepare('SELECT 1 FROM scheduled_jobs WHERE id = ? AND type IN (?, ?)').get(id, 'script_job', 'text_job');
         if (!exists) return res.status(404).json({ error: 'Job not found' });
 
-        if (enabled !== undefined) {
-            db.prepare('UPDATE scheduled_jobs SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, id);
-        }
-        if (fire_at && recurrence) {
-            db.prepare('UPDATE scheduled_jobs SET fire_at = ?, recurrence = ? WHERE id = ?').run(fire_at, recurrence, id);
-        } else if (fire_at) {
-            db.prepare('UPDATE scheduled_jobs SET fire_at = ? WHERE id = ?').run(fire_at, id);
-        } else if (recurrence) {
-            db.prepare('UPDATE scheduled_jobs SET recurrence = ? WHERE id = ?').run(recurrence, id);
+        const fields = [];
+        const values = [];
+        if (enabled !== undefined)      { fields.push('enabled = ?');      values.push(enabled ? 1 : 0); }
+        if (fire_at !== undefined)      { fields.push('fire_at = ?');      values.push(fire_at); }
+        if (recurrence !== undefined)   { fields.push('recurrence = ?');   values.push(recurrence); }
+        if (day_of_month !== undefined) { fields.push('day_of_month = ?'); values.push(day_of_month); }
+
+        if (fields.length) {
+            values.push(id);
+            db.prepare(`UPDATE scheduled_jobs SET ${fields.join(', ')} WHERE id = ?`).run(...values);
         }
 
         res.json({ ok: true });
@@ -346,16 +364,15 @@ app.put('/api/scheduled-jobs/:id', (req, res) => {
 });
 
 function validateTextJobBody(body) {
-    const { name, channel_id, body: msgBody, fire_at, recurrence } = body;
+    const { name, channel_id, body: msgBody, fire_at, recurrence, day_of_month } = body;
     if (!name || !String(name).trim()) return 'name is required';
     if (!channel_id) return 'channel_id is required';
     if (!msgBody || !String(msgBody).trim()) return 'body is required';
     if (!fire_at || isNaN(new Date(fire_at))) return 'Invalid fire_at datetime';
-    const [unit, n] = (recurrence || 'daily:1').split(':');
-    const count = parseInt(n || '1', 10);
-    if (!['daily', 'weekly'].includes(unit) || isNaN(count) || count < 1) {
-        return 'recurrence must be daily:N or weekly:N (N >= 1)';
-    }
+
+    const recurErr = validateRecurrence(recurrence, day_of_month);
+    if (recurErr) return recurErr;
+
     if (body.days_of_week) {
         if (String(body.days_of_week) === '0') return 'select at least one day, or leave blank for every day';
         const days = String(body.days_of_week).split(',').map(s => parseInt(s.trim(), 10));
@@ -376,13 +393,18 @@ app.post('/api/text-jobs', (req, res) => {
     const err = validateTextJobBody(req.body);
     if (err) return res.status(400).json({ error: err });
 
-    const { name, channel_id, title, body: msgBody, fire_at, recurrence, days_of_week, mentions } = req.body;
+    const { name, channel_id, title, body: msgBody, fire_at, recurrence, day_of_month, days_of_week, mentions } = req.body;
     const now = new Date().toISOString();
+    const unit = (recurrence || 'daily:1').split(':')[0];
+    // A monthly job must fire every month regardless of weekday -- force
+    // all-days here as a backstop even though the UI hides the dow picker
+    // while monthly is selected.
+    const effectiveDow = unit === 'monthly' ? null : (days_of_week || null);
 
     try {
         const insertJob = db.prepare(
-            'INSERT INTO scheduled_jobs (type, fire_at, recurrence, created_at) VALUES (?, ?, ?, ?)'
-        ).run('text_job', fire_at, recurrence || 'daily:1', now);
+            'INSERT INTO scheduled_jobs (type, fire_at, recurrence, day_of_month, created_at) VALUES (?, ?, ?, ?, ?)'
+        ).run('text_job', fire_at, recurrence || 'daily:1', unit === 'monthly' ? day_of_month : null, now);
 
         const jobId = insertJob.lastInsertRowid;
         const logName = `text_job_${jobId}`;
@@ -390,7 +412,7 @@ app.post('/api/text-jobs', (req, res) => {
         db.prepare(`
             INSERT INTO text_jobs (job_id, name, channel_id, title, body, mentions, days_of_week, log_name)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(jobId, name, channel_id, title || null, msgBody, JSON.stringify(mentions || []), days_of_week || null, logName);
+        `).run(jobId, name, channel_id, title || null, msgBody, JSON.stringify(mentions || []), effectiveDow, logName);
 
         res.json({ ok: true, id: jobId });
     } catch (err2) {
