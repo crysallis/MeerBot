@@ -235,6 +235,11 @@ function render() {
     let filtered = [...members.values()];
 
     if (viewMode === 'top10' || viewMode === 'bottom10') {
+        // Warband scoping applies first when selected -- Top 10/Bottom 10
+        // then ranks within that scope, not across the whole guild.
+        if (wbSel) {
+            filtered = filtered.filter(m => (m.warbandName || 'Unassigned') === wbSel);
+        }
         // Ranked by avg activeness over the visible period -- this only
         // decides WHO is shown and their order; the lines plotted below are
         // still each member's raw per-snapshot values, unaveraged.
