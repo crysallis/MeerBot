@@ -169,9 +169,9 @@ module.exports = {
             const approvingWarband = direction === 'pull' ? fromWarband : toWarband;
             const approvingGuild = direction === 'pull' ? fromGuild : toGuild;
 
-            const { roleId, members: eligibleMembers } = await resolveEligibleApprovers(interaction.guild, approvingWarband, approvingGuild);
-            if (!roleId) {
-                return interaction.editReply({ content: `No leader role or guild override role is configured for **${approvingWarband?.name ?? 'the approving side'}** — set one in the admin panel before requesting this transfer.` });
+            const { roleId, overrideRoleIds, members: eligibleMembers } = await resolveEligibleApprovers(interaction.guild, approvingWarband, approvingGuild);
+            if (!eligibleMembers.length) {
+                return interaction.editReply({ content: `No one currently holds the leader or override role needed to approve for **${approvingWarband?.name ?? 'the approving side'}** — set one in the admin panel before requesting this transfer.` });
             }
 
             const transferId = newTransferId();
@@ -187,7 +187,7 @@ module.exports = {
 
             const embed = buildApprovalEmbed({
                 target, fromWarband, toWarband, direction, status: 'requested',
-                eligibleMembers, requestedByTag: interaction.user.username,
+                eligibleMembers, overrideRoleIds, requestedByTag: interaction.user.username,
             });
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`transfer_approve:${transferId}`).setLabel('Approve').setStyle(ButtonStyle.Success),
