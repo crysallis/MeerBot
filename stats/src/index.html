@@ -40,6 +40,7 @@
     <div class="tabs" id="tabs">
       <button class="tab active" data-tab="overview">Overview</button>
       <button class="tab" data-tab="power">Power Growth</button>
+      <button class="tab" data-tab="activeness">Activeness</button>
       <button class="tab" data-tab="dreamrealm">Dream Realm</button>
       <button class="tab" data-tab="arena">Arena</button>
       <button class="tab" data-tab="suparena">Sup Arena</button>
@@ -79,6 +80,25 @@
       </div>
       <div class="chart-box full">
         <canvas id="chart-power"></canvas>
+      </div>
+    </section>
+
+    <!-- Activeness -->
+    <section id="tab-activeness" class="tab-content hidden">
+      <div class="controls">
+        <label>
+          Warband
+          <select id="activeness-warband">
+            <option value="">All Warbands</option>
+          </select>
+        </label>
+        <label>
+          Members
+          <div id="activeness-member-wrap"></div>
+        </label>
+      </div>
+      <div class="chart-box full">
+        <canvas id="chart-activeness"></canvas>
       </div>
     </section>
 

@@ -4,6 +4,7 @@ import './style.css';
 import { Chart }          from 'chart.js';
 import { initOverview }   from './charts/overview.js';
 import { initPowerChart } from './charts/power.js';
+import { initActivenessChart } from './charts/activeness.js';
 import { initDreamRealm } from './charts/dreamrealm.js';
 import { initArena }      from './charts/arena.js';
 import { initSupArena }   from './charts/supremeArena.js';
@@ -127,6 +128,7 @@ async function activateTab(name) {
     try {
         if (name === 'overview')   await initOverview(me);
         if (name === 'power')      await initPowerChart(me);
+        if (name === 'activeness') await initActivenessChart(me);
         if (name === 'dreamrealm') await initDreamRealm(me);
         if (name === 'arena')      await initArena(me);
         if (name === 'suparena')   await initSupArena(me);
