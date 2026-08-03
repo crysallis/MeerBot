@@ -6,8 +6,8 @@ const db = require('../utils/db');
 const { resolveApprover, resolveEligibleApprovers, newTransferId, buildApprovalEmbed } = require('../utils/transferApproval');
 
 const GUILDS = {
-    riffraff: { id: '1401783863960666143', label: 'RKF RiffRaff', welcomeKey: 'ROSTER_WELCOME_RIFFRAFF_CHANNEL_ID' },
-    frop:     { id: '1482484067965599846', label: 'RKR Frop',     welcomeKey: 'ROSTER_WELCOME_FROP_CHANNEL_ID' },
+    riffraff: { id: '1523580372208717964', label: 'RKF RiffRaff', welcomeKey: 'ROSTER_WELCOME_RIFFRAFF_CHANNEL_ID' },
+    frop:     { id: '1533951415633051688', label: 'RKF Frop',     welcomeKey: 'ROSTER_WELCOME_FROP_CHANNEL_ID' },
 };
 
 const WHO_DIS_ROLE_ID = '1330742760306638889';
@@ -27,7 +27,7 @@ function guildEntryForDbGuild(dbGuildId) {
 
 const GUILD_CHOICES = [
     { name: 'RKF RiffRaff', value: 'riffraff' },
-    { name: 'RKR Frop',     value: 'frop' },
+    { name: 'RKF Frop',     value: 'frop' },
 ];
 
 module.exports = {
