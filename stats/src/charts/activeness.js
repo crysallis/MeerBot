@@ -9,6 +9,7 @@ let state  = null;
 let meId   = null;
 let selectedIds = new Set();
 let allSelected = true;
+let viewMode    = 'all'; // 'all' | 'top10' | 'bottom10' | 'custom' -- top10/bottom10 rank by avg activeness, mutually exclusive with allSelected/selectedIds
 
 export async function initActivenessChart(me) {
     const res  = await fetch('/api/activeness-history');
@@ -68,6 +69,16 @@ function buildDropdown(container, members, me) {
     const menu = document.createElement('div');
     menu.className = 'member-dropdown-menu hidden';
 
+    // "Top 10" / "Bottom 10" rows -- ranked by avg activeness over the visible
+    // period, mutually exclusive with All and with individual member picks.
+    // Listed first per explicit request.
+    const top10Item    = makeCheckItem('ac-top10', 'Top 10 (by avg activeness)', viewMode === 'top10');
+    const top10Check    = top10Item.querySelector('input');
+    const bottom10Item = makeCheckItem('ac-bottom10', 'Bottom 10 (by avg activeness)', viewMode === 'bottom10');
+    const bottom10Check = bottom10Item.querySelector('input');
+    menu.appendChild(top10Item);
+    menu.appendChild(bottom10Item);
+
     // "All members" row
     const allItem  = makeCheckItem('ac-all', 'All members', allSelected);
     const allCheck = allItem.querySelector('input');
@@ -103,16 +114,54 @@ function buildDropdown(container, members, me) {
     document.addEventListener('click', () => menu.classList.add('hidden'), { passive: true });
     menu.addEventListener('click', e => e.stopPropagation());
 
+    // Clears every other mode's checked state -- called before entering any
+    // single mode so exactly one of All/Top10/Bottom10/individual is active.
+    function clearOtherModes(except) {
+        if (except !== 'all')      allCheck.checked = false;
+        if (except !== 'top10')    top10Check.checked = false;
+        if (except !== 'bottom10') bottom10Check.checked = false;
+        if (except !== 'custom')   menu.querySelectorAll('input[data-member-id]').forEach(c => { c.checked = false; });
+    }
+
     // "All members" toggle
     allCheck.addEventListener('change', () => {
         if (allCheck.checked) {
+            viewMode = 'all';
             allSelected = true;
             selectedIds.clear();
-            menu.querySelectorAll('input[data-member-id]').forEach(c => { c.checked = false; });
+            clearOtherModes('all');
         } else {
-            // Don't allow unchecking All with nothing selected
-            if (selectedIds.size === 0) { allCheck.checked = true; return; }
+            // Don't allow unchecking All with nothing else selected
+            allCheck.checked = true;
+            return;
+        }
+        syncBtn();
+        render();
+    });
+
+    // "Top 10" / "Bottom 10" toggles
+    top10Check.addEventListener('change', () => {
+        if (top10Check.checked) {
+            viewMode = 'top10';
             allSelected = false;
+            selectedIds.clear();
+            clearOtherModes('top10');
+        } else {
+            top10Check.checked = true;
+            return;
+        }
+        syncBtn();
+        render();
+    });
+    bottom10Check.addEventListener('change', () => {
+        if (bottom10Check.checked) {
+            viewMode = 'bottom10';
+            allSelected = false;
+            selectedIds.clear();
+            clearOtherModes('bottom10');
+        } else {
+            bottom10Check.checked = true;
+            return;
         }
         syncBtn();
         render();
@@ -123,12 +172,16 @@ function buildDropdown(container, members, me) {
         check.addEventListener('change', () => {
             const id = parseInt(check.dataset.memberId);
             if (check.checked) {
+                viewMode = 'custom';
                 selectedIds.add(id);
-                allCheck.checked = false;
                 allSelected = false;
+                allCheck.checked = false;
+                top10Check.checked = false;
+                bottom10Check.checked = false;
             } else {
                 selectedIds.delete(id);
                 if (selectedIds.size === 0) {
+                    viewMode = 'all';
                     allCheck.checked = true;
                     allSelected = true;
                 }
@@ -139,7 +192,11 @@ function buildDropdown(container, members, me) {
     });
 
     function syncBtn() {
-        if (allSelected) {
+        if (viewMode === 'top10') {
+            btn.textContent = 'Top 10 (avg) ▾';
+        } else if (viewMode === 'bottom10') {
+            btn.textContent = 'Bottom 10 (avg) ▾';
+        } else if (allSelected) {
             btn.textContent = 'All members ▾';
         } else if (selectedIds.size === 1) {
             const m = members.get([...selectedIds][0]);
@@ -177,7 +234,16 @@ function render() {
 
     let filtered = [...members.values()];
 
-    if (!allSelected && selectedIds.size > 0) {
+    if (viewMode === 'top10' || viewMode === 'bottom10') {
+        // Ranked by avg activeness over the visible period -- this only
+        // decides WHO is shown and their order; the lines plotted below are
+        // still each member's raw per-snapshot values, unaveraged.
+        const ranked = filtered
+            .map(m => ({ m, avg: avgActiveness(m, snapshots) }))
+            .filter(r => r.avg != null)
+            .sort((a, b) => viewMode === 'top10' ? b.avg - a.avg : a.avg - b.avg);
+        filtered = ranked.slice(0, 10).map(r => r.m);
+    } else if (!allSelected && selectedIds.size > 0) {
         // Specific members selected — show only those
         filtered = filtered.filter(m => selectedIds.has(m.id));
     } else if (wbSel) {
@@ -185,10 +251,15 @@ function render() {
         filtered = filtered.filter(m => (m.warbandName || 'Unassigned') === wbSel);
     }
 
-    filtered.sort((a, b) => {
-        const lastSnap = snapshots[snapshots.length - 1]?.id;
-        return (b.snapMap[lastSnap] || 0) - (a.snapMap[lastSnap] || 0);
-    });
+    if (viewMode !== 'top10' && viewMode !== 'bottom10') {
+        filtered.sort((a, b) => {
+            const lastSnap = snapshots[snapshots.length - 1]?.id;
+            return (b.snapMap[lastSnap] || 0) - (a.snapMap[lastSnap] || 0);
+        });
+    }
+    // In top10/bottom10 mode, `filtered` is already ordered by avg activeness
+    // from the ranking step above: highest-avg first for top10 (per explicit
+    // request), most-concerning (lowest-avg) first for bottom10.
 
     const labels   = snapshots.map(s => s.scraped_at.slice(0, 10));
     const colors   = memberColors(filtered.length);
@@ -225,10 +296,15 @@ function render() {
     };
     datasets.push(thresholdDataset);
 
+    // Top 10 / Bottom 10 always produce 10 named lines -- always show the
+    // legend there so each line is identifiable, unlike the plain <=5 cutoff
+    // used for the unbounded All-members/warband view.
+    const showLegend = viewMode === 'top10' || viewMode === 'bottom10' || filtered.length <= 5;
+
     if (chart) {
         chart.data.labels   = labels;
         chart.data.datasets = datasets;
-        chart.options.plugins.legend.display = filtered.length <= 5;
+        chart.options.plugins.legend.display = showLegend;
         chart.update();
         return;
     }
@@ -242,7 +318,7 @@ function render() {
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: {
-                    display: filtered.length <= 5,
+                    display: showLegend,
                     labels: {
                         color: getCSSVar('--color-base-content'), font: { size: 11 }, boxWidth: 12, boxHeight: 12,
                         filter: item => item.text !== 'Low activeness threshold',
@@ -265,6 +341,15 @@ function render() {
             },
         },
     });
+}
+
+// Average of a member's real (non-null) snapshot readings over the currently
+// visible period -- used only to rank/select Top 10 / Bottom 10, never to
+// plot (the chart itself always draws raw per-snapshot values).
+function avgActiveness(member, snapshots) {
+    const values = snapshots.map(s => member.snapMap[s.id]).filter(v => v != null);
+    if (!values.length) return null;
+    return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
 function memberColors(n) {
