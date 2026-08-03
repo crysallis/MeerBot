@@ -2,6 +2,10 @@
 @import "../../shared/components.css";
 @plugin "daisyui";
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: system-ui, -apple-system, sans-serif;
   min-height: 100vh;
