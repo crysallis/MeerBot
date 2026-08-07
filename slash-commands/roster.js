@@ -31,6 +31,7 @@ const GUILD_CHOICES = [
 ];
 
 module.exports = {
+    GUILDS,
     data: new SlashCommandBuilder()
         .setName('roster')
         .setDescription('Manage guild membership roles')

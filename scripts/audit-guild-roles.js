@@ -19,12 +19,13 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
 const { Client, GatewayIntentBits } = require('discord.js');
+const { GUILDS } = require('../slash-commands/roster');
 
 const GUILD_ID = process.env.GUILD_ID;
 const TOKEN = process.env.DISCORD_TOKEN;
 
-const RIFFRAFF_GUILD_ROLE_ID = '1523580372208717964';
-const FROP_GUILD_ROLE_ID     = '1533951415633051688';
+const RIFFRAFF_GUILD_ROLE_ID = GUILDS.riffraff.id;
+const FROP_GUILD_ROLE_ID     = GUILDS.frop.id;
 
 // Warband roles that require RKF RiffRaff (Guild).
 const RIFFRAFF_WARBAND_ROLES = {
