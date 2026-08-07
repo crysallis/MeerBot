@@ -402,6 +402,22 @@
     </div>
   </div>
 
+  <div class="section" id="section-serverstructure">
+    <div class="section-title">Server Structure</div>
+    <div style="margin-bottom:16px; display:flex; align-items:center; gap:12px">
+      <button id="ssRefreshBtn" class="reset-btn needs-local">Refresh from Discord</button>
+      <span id="ssRefreshStatus" style="font-size:12px"></span>
+      <span id="ssFetchedAt" class="muted-note" style="margin-left:auto"></span>
+    </div>
+    <p class="muted-note" style="margin-bottom:12px">
+      Category &gt; channel &gt; role tree. A channel synced to its category shows no
+      role breakdown (it inherits the category's permissions); an unsynced channel
+      lists its own role overwrites. "Everyone" reflects the fully resolved view
+      permission, including anything inherited from the category.
+    </p>
+    <div id="ssTree"><p class="muted-note">Loading...</p></div>
+  </div>
+
   <div class="section" id="section-access">
     <div class="section-title">Access Control</div>
     <p style="color:var(--color-neutral-content);font-size:12px;margin-bottom:16px">

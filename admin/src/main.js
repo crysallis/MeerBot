@@ -11,6 +11,7 @@ import { loadMembers, renderMembers, approveMember, renameMember, linkMember, me
 import { loadSeasons, addSeason, toggleSeason, deleteSeason, toggleServerPanel, bulkAddServers, removeServer, loadDreamBosses, addDreamBoss, updateDreamBoss, deleteDreamBoss } from './seasons.js';
 import { loadPermissions, populatePermCommands, permCommandChanged, populatePermCheckboxes, addPermRule, deletePermRule, removePermGroup, editPermGroup, cancelPermEdit } from './permissions.js';
 import { loadAccess, setOpTier, setRoleTierUI } from './access.js';
+import { loadServerStructure, refreshServerStructure } from './serverStructure.js';
 
 // ── Error log (surfaces CSP violations, JS errors, unhandled rejections, fetch failures) ──
 
@@ -340,6 +341,7 @@ function renderTabs() {
     { id: 'warbands',      label: 'Warbands',         local: false },
     { id: 'dreambosses',   label: 'DR Bosses',        local: false },
     { id: 'seasons',       label: 'Seasons',          local: false },
+    { id: 'serverstructure', label: 'Server Structure', local: false },
     { id: 'access',        label: 'Access',           local: true  },
   ];
   for (const { id, label, local } of extras) {
@@ -355,10 +357,11 @@ function switchTab(cat) {
   activeTab = cat;
   closeNav();
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const cats = [...new Set(state.allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'dreambosses', 'seasons', 'access'];
+    const cats = [...new Set(state.allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'dreambosses', 'seasons', 'serverstructure', 'access'];
     t.classList.toggle('active', cats[i] === cat);
   });
   if (cat === 'access') loadAccess();
+  if (cat === 'serverstructure') loadServerStructure();
   document.querySelectorAll('.section').forEach(s => {
     s.classList.toggle('visible', s.id === 'section-' + cat);
   });
@@ -657,6 +660,7 @@ async function loadBotStatus() {
   document.getElementById('rxSaveBtn')?.addEventListener('click', saveReactionRule);
   document.getElementById('rxCancelBtn')?.addEventListener('click', cancelReactionForm);
   document.getElementById('rxRefreshBtn')?.addEventListener('click', refreshDiscordData);
+  document.getElementById('ssRefreshBtn')?.addEventListener('click', refreshServerStructure);
   document.getElementById('rx-pattern-type')?.addEventListener('change', rxPatternTypeChange);
   document.getElementById('rx-response-type')?.addEventListener('change', rxResponseTypeChange);
   document.getElementById('rx-response-content')?.addEventListener('input', updatePreview);

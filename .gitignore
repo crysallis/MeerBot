@@ -9,6 +9,7 @@ data/permission-map.md
 data/permission-map.mermaid
 data/discord-channels.json
 data/discord-roles.json
+data/discord-structure.json
 
 # MemPalace per-project files (issue #185)
 mempalace.yaml

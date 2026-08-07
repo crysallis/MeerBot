@@ -223,6 +223,31 @@ app.post('/api/refresh-discord-data', (req, res) => {
     });
 });
 
+// GET /api/server-structure — category > channel > role permission tree,
+// read from the last refresh (see POST below). Never fetched live per-request
+// since it walks every channel's permissionsFor()/permissionsLocked.
+app.get('/api/server-structure', (req, res) => {
+    const dataPath = path.join(__dirname, '..', 'data', 'discord-structure.json');
+    if (!fs.existsSync(dataPath)) return res.json({ fetched_at: null, categories: [], uncategorised: [] });
+    try {
+        res.json(JSON.parse(fs.readFileSync(dataPath, 'utf8')));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/server-structure/refresh — re-run show-server-structure.js
+app.post('/api/server-structure/refresh', (req, res) => {
+    const root = path.join(__dirname, '..');
+    exec('node scripts/show-server-structure.js', { cwd: root }, (err, stdout, stderr) => {
+        if (err) {
+            console.error('show-server-structure failed:', stderr);
+            return res.status(500).json({ error: 'show-server-structure failed: ' + (stderr || err.message) });
+        }
+        res.json({ ok: true });
+    });
+});
+
 // GET /api/bot-status — pm2 status for meerbot process
 app.get('/api/bot-status', (req, res) => {
     exec('pm2 jlist', (err, stdout) => {

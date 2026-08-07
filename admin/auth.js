@@ -55,6 +55,7 @@ function cfgCategory(req) {
 const OPERATIONS = [
     { key: 'bot.restart',     group: 'Bot',            label: 'Restart bot',              defaultTier: 'local',  match: r => r.method === 'POST' && r.path === '/api/bot/restart' },
     { key: 'discord.refresh', group: 'Bot',            label: 'Refresh Discord data',     defaultTier: 'local',  match: r => r.method === 'POST' && r.path === '/api/refresh-discord-data' },
+    { key: 'server_structure.refresh', group: 'Server Structure', label: 'Refresh server structure', defaultTier: 'local', match: r => r.method === 'POST' && r.path === '/api/server-structure/refresh' },
     { key: 'config.scan_auth',group: 'Permissions',    label: 'Edit scan-authorized user',defaultTier: 'local',  match: r => cfgKey(r) === 'SCAN_AUTHORIZED_USER' },
     { key: 'config.scan_modes',group:'Scan Modes',     label: 'Toggle scan modes',        defaultTier: 'local',  match: r => cfgCategory(r) === 'scan_modes' },
     { key: 'config.channels', group: 'Channels',       label: 'Edit channels',            defaultTier: 'manage', match: r => cfgCategory(r) === 'channels' },
