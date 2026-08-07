@@ -291,10 +291,13 @@
     </div>
 
     <div class="section-title" style="margin-top:24px">Guild Override Roles</div>
-    <p style="color:var(--color-neutral-content); font-size:12px; margin-bottom:12px">
-      Roles that can bypass transfer approval entirely for a guild (e.g. top guild leaders).
-      A transfer initiated by someone holding one of these roles executes immediately, no
-      approval request is created.
+    <p class="muted-note" style="margin-bottom:12px">
+      Roles that stand as approvers for transfers into or out of this guild's warbands
+      (e.g. top guild leaders), alongside the relevant warband's own leader role. A
+      transfer still always creates an approval request -- an override role does not
+      skip that -- but anyone holding one can click Approve immediately, without needing
+      to hold the specific warband's leader role. The only true bypass (no request
+      created) is an initiator who leads BOTH the source and destination warband.
     </p>
     <div class="panel-card">
       <table class="jobs-table">
