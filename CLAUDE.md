@@ -57,10 +57,11 @@ Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · 
 | `admin/auth.js` | Admin panel auth/RBAC · Discord OAuth2 login, session, three tiers (read/manage/local), CSRF, audit · `OPERATIONS` registry maps each editable action to a tab + default tier (override via `panel_op_access`) · `panel_roles` = role->tier · new tabs add an `OPERATIONS` entry so they appear in the Access tab automatically |
 | `admin/REMOTE_ACCESS.md` | How to expose the panel via Cloudflare Tunnel (`admin.meerbot.dev`) + OAuth setup · for going beyond localhost |
 | `admin/` Vite app | Vite + Tailwind v4 + DaisyUI v5 build (mirrors `stats/`) · own `package.json` + `vite.config.mjs` (`root: src`, `outDir: ../dist`, `publicDir: ../public`) · build with `npm run build --prefix admin` (or root `npm run build`) · `admin/public/` is now image-only (publicDir); old inline `index.html`/`style.css`/`theme-demo.html` deleted in the migration |
-| `admin/src/index.html` | Admin UI markup · **Commands** tab (command/event channel settings · the old "Channels" tab, renamed; job-owned channels are NOT here) + thresholds + **Members** tab (rename/link/merge/approve/warband) + **Warbands** tab (add/rename/archive · per-warband guild assignment, leader role, member role · a Guild Override Roles table for transfer-approval-bypass roles per guild) + **Access** tab (local-only · per-op tiers, role->tier, audit log) + **Scheduled Jobs** tab (collapsible tiles, one per job — system `script_job` or panel-authored `text_job` — each job-owned channel renders as a "Posts to" select in its expanded card · `JOB_CHANNEL_KEY` map · a "Create Job" form at the top makes new text jobs with no code/deploy) + **Permissions** tab (mount points for the shared chip-picker widget, populated by `permissions.js`) · login overlay + tier-gated controls · responsive ≤768px: hamburger drawer nav (header utilities relocate into it via matchMedia), Members table reflows to cards, other tables scroll · keeps inline FOUC theme-init `<script>` in `<head>` + `<script type=module src=./main.js>` |
+| `admin/src/index.html` | Admin UI markup · **Commands** tab (command/event channel settings · the old "Channels" tab, renamed; job-owned channels are NOT here) + thresholds + **Members** tab (rename/link/merge/approve/warband) + **Warbands** tab (add/rename/archive · per-warband guild assignment, leader role, member role · a Guild Override Roles table for transfer-approval-bypass roles per guild) + **Server Structure** tab (category > channel > role permission tree, read-only + a "Refresh from Discord" button · local tier) + **Access** tab (local-only · per-op tiers, role->tier, audit log) + **Scheduled Jobs** tab (collapsible tiles, one per job — system `script_job` or panel-authored `text_job` — each job-owned channel renders as a "Posts to" select in its expanded card · `JOB_CHANNEL_KEY` map · a "Create Job" form at the top makes new text jobs with no code/deploy) + **Permissions** tab (mount points for the shared chip-picker widget, populated by `permissions.js`) · login overlay + tier-gated controls · responsive ≤768px: hamburger drawer nav (header utilities relocate into it via matchMedia), Members table reflows to cards, other tables scroll · keeps inline FOUC theme-init `<script>` in `<head>` + `<script type=module src=./main.js>` |
 | `admin/src/main.js` | Admin entry point · imports `../../shared/theme.css` + `./style.css` + all tab modules · AUTH/CSRF fetch override, `applyAccess`/`lockTiers`, theme system, config-tab rendering, bootstrap · assigns all HTML `onclick` handlers to `window.*` · fetch override skips the global "Client Errors" panel for 400-status `/api/*` responses (those surface as inline field errors instead, see `jobs.js`) |
 | `admin/src/chipPicker.js` | Shared dropdown+chip-collection widget · `createChipPicker({ options, initial, placeholder })` returns `{ el, getSelected() }` · used by the Scheduled Jobs mentions picker and the Permissions tab's role/channel pickers so neither lists every option as a standing chip |
-| `admin/src/*.js` | Tab modules split from the old inline script: `jobs.js` `reactions.js` `members.js` `seasons.js` `permissions.js` `access.js` `chipPicker.js` · shared mutable state in `state.js` (allConfig/channelList/roleList/COMMAND_SUBS) · `utils.js` = `escHtml`/`utcToLocal` |
+| `admin/src/*.js` | Tab modules split from the old inline script: `jobs.js` `reactions.js` `members.js` `seasons.js` `permissions.js` `access.js` `serverStructure.js` `chipPicker.js` · shared mutable state in `state.js` (allConfig/channelList/roleList/COMMAND_SUBS) · `utils.js` = `escHtml`/`utcToLocal` |
+| `admin/src/serverStructure.js` | Server Structure tab · fetches `/api/server-structure` (reads `data/discord-structure.json`, written by `scripts/show-server-structure.js`) · "Refresh from Discord" button hits `POST /api/server-structure/refresh` (re-runs the script) · per channel: `synced` via discord.js `permissionsLocked` (deep-compares overwrites vs. parent category, NOT "zero overwrites" -- a synced channel under a category WITH overwrites still carries them copied down) · `everyoneCanView` via `permissionsFor(everyone)` (fully resolved chain: channel > category > base, not just the channel's own @everyone overwrite) |
 | `admin/src/style.css` | Tailwind v4 + DaisyUI v5 entry (`@import "tailwindcss"; @plugin "daisyui" { themes: false; }`) + all admin layout overrides · uses `var(--border-color)` (our border-color var -- NOT DaisyUI's `--border` which is a width) |
 | `shared/theme.css` | `@import` index for all 7 per-theme files + `:root` block (hover-bg, rarity vars, radius, Discord/warband vars) + `[data-theme="autumn"]` light-mode overrides + `.theme-picker` CSS · adding a new theme = new file + import + entry in `shared/themes.js` + FOUC map in `admin/src/index.html` |
 | `shared/themes/*.css` | One file per palette (caramellatte/autumn/fantasy/abyss/ocean/synthwave/aqua) · each is a single `@plugin "daisyui/theme"` block with ALL DaisyUI `--color-*` vars incl. all `-content` pairs -- paste from DaisyUI generator as-is · do NOT define `--border-color` or `--card-shadow` here (removed) · borders use `var(--color-base-300)` directly |
@@ -153,15 +154,23 @@ Key roles for code references:
 |---|---|---|
 | `1229572649651404830` | Riff | Top leader |
 | `1229554049788018808` | Raff | Co-leaders |
-| `1401783863960666143` | Warband-RiffRaff | Main guild membership |
-| `1434417743616147557` | Warband-Kingdom | Sister guild |
-| `1482484067965599846` | Penguins | Sister guild |
-| `1299596817402695680` | Frog | Sister guild |
+| `1523580372208717964` | RKF RiffRaff (Guild) | Top-level guild role · `roster.js` `GUILDS.riffraff.id` (single source, imported by `stats/auth.js` + `scripts/audit-guild-roles.js`) |
+| `1533951415633051688` | RKF Frop (Guild) | Top-level guild role · `roster.js` `GUILDS.frop.id` |
+| `1401783863960666143` | RiffRaff (Warband) | Sub-unit within RKF RiffRaff |
+| `1434417743616147557` | Kingdom (Warband) | Sub-unit within RKF RiffRaff |
+| `1509752237193429104` | Sobaquitos (Warband) | Sub-unit within RKF RiffRaff |
+| `1482484067965599846` | Penguins | Sub-unit within RKF Frop |
+| `1299596817402695680` | Frog | Sub-unit within RKF Frop |
+| `1330742760306638889` | Who Dis? | Stripped automatically on `/roster add` (`roster.js` `WHO_DIS_ROLE_ID`) |
+| `1502845579661672478` | OG RiffRaff | Auto-granted at 2-year anniversary (`anniversaryCheck.js` `OG_ROLE_ID`) |
+| `1403623545984127036` | Homestead | Pinged by `/invasion` (`invasion.js` `HOMESTEAD_ROLE_ID`) |
 | `1269053193996996709` | Senior | Tenure tier |
 | `1269053550156058634` | Junior | Tenure tier |
 | `1269053789239771187` | Newbie | Tenure tier |
 | `1269052266682519582` | AFK Forever | Inactive members |
 | `1516271538217943131` | Translation | One-shot trigger · bot DMs instructions then removes it |
+
+Any Discord role ID hardcoded in a `.js` file (as opposed to DB-backed via `guilds.override_role_ids`/`warbands.leader_role_id`/`warbands.member_role_id`/`command_permissions`) should be in this table. `roster.js`'s `GUILDS` map is exported and is the one place to import from rather than re-hardcoding the RiffRaff/Frop guild IDs elsewhere.
 
 ## Discord Channels Reference
 
