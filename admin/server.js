@@ -68,7 +68,11 @@ auth.registerRoutes(app);
 // Intentionally before auth middleware so pre-login errors are still captured.
 app.post('/api/client-error', (req, res) => {
     const { type, message, detail, at } = req.body || {};
-    console.error(`[client-error] [${type || '?'}] ${message || ''}`, detail || '', `at=${at || ''}`);
+    // %s-substitute the request-controlled fields rather than interpolating them
+    // into the format-string argument itself -- otherwise a message containing
+    // its own %s/%d specifiers gets interpreted by console.error's util.format,
+    // silently swallowing detail/at as substitutions and garbling the log line.
+    console.error('[client-error] [%s] %s', type || '?', message || '', detail || '', `at=${at || ''}`);
     res.json({ ok: true });
 });
 
