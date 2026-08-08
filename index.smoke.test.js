@@ -1,9 +1,24 @@
+// Load environment variables first, before any modules are imported. While admin/server.js
+// and stats/server.js also load dotenv, loading it here ensures our setInterval interceptor
+// (below) is in place before they import modules that create intervals.
 require('dotenv').config();
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
+
+// Intercept setInterval to unref its timers. The session store (better-sqlite3-session-store)
+// sets up an interval for clearing expired sessions that never gets unref'd, keeping the
+// process alive indefinitely. We unref all intervals globally to allow process exit after
+// tests complete. This is safe because the test runs synchronously and completes before
+// any intervals need to fire.
+const origSetInterval = global.setInterval;
+global.setInterval = function(...args) {
+  const timer = origSetInterval.apply(this, args);
+  if (timer.unref) timer.unref();
+  return timer;
+};
 
 test('every slash command file exports a valid {data, execute} shape', () => {
   const slashPath = path.join(__dirname, 'slash-commands');
@@ -26,11 +41,8 @@ test('stats/server.js loads without throwing', () => {
   assert.doesNotThrow(() => require('./stats/server.js'));
 });
 
-// Force process exit after brief delay to let test framework finish reporting.
-// The servers' listen() calls are now guarded by require.main === module and won't
-// execute when required from tests, so no ports are bound. However, other persistent
-// resources (database connections, session stores, internal timers) may remain open.
-// This ensures the process exits cleanly after all tests complete rather than hanging.
-setTimeout(() => {
+// Exit cleanly after tests complete. The beforeExit hook allows beforeExit to fire
+// now that intervals have been unref'd (won't block process exit).
+process.on('beforeExit', () => {
   process.exit(process.exitCode || 0);
-}, 500);
+});
