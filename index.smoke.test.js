@@ -25,3 +25,12 @@ test('admin/server.js loads without throwing', () => {
 test('stats/server.js loads without throwing', () => {
   assert.doesNotThrow(() => require('./stats/server.js'));
 });
+
+// Force process exit after brief delay to let test framework finish reporting.
+// The servers' listen() calls are now guarded by require.main === module and won't
+// execute when required from tests, so no ports are bound. However, other persistent
+// resources (database connections, session stores, internal timers) may remain open.
+// This ensures the process exits cleanly after all tests complete rather than hanging.
+setTimeout(() => {
+  process.exit(process.exitCode || 0);
+}, 500);

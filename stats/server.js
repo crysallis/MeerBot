@@ -269,6 +269,8 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-app.listen(PORT, '127.0.0.1', () => {
-    console.log(`[stats] Server running on http://127.0.0.1:${PORT}`);
-});
+if (require.main === module) {
+    app.listen(PORT, '127.0.0.1', () => {
+        console.log(`[stats] Server running on http://127.0.0.1:${PORT}`);
+    });
+}

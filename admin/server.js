@@ -1163,6 +1163,8 @@ try { db.exec('ALTER TABLE dream_realm_bosses ADD COLUMN sort_order INTEGER'); }
 
 app.get('*', rateLimit({ windowMs: 60 * 1000, max: 300 }), (req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
 
-app.listen(PORT, '127.0.0.1', () => {
-    console.log(`MeerBot admin panel running at http://127.0.0.1:${PORT}`);
-});
+if (require.main === module) {
+    app.listen(PORT, '127.0.0.1', () => {
+        console.log(`MeerBot admin panel running at http://127.0.0.1:${PORT}`);
+    });
+}
