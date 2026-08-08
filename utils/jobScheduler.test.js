@@ -1,16 +1,7 @@
+require('dotenv').config();
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Module = require('module');
-
-// Mock db module before importing jobScheduler to avoid database initialization errors
-const originalRequire = Module.prototype.require;
-Module.prototype.require = function(id) {
-  if (id === './db' || id.endsWith('/db')) {
-    return {};
-  }
-  return originalRequire.apply(this, arguments);
-};
-
 const { nextFire, computeMonthlyNext, nextDailyAt, nextWeeklyAt } = require('./jobScheduler');
 
 test('nextFire: daily:1 advances by exactly one day', () => {
