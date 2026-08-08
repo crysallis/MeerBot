@@ -34,6 +34,32 @@ pm2 save
 ```
 Admin panel: `http://localhost:3001` · separate PM2 process `meerbot-admin` · never needs `--update-env` (reads config from DB)
 
+## Test Bot
+
+A second bot process, `meerbot-test`, runs the bot only (no admin/stats) against a separate
+Discord application + test server + isolated DB, for trying changes before they reach the real
+guild. It runs from its own git worktree checkout at `C:\vscode\DiscordBotAfkJ-test` (branch
+`test-bot` by default, `main` as the fork point) with its own `.env` — **not** PM2's `env_file`
+option, which was tried first and confirmed unreliable (`pm2 env` showed nothing injected,
+which briefly caused the test process to load the real `.env` and log in as the real bot). A
+separate checkout means `index.js`'s plain `require('dotenv').config()` resolves the right file
+automatically by `cwd`, no PM2 env-injection dependency at all.
+
+Workflow: branch off `main` inside `DiscordBotAfkJ-test`, commit there, `pm2 restart meerbot-test`
+to pick up changes, test live in the test Discord server. When it's good, merge/PR into `main`,
+then `git pull` + `pm2 restart meerbot --update-env` in the real checkout.
+
+```
+pm2 start ecosystem.config.js --only meerbot-test   # not started by default
+pm2 restart meerbot-test
+pm2 logs meerbot-test --lines 20 --nostream
+```
+
+Test env vars (`GUILD_DB_PATH=...guild.test.db`, `DEV_REGISTER=true`, distinct `DISCORD_TOKEN`/
+`APPLICATION_ID`/`GUILD_ID`) live only in the test checkout's `.env`, gitignored. `guild.test.db`
+was seeded as a one-time `VACUUM INTO` snapshot of the real `guild.db` and diverges independently
+from there.
+
 ## Key Files
 | File | Purpose |
 |---|---|
