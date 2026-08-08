@@ -1,6 +1,7 @@
-// Load environment variables first, before any modules are imported. While admin/server.js
-// and stats/server.js also load dotenv, loading it here ensures our setInterval interceptor
-// (below) is in place before they import modules that create intervals.
+// Load environment variables first, before any modules are imported. The first test below
+// requires slash-commands/*.js, which transitively requires utils/db.js · that module
+// reads process.env.GUILD_DB_PATH at module-load time (not inside a function), so dotenv
+// must run before that require chain fires or the DB connection fails.
 require('dotenv').config();
 
 const test = require('node:test');
