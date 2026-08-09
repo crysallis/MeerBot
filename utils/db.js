@@ -581,7 +581,11 @@ function insertRelayMessage({ relayGroupMessageId, channelId, messageId, authorI
 }
 
 function getRelayMessageByMessageId(messageId) {
-    return db.prepare('SELECT * FROM translation_relay_messages WHERE message_id = ?').get(messageId);
+    return db.prepare(`
+        SELECT * FROM translation_relay_messages
+        WHERE message_id = ?
+           OR EXISTS (SELECT 1 FROM json_each(batch_message_ids) WHERE value = ?)
+    `).get(messageId, messageId);
 }
 
 function getRelayMessagesByGroupId(relayGroupMessageId) {

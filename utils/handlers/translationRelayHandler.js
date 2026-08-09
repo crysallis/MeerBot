@@ -72,7 +72,7 @@ const PER_LINE_PER_LANGUAGE_TOKENS = 128;
 
 async function callClaude(sourceLanguage, targetLanguages, lines) {
     const numberedLines = lines.map((l, i) => `${i + 1}. ${l}`).join('\n');
-    const maxTokens = BASE_MAX_TOKENS + lines.length * targetLanguages.length * PER_LINE_PER_LANGUAGE_TOKENS;
+    const maxTokens = Math.max(1024, BASE_MAX_TOKENS + lines.length * targetLanguages.length * PER_LINE_PER_LANGUAGE_TOKENS);
     const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5',
         max_tokens: maxTokens,

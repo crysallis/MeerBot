@@ -79,6 +79,19 @@ test('insertRelayMessage stores explicit batch_message_ids and last_line_text wh
     db.prepare('DELETE FROM translation_relay_messages WHERE message_id = ?').run('msg-batch-explicit-1');
 });
 
+test('getRelayMessageByMessageId finds a row by a middle batch_message_ids entry, not just its own message_id', () => {
+    db.insertRelayMessage({
+        relayGroupMessageId: 0, channelId: 'test-ch-9', messageId: 'orig-1',
+        authorId: 'user-1', authorDisplayName: 'Tester', language: 'English',
+        text: 'line one\nline two\nline three', batchMessageIds: ['orig-1', 'orig-2', 'orig-3'], lastLineText: 'line three',
+    });
+    const found = db.getRelayMessageByMessageId('orig-2');
+    assert.ok(found, 'should find the row via a batch_message_ids entry that is not the row\'s own message_id');
+    assert.equal(found.message_id, 'orig-1');
+    assert.deepEqual(JSON.parse(found.batch_message_ids), ['orig-1', 'orig-2', 'orig-3']);
+    db.prepare('DELETE FROM translation_relay_messages WHERE message_id = ?').run('orig-1');
+});
+
 test('insertTranslationUsage stores a usage row', () => {
     db.prepare('DELETE FROM translation_usage WHERE message_id = ?').run('msg-usage-1');
     db.insertTranslationUsage({ messageId: 'msg-usage-1', inputTokens: 42, outputTokens: 17, targetCount: 2 });
