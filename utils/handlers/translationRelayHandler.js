@@ -64,11 +64,18 @@ function stripCodeFence(text) {
     return fenced ? fenced[1].trim() : text;
 }
 
+// Base budget covers a normal single-message translation with headroom; batching multiplies
+// output size by both line count and target-language count (one full JSON array per language),
+// so the ceiling scales with both rather than staying fixed at the single-message value.
+const BASE_MAX_TOKENS = 512;
+const PER_LINE_PER_LANGUAGE_TOKENS = 128;
+
 async function callClaude(sourceLanguage, targetLanguages, lines) {
     const numberedLines = lines.map((l, i) => `${i + 1}. ${l}`).join('\n');
+    const maxTokens = BASE_MAX_TOKENS + lines.length * targetLanguages.length * PER_LINE_PER_LANGUAGE_TOKENS;
     const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5',
-        max_tokens: 1024,
+        max_tokens: maxTokens,
         system: [
             'You are a chat relay bot, translating casual Discord messages for a gaming guild based on AFK Journey.',
             'Preserve tone, slang, and emotes/emoji as-is where they don\'t need translation.',
