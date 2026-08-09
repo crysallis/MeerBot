@@ -38,6 +38,11 @@ async function sendViaWebhook(channelRow, channel, payload) {
     }
 }
 
+function stripCodeFence(text) {
+    const fenced = text.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
+    return fenced ? fenced[1].trim() : text;
+}
+
 async function callClaude(sourceLanguage, targetLanguages, text) {
     const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5',
@@ -54,7 +59,7 @@ async function callClaude(sourceLanguage, targetLanguages, text) {
         }],
     });
     const raw = response.content[0].text.trim();
-    const parsed = JSON.parse(raw); // throws on malformed JSON -- caller catches
+    const parsed = JSON.parse(stripCodeFence(raw)); // throws on malformed JSON -- caller catches
     for (const lang of targetLanguages) {
         if (typeof parsed[lang] !== 'string') throw new Error(`Missing translation for ${lang}`);
     }
