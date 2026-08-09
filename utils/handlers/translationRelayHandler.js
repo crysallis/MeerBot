@@ -1,11 +1,22 @@
 const { WebhookClient } = require('discord.js');
 const Anthropic = require('@anthropic-ai/sdk');
 const db = require('../db');
+const botConfig = require('../botConfig');
 
 const anthropic = new Anthropic();
 
 const QUOTE_MAX_LEN = 100;
 const DISCORD_CONTENT_MAX_LEN = 2000;
+
+const BATCH_TIMEOUT_KEY = 'translation_relay_batch_timeout_seconds';
+const BATCH_TIMEOUT_DEFAULT_SECONDS = 10;
+const BATCH_TIMEOUT_MAX_SECONDS = 15;
+
+function getBatchTimeoutMs() {
+    const raw = parseInt(botConfig.get(BATCH_TIMEOUT_KEY, String(BATCH_TIMEOUT_DEFAULT_SECONDS)), 10);
+    const seconds = Number.isInteger(raw) && raw >= 1 ? Math.min(raw, BATCH_TIMEOUT_MAX_SECONDS) : BATCH_TIMEOUT_DEFAULT_SECONDS;
+    return seconds * 1000;
+}
 
 function truncateQuote(text) {
     const t = text.replace(/\n/g, ' ').trim();
@@ -53,25 +64,33 @@ function stripCodeFence(text) {
     return fenced ? fenced[1].trim() : text;
 }
 
-async function callClaude(sourceLanguage, targetLanguages, text) {
+async function callClaude(sourceLanguage, targetLanguages, lines) {
+    const numberedLines = lines.map((l, i) => `${i + 1}. ${l}`).join('\n');
     const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5',
         max_tokens: 1024,
         system: [
-            'You are a chat relay bot, translating a casual Discord message for a gaming guild based on AFK Journey.',
+            'You are a chat relay bot, translating casual Discord messages for a gaming guild based on AFK Journey.',
             'Preserve tone, slang, and emotes/emoji as-is where they don\'t need translation.',
             'Keep Discord mention syntax (<@id>, <#id>) and custom emoji syntax (<:name:id>) completely unchanged.',
-            'Output ONLY a JSON object mapping each requested language name to its translation, no other text.',
+            'The message is a numbered list of one or more lines, all from the same person, sent in order.',
+            'Output ONLY a JSON object mapping each requested language name to an ARRAY of translated strings,',
+            'one array entry per input line, in the same order -- never a single string, even for one line.',
         ].join(' '),
         messages: [{
             role: 'user',
-            content: `Source language: ${sourceLanguage}\nTarget languages: ${targetLanguages.join(', ')}\n\nMessage:\n${text}`,
+            content: `Source language: ${sourceLanguage}\nTarget languages: ${targetLanguages.join(', ')}\n\nMessage (${lines.length} line(s)):\n${numberedLines}`,
         }],
     });
     const raw = response.content[0].text.trim();
     const parsed = JSON.parse(stripCodeFence(raw)); // throws on malformed JSON -- caller catches
     for (const lang of targetLanguages) {
-        if (typeof parsed[lang] !== 'string') throw new Error(`Missing translation for ${lang}`);
+        if (!Array.isArray(parsed[lang]) || parsed[lang].length !== lines.length) {
+            throw new Error(`Expected an array of ${lines.length} line(s) for ${lang}, got: ${JSON.stringify(parsed[lang])}`);
+        }
+        for (const line of parsed[lang]) {
+            if (typeof line !== 'string') throw new Error(`Non-string entry in ${lang} translation array`);
+        }
     }
     return { translations: parsed, usage: response.usage };
 }
@@ -94,41 +113,106 @@ function enqueueRelay(relayGroup, task) {
     return next;
 }
 
+// relay_group -> { authorId, sourceChannelRow, isReply, replyMessageId, messages: [{messageId, text}], authorDisplayName, authorAvatarURL, timeoutHandle }
+const openBatches = new Map();
+
+// Synchronously claims/clears a relay group's batch slot BEFORE any async work, per the
+// race-safety requirement in the design doc: whichever of (timeout firing) or (interrupting
+// message arriving) reaches this line first wins; the other finds the slot already gone.
+function takeBatch(relayGroup) {
+    const batch = openBatches.get(relayGroup);
+    if (batch) {
+        clearTimeout(batch.timeoutHandle);
+        openBatches.delete(relayGroup);
+    }
+    return batch;
+}
+
+function flushBatch(relayGroup, client, batch) {
+    if (!batch || batch.messages.length === 0) return;
+    return enqueueRelay(relayGroup, () => processTranslationRelay(client, batch));
+}
+
 async function handleTranslationRelay(message, client) {
     if (message.author.bot) return; // loop guard: covers our own relay webhooks + any other bot
     const sourceChannelRow = db.getRelayChannelByChannelId(message.channelId);
     if (!sourceChannelRow) return;
     const text = (message.content || '').trim();
     if (!text) return;
-    return enqueueRelay(sourceChannelRow.relay_group, () => processTranslationRelay(message, client, sourceChannelRow, text));
+
+    const relayGroup = sourceChannelRow.relay_group;
+    const isReply = !!message.reference?.messageId;
+    const existing = openBatches.get(relayGroup);
+
+    // A reply always flushes whatever is open (even same-author) and starts its own batch.
+    // A different author's message flushes whatever is open and starts a new batch.
+    // A same-author, non-reply message joins the existing batch.
+    const shouldFlushExisting = existing && (isReply || existing.authorId !== message.author.id);
+    if (shouldFlushExisting) {
+        const claimed = takeBatch(relayGroup);
+        flushBatch(relayGroup, client, claimed);
+    }
+
+    const current = openBatches.get(relayGroup);
+    const authorDisplayName = message.member?.displayName ?? message.author.username;
+    const authorAvatarURL = message.author.displayAvatarURL();
+    const entry = { messageId: message.id, text };
+
+    if (current && !isReply && current.authorId === message.author.id) {
+        current.messages.push(entry);
+        clearTimeout(current.timeoutHandle);
+        current.timeoutHandle = setTimeout(() => {
+            const claimed = takeBatch(relayGroup);
+            flushBatch(relayGroup, client, claimed);
+        }, getBatchTimeoutMs());
+        return;
+    }
+
+    const newBatch = {
+        authorId: message.author.id,
+        sourceChannelRow,
+        isReply,
+        replyMessageId: isReply ? message.reference.messageId : null,
+        messages: [entry],
+        authorDisplayName,
+        authorAvatarURL,
+        timeoutHandle: null,
+    };
+    newBatch.timeoutHandle = setTimeout(() => {
+        const claimed = takeBatch(relayGroup);
+        flushBatch(relayGroup, client, claimed);
+    }, getBatchTimeoutMs());
+    openBatches.set(relayGroup, newBatch);
 }
 
-async function processTranslationRelay(message, client, sourceChannelRow, text) {
+async function processTranslationRelay(client, batch) {
+    const { sourceChannelRow, messages, authorDisplayName, authorAvatarURL, isReply, replyMessageId } = batch;
     const allChannels = db.getRelayChannels(sourceChannelRow.relay_group);
     const targetChannels = allChannels.filter(c => c.id !== sourceChannelRow.id);
     if (targetChannels.length === 0) return;
 
-    const authorDisplayName = message.member?.displayName ?? message.author.username;
-    const authorAvatarURL = message.author.displayAvatarURL();
+    const combinedText = messages.map(m => m.text).join('\n');
+    const lastLine = messages[messages.length - 1].text;
+    const batchMessageIds = messages.map(m => m.messageId);
 
-    // Record the source message's own row first -- its id becomes the shared
-    // relay_group_message_id for every translated copy. SQLite can't reference a row's own
-    // not-yet-known id in the same INSERT, so insert with a placeholder then self-update.
+    // Record the source batch's own row first -- its id becomes the shared
+    // relay_group_message_id for every translated copy.
     const relayGroupMessageId = db.insertRelayMessage({
         relayGroupMessageId: 0,
-        channelId: message.channelId,
-        messageId: message.id,
-        authorId: message.author.id,
+        channelId: sourceChannelRow.channel_id,
+        messageId: messages[0].messageId, // the batch's first message id anchors the row's own unique message_id
+        authorId: batch.authorId,
         authorDisplayName,
         language: sourceChannelRow.language,
-        text,
+        text: combinedText,
+        batchMessageIds,
+        lastLineText: lastLine,
     });
     db.setRelayMessageGroupId(relayGroupMessageId, relayGroupMessageId);
 
-    // Resolve reply context, if any
     let replySource = null;
-    if (message.reference?.messageId) {
-        const referenced = db.getRelayMessageByMessageId(message.reference.messageId);
+    if (isReply && replyMessageId) {
+        const referenced = db.getRelayMessageByMessageId(replyMessageId);
         if (referenced) {
             replySource = db.getRelayMessagesByGroupId(referenced.relay_group_message_id);
         }
@@ -138,7 +222,7 @@ async function processTranslationRelay(message, client, sourceChannelRow, text) 
     let translations = null;
     let usage = null;
     try {
-        const result = await callClaude(sourceChannelRow.language, targetLanguages, text);
+        const result = await callClaude(sourceChannelRow.language, targetLanguages, messages.map(m => m.text));
         translations = result.translations;
         usage = result.usage;
     } catch (err) {
@@ -147,7 +231,7 @@ async function processTranslationRelay(message, client, sourceChannelRow, text) 
 
     if (translations) {
         db.insertTranslationUsage({
-            messageId: message.id,
+            messageId: messages[0].messageId,
             inputTokens: usage.input_tokens,
             outputTokens: usage.output_tokens,
             targetCount: targetLanguages.length,
@@ -158,11 +242,23 @@ async function processTranslationRelay(message, client, sourceChannelRow, text) 
         const channel = await client.channels.fetch(targetRow.channel_id).catch(() => null);
         if (!channel) continue;
 
-        let bodyText = translations ? translations[targetRow.language] : text;
+        let bodyLines, lastLineTranslated;
+        if (translations) {
+            bodyLines = translations[targetRow.language];
+            lastLineTranslated = bodyLines[bodyLines.length - 1];
+        } else {
+            bodyLines = messages.map(m => m.text);
+            lastLineTranslated = lastLine;
+        }
+        let bodyText = bodyLines.join('\n');
+
         let quotePrefix = '';
         if (replySource) {
             const quoteRow = replySource.find(r => r.channel_id === targetRow.channel_id);
-            if (quoteRow) quotePrefix = `> ${truncateQuote(quoteRow.text)}\n`;
+            if (quoteRow) {
+                const quoteText = quoteRow.last_line_text || quoteRow.text; // fallback for pre-batching rows
+                quotePrefix = `> ${truncateQuote(quoteText)}\n`;
+            }
         }
         bodyText = fitContent(quotePrefix, bodyText);
 
@@ -178,10 +274,12 @@ async function processTranslationRelay(message, client, sourceChannelRow, text) 
             relayGroupMessageId,
             channelId: targetRow.channel_id,
             messageId: sent.id,
-            authorId: message.author.id,
+            authorId: batch.authorId,
             authorDisplayName,
             language: targetRow.language,
             text: bodyText,
+            batchMessageIds,
+            lastLineText: lastLineTranslated,
         });
 
         if (!translations) {
@@ -192,4 +290,4 @@ async function processTranslationRelay(message, client, sourceChannelRow, text) 
     }
 }
 
-module.exports = { handleTranslationRelay, stripCodeFence, truncateQuote };
+module.exports = { handleTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches };

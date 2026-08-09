@@ -40,3 +40,38 @@ test('truncateQuote collapses newlines to spaces', () => {
     const input = 'line one\nline two\nline three';
     assert.equal(truncateQuote(input), 'line one line two line three');
 });
+
+test('takeBatch clears and returns the open batch for a relay group', () => {
+    const { takeBatch, openBatches } = require('./translationRelayHandler');
+    const fakeBatch = { authorId: 'user-1', messages: [{ messageId: 'm1', text: 'hi' }], timeoutHandle: setTimeout(() => {}, 100000) };
+    openBatches.set('test-group-A', fakeBatch);
+
+    const claimed = takeBatch('test-group-A');
+
+    assert.equal(claimed, fakeBatch);
+    assert.equal(openBatches.has('test-group-A'), false);
+    clearTimeout(fakeBatch.timeoutHandle); // avoid leaving a dangling timer past the test
+});
+
+test('takeBatch returns undefined and is a no-op when no batch is open for that group', () => {
+    const { takeBatch, openBatches } = require('./translationRelayHandler');
+    assert.equal(openBatches.has('test-group-B'), false);
+
+    const claimed = takeBatch('test-group-B');
+
+    assert.equal(claimed, undefined);
+    assert.equal(openBatches.has('test-group-B'), false);
+});
+
+test('takeBatch called twice in a row: second call returns undefined', () => {
+    const { takeBatch, openBatches } = require('./translationRelayHandler');
+    const fakeBatch = { authorId: 'user-1', messages: [{ messageId: 'm1', text: 'hi' }], timeoutHandle: setTimeout(() => {}, 100000) };
+    openBatches.set('test-group-C', fakeBatch);
+
+    const first = takeBatch('test-group-C');
+    const second = takeBatch('test-group-C');
+
+    assert.equal(first, fakeBatch);
+    assert.equal(second, undefined);
+    clearTimeout(fakeBatch.timeoutHandle);
+});
