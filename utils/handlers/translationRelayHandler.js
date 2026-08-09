@@ -313,4 +313,35 @@ async function processTranslationRelay(client, batch) {
     }
 }
 
-module.exports = { handleTranslationRelay, processTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches, callClaude };
+async function handleTranslationReactionSync(reaction, user, client, isAdd) {
+    if (user.id === client.user.id) return; // loop guard: our own synced reaction re-fires this event
+    if (reaction.partial) {
+        try {
+            await reaction.fetch();
+        } catch (err) {
+            console.error('[TranslationRelay] Failed to fetch partial reaction:', err.message);
+            return;
+        }
+    }
+    const row = db.getRelayMessageByMessageId(reaction.message.id);
+    if (!row) return;
+    const siblings = db.getRelayMessagesByGroupId(row.relay_group_message_id)
+        .filter(r => r.message_id !== reaction.message.id);
+
+    for (const sibling of siblings) {
+        try {
+            const channel = await client.channels.fetch(sibling.channel_id);
+            const message = await channel.messages.fetch(sibling.message_id);
+            if (isAdd) {
+                await message.react(reaction.emoji.id ? reaction.emoji : reaction.emoji.name);
+            } else {
+                const existing = message.reactions.resolve(reaction.emoji.id ? reaction.emoji : reaction.emoji.name);
+                if (existing) await existing.users.remove(client.user.id);
+            }
+        } catch (err) {
+            console.error(`[TranslationRelay] Reaction sync failed for channel ${sibling.channel_id}:`, err.message);
+        }
+    }
+}
+
+module.exports = { handleTranslationRelay, processTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches, callClaude, handleTranslationReactionSync };

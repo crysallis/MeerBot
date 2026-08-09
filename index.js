@@ -1,13 +1,13 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { Client, GatewayIntentBits, MessageFlags, ActivityType } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, MessageFlags, ActivityType } = require('discord.js');
 const { initJobScheduler } = require('./utils/jobScheduler');
 const { logCommand } = require('./utils/commandLogger');
 const { handleMessage } = require('./utils/messageReactions');
 const { handleTranslationRole } = require('./utils/handlers/translationRoleHandler');
 const { handlePromoCode } = require('./utils/handlers/promoCodeHandler');
-const { handleTranslationRelay } = require('./utils/handlers/translationRelayHandler');
+const { handleTranslationRelay, handleTranslationReactionSync } = require('./utils/handlers/translationRelayHandler');
 const { handleTransferButton } = require('./utils/handlers/transferButtonHandler');
 const { rateLimit } = require('./config');
 
@@ -32,8 +32,10 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.MessageContent,
-  ]
+  ],
+  partials: [Partials.Message, Partials.Reaction],
 });
 
 client.slashCommands = new Map();
@@ -61,6 +63,12 @@ client.on('messageCreate', message => {
   handleMessage(message, client);
   handlePromoCode(message);
   handleTranslationRelay(message, client).catch(err => console.error('[TranslationRelay] Unhandled error:', err));
+});
+client.on('messageReactionAdd', (reaction, user) => {
+  handleTranslationReactionSync(reaction, user, client, true).catch(err => console.error('[TranslationRelay] Reaction sync (add) unhandled error:', err));
+});
+client.on('messageReactionRemove', (reaction, user) => {
+  handleTranslationReactionSync(reaction, user, client, false).catch(err => console.error('[TranslationRelay] Reaction sync (remove) unhandled error:', err));
 });
 client.on('guildMemberUpdate', (oldMember, newMember) => handleTranslationRole(oldMember, newMember, client));
 
