@@ -410,4 +410,34 @@ async function handleTranslationEditSync(message, client) {
     await resyncRelayGroup(client, row, rebuilt);
 }
 
-module.exports = { handleTranslationRelay, processTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches, callClaude, handleTranslationReactionSync, handleTranslationEditSync, rebuildBatchAfterChange, resyncRelayGroup };
+async function handleTranslationDeleteSync(message, client) {
+    const row = db.getRelayMessageByMessageId(message.id);
+    if (!row) return;
+    // Same ambiguity as handleTranslationEditSync: getRelayMessageByMessageId can match
+    // either the message's own row or a sibling row that merely references this id inside
+    // its batch_message_ids. Only trust a direct match.
+    if (row.message_id !== message.id) return;
+    const batchMessageIds = JSON.parse(row.batch_message_ids);
+    const rebuilt = rebuildBatchAfterChange(batchMessageIds, message.id, null);
+
+    if (rebuilt.length > 0) {
+        await resyncRelayGroup(client, row, rebuilt);
+        return;
+    }
+
+    const siblings = db.getRelayMessagesByGroupId(row.relay_group_message_id)
+        .filter(r => r.id !== row.id);
+    for (const sibling of siblings) {
+        try {
+            const targetRow = db.getRelayChannelByChannelId(sibling.channel_id);
+            const channel = await client.channels.fetch(sibling.channel_id);
+            const webhook = await getOrCreateWebhook(targetRow, channel);
+            await webhook.deleteMessage(sibling.message_id);
+        } catch (err) {
+            console.error(`[TranslationRelay] Failed to delete relayed copy in channel ${sibling.channel_id}:`, err.message);
+        }
+    }
+    db.deleteRelayMessagesByGroupId(row.relay_group_message_id);
+}
+
+module.exports = { handleTranslationRelay, processTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches, callClaude, handleTranslationReactionSync, handleTranslationEditSync, handleTranslationDeleteSync, rebuildBatchAfterChange, resyncRelayGroup };

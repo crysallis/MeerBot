@@ -7,7 +7,7 @@ const { logCommand } = require('./utils/commandLogger');
 const { handleMessage } = require('./utils/messageReactions');
 const { handleTranslationRole } = require('./utils/handlers/translationRoleHandler');
 const { handlePromoCode } = require('./utils/handlers/promoCodeHandler');
-const { handleTranslationRelay, handleTranslationReactionSync, handleTranslationEditSync } = require('./utils/handlers/translationRelayHandler');
+const { handleTranslationRelay, handleTranslationReactionSync, handleTranslationEditSync, handleTranslationDeleteSync } = require('./utils/handlers/translationRelayHandler');
 const { handleTransferButton } = require('./utils/handlers/transferButtonHandler');
 const { rateLimit } = require('./config');
 
@@ -89,6 +89,12 @@ client.on('messageUpdate', async (oldMessage, newMessage) => {
   // oldMessage can still be partial/stale here; only skip when we have real content to compare.
   if (!oldMessage?.partial && oldMessage?.content === newMessage.content) return;
   handleTranslationEditSync(newMessage, client).catch(err => console.error('[TranslationRelay] Edit sync unhandled error:', err));
+});
+client.on('messageDelete', message => {
+  // message.id is always present even when the message arrives partial (uncached) -- and
+  // a deleted message can't be fetched from the API anyway, so there's nothing to fetch
+  // here unlike the messageUpdate case above.
+  handleTranslationDeleteSync(message, client).catch(err => console.error('[TranslationRelay] Delete sync unhandled error:', err));
 });
 client.on('guildMemberUpdate', (oldMember, newMember) => handleTranslationRole(oldMember, newMember, client));
 
