@@ -533,53 +533,6 @@ function getTransferApprovalDms(transferId) {
     return db.prepare('SELECT user_id, message_id FROM transfer_approval_eligibility WHERE transfer_id = ? AND message_id IS NOT NULL').all(transferId);
 }
 
-/** List relay channels in a group, ordered by id (stable for iteration). */
-function getRelayChannels(relayGroup = 'default') {
-    return db.prepare('SELECT * FROM translation_relay_channels WHERE relay_group = ? ORDER BY id')
-        .all(relayGroup);
-}
-
-function getRelayChannelByChannelId(channelId) {
-    return db.prepare('SELECT * FROM translation_relay_channels WHERE channel_id = ?').get(channelId);
-}
-
-function addRelayChannel({ channelId, language, flagEmoji, relayGroup = 'default' }) {
-    const r = db.prepare(`INSERT INTO translation_relay_channels (channel_id, language, flag_emoji, relay_group)
-        VALUES (?, ?, ?, ?)`).run(channelId, language, flagEmoji, relayGroup);
-    return r.lastInsertRowid;
-}
-
-function removeRelayChannel(id) {
-    db.prepare('DELETE FROM translation_relay_channels WHERE id = ?').run(id);
-}
-
-function setRelayChannelWebhook(id, webhookId, webhookToken) {
-    db.prepare('UPDATE translation_relay_channels SET webhook_id = ?, webhook_token = ? WHERE id = ?')
-        .run(webhookId, webhookToken, id);
-}
-
-function insertRelayMessage({ relayGroupMessageId, channelId, messageId, authorId, authorDisplayName, language, text }) {
-    const r = db.prepare(`INSERT INTO translation_relay_messages
-        (relay_group_message_id, channel_id, message_id, author_id, author_display_name, language, text)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`)
-        .run(relayGroupMessageId, channelId, messageId, authorId, authorDisplayName, language, text);
-    return r.lastInsertRowid;
-}
-
-function getRelayMessageByMessageId(messageId) {
-    return db.prepare('SELECT * FROM translation_relay_messages WHERE message_id = ?').get(messageId);
-}
-
-function getRelayMessagesByGroupId(relayGroupMessageId) {
-    return db.prepare('SELECT * FROM translation_relay_messages WHERE relay_group_message_id = ?')
-        .all(relayGroupMessageId);
-}
-
-function insertTranslationUsage({ messageId, inputTokens, outputTokens, targetCount }) {
-    db.prepare(`INSERT INTO translation_usage (message_id, input_tokens, output_tokens, target_count)
-        VALUES (?, ?, ?, ?)`).run(messageId, inputTokens, outputTokens, targetCount);
-}
-
 module.exports = db;
 module.exports.mergeMembers = mergeMembers;
 module.exports.getWarbands = getWarbands;
@@ -598,12 +551,3 @@ module.exports.addTransferApprovalEligibility = addTransferApprovalEligibility;
 module.exports.setTransferApprovalDmMessage = setTransferApprovalDmMessage;
 module.exports.isTransferApprovalEligible = isTransferApprovalEligible;
 module.exports.getTransferApprovalDms = getTransferApprovalDms;
-module.exports.getRelayChannels = getRelayChannels;
-module.exports.getRelayChannelByChannelId = getRelayChannelByChannelId;
-module.exports.addRelayChannel = addRelayChannel;
-module.exports.removeRelayChannel = removeRelayChannel;
-module.exports.setRelayChannelWebhook = setRelayChannelWebhook;
-module.exports.insertRelayMessage = insertRelayMessage;
-module.exports.getRelayMessageByMessageId = getRelayMessageByMessageId;
-module.exports.getRelayMessagesByGroupId = getRelayMessagesByGroupId;
-module.exports.insertTranslationUsage = insertTranslationUsage;
