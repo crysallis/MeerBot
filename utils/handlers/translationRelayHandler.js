@@ -153,8 +153,14 @@ async function handleTranslationRelay(message, client) {
 
     // A reply always flushes whatever is open (even same-author) and starts its own batch.
     // A different author's message flushes whatever is open and starts a new batch.
-    // A same-author, non-reply message joins the existing batch.
-    const shouldFlushExisting = existing && (isReply || existing.authorId !== message.author.id);
+    // A message from a different source channel (even same author, same relay group)
+    // flushes whatever is open -- otherwise the combined batch would get translated and
+    // routed using the FIRST message's source language/channel, silently mistranslating
+    // and misrouting the second message.
+    // A same-author, same-channel, non-reply message joins the existing batch.
+    const shouldFlushExisting = existing && (isReply
+        || existing.authorId !== message.author.id
+        || existing.sourceChannelRow.channel_id !== sourceChannelRow.channel_id);
     if (shouldFlushExisting) {
         const claimed = takeBatch(relayGroup);
         flushBatch(relayGroup, client, claimed);

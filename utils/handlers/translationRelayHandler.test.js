@@ -2,6 +2,7 @@ require('dotenv').config();
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { stripCodeFence, truncateQuote } = require('./translationRelayHandler');
+const db = require('../db');
 
 test('stripCodeFence leaves plain JSON unchanged', () => {
     const input = '{"English":"hello","Spanish":"hola"}';
@@ -74,4 +75,135 @@ test('takeBatch called twice in a row: second call returns undefined', () => {
     assert.equal(first, fakeBatch);
     assert.equal(second, undefined);
     clearTimeout(fakeBatch.timeoutHandle);
+});
+
+// --- handleTranslationRelay routing tests ---------------------------------
+//
+// These lock in the JOIN / FLUSH / NEW-BATCH decision tree, not the
+// translate-and-post pipeline (that stays live/manual per project
+// convention). Each test's relay group only has ONE relay channel row
+// registered (the source), so processTranslationRelay's targetChannels
+// filter is empty and it early-returns before any Claude call or webhook
+// send -- no live network calls happen even when a flush is forced.
+// Cross-channel tests register a second channel (still zero *other*
+// targets relative to whichever channel is "source" for that message,
+// since both source rows share the group) -- see the cross-channel test
+// for why that one still can't reach Claude either.
+
+function fakeMessage({ channelId, authorId, content, isReply = false, username = 'tester' }) {
+    return {
+        author: { bot: false, id: authorId, username, displayAvatarURL: () => 'https://example.com/avatar.png' },
+        member: null,
+        channelId,
+        id: `msg-${Math.random().toString(36).slice(2)}`,
+        content,
+        reference: isReply ? { messageId: 'referenced-msg-id' } : undefined,
+    };
+}
+
+const noopClient = {
+    channels: { fetch: async () => null }, // targetChannels is always empty in these tests, so unused, but keep it safe
+};
+
+test('handleTranslationRelay: same author, same channel, two messages join one batch', async () => {
+    const { handleTranslationRelay, takeBatch, openBatches } = require('./translationRelayHandler');
+    const group = 'test-route-A';
+    const chId = db.addRelayChannel({ channelId: 'route-a-ch1', language: 'English', flagEmoji: '🇺🇸', relayGroup: group });
+    try {
+        const m1 = fakeMessage({ channelId: 'route-a-ch1', authorId: 'author-1', content: 'hello' });
+        const m2 = fakeMessage({ channelId: 'route-a-ch1', authorId: 'author-1', content: 'world' });
+
+        await handleTranslationRelay(m1, noopClient);
+        await handleTranslationRelay(m2, noopClient);
+
+        const batch = openBatches.get(group);
+        assert.ok(batch, 'expected an open batch for the group');
+        assert.equal(batch.authorId, 'author-1');
+        assert.equal(batch.messages.length, 2);
+        assert.deepEqual(batch.messages.map(m => m.text), ['hello', 'world']);
+    } finally {
+        const leftover = takeBatch(group);
+        if (leftover) clearTimeout(leftover.timeoutHandle);
+        db.removeRelayChannel(chId);
+    }
+});
+
+test('handleTranslationRelay: same author, different channel in same relay group flushes and starts a new batch', async () => {
+    const { handleTranslationRelay, takeBatch, openBatches } = require('./translationRelayHandler');
+    const group = 'test-route-B';
+    const ch1 = db.addRelayChannel({ channelId: 'route-b-ch1', language: 'English', flagEmoji: '🇺🇸', relayGroup: group });
+    const ch2 = db.addRelayChannel({ channelId: 'route-b-ch2', language: 'Spanish', flagEmoji: '🇪🇸', relayGroup: group });
+    // The scenario needs two channels in-group so the routing decision has somewhere
+    // to route the second message from -- but that means the forced flush of ch1's
+    // batch would otherwise find ch2 as a real translate target and reach the live
+    // Claude API. Neuter processTranslationRelay's target lookup for the duration of
+    // this test only (restored in finally) so the flush early-returns before any
+    // Claude call or webhook send -- this test is about routing, not the pipeline.
+    const originalGetRelayChannels = db.getRelayChannels;
+    db.getRelayChannels = () => [];
+    try {
+        const m1 = fakeMessage({ channelId: 'route-b-ch1', authorId: 'author-1', content: 'hello from ch1' });
+        const m2 = fakeMessage({ channelId: 'route-b-ch2', authorId: 'author-1', content: 'hello from ch2' });
+
+        await handleTranslationRelay(m1, noopClient);
+        await handleTranslationRelay(m2, noopClient);
+
+        const batch = openBatches.get(group);
+        assert.ok(batch, 'expected a fresh open batch for the group');
+        assert.equal(batch.messages.length, 1, 'the second message must NOT join the first channel\'s batch');
+        assert.equal(batch.messages[0].text, 'hello from ch2');
+        assert.equal(batch.sourceChannelRow.channel_id, 'route-b-ch2');
+    } finally {
+        db.getRelayChannels = originalGetRelayChannels;
+        const leftover = takeBatch(group);
+        if (leftover) clearTimeout(leftover.timeoutHandle);
+        db.removeRelayChannel(ch1);
+        db.removeRelayChannel(ch2);
+    }
+});
+
+test('handleTranslationRelay: a different author\'s message flushes the open batch and starts their own', async () => {
+    const { handleTranslationRelay, takeBatch, openBatches } = require('./translationRelayHandler');
+    const group = 'test-route-C';
+    const chId = db.addRelayChannel({ channelId: 'route-c-ch1', language: 'English', flagEmoji: '🇺🇸', relayGroup: group });
+    try {
+        const m1 = fakeMessage({ channelId: 'route-c-ch1', authorId: 'author-1', content: 'author one' });
+        const m2 = fakeMessage({ channelId: 'route-c-ch1', authorId: 'author-2', content: 'author two' });
+
+        await handleTranslationRelay(m1, noopClient);
+        await handleTranslationRelay(m2, noopClient);
+
+        const batch = openBatches.get(group);
+        assert.ok(batch, 'expected an open batch for the second author');
+        assert.equal(batch.authorId, 'author-2');
+        assert.equal(batch.messages.length, 1);
+        assert.equal(batch.messages[0].text, 'author two');
+    } finally {
+        const leftover = takeBatch(group);
+        if (leftover) clearTimeout(leftover.timeoutHandle);
+        db.removeRelayChannel(chId);
+    }
+});
+
+test('handleTranslationRelay: a reply from the same author flushes the open batch and starts fresh', async () => {
+    const { handleTranslationRelay, takeBatch, openBatches } = require('./translationRelayHandler');
+    const group = 'test-route-D';
+    const chId = db.addRelayChannel({ channelId: 'route-d-ch1', language: 'English', flagEmoji: '🇺🇸', relayGroup: group });
+    try {
+        const m1 = fakeMessage({ channelId: 'route-d-ch1', authorId: 'author-1', content: 'original' });
+        const m2 = fakeMessage({ channelId: 'route-d-ch1', authorId: 'author-1', content: 'a reply', isReply: true });
+
+        await handleTranslationRelay(m1, noopClient);
+        await handleTranslationRelay(m2, noopClient);
+
+        const batch = openBatches.get(group);
+        assert.ok(batch, 'expected a fresh open batch started by the reply');
+        assert.equal(batch.messages.length, 1, 'the reply must NOT join the existing batch');
+        assert.equal(batch.messages[0].text, 'a reply');
+        assert.equal(batch.isReply, true);
+    } finally {
+        const leftover = takeBatch(group);
+        if (leftover) clearTimeout(leftover.timeoutHandle);
+        db.removeRelayChannel(chId);
+    }
 });
