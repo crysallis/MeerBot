@@ -7,6 +7,7 @@ const { logCommand } = require('./utils/commandLogger');
 const { handleMessage } = require('./utils/messageReactions');
 const { handleTranslationRole } = require('./utils/handlers/translationRoleHandler');
 const { handlePromoCode } = require('./utils/handlers/promoCodeHandler');
+const { handleTranslationRelay } = require('./utils/handlers/translationRelayHandler');
 const { handleTransferButton } = require('./utils/handlers/transferButtonHandler');
 const { rateLimit } = require('./config');
 
@@ -59,6 +60,7 @@ client.once('clientReady', () => {
 client.on('messageCreate', message => {
   handleMessage(message, client);
   handlePromoCode(message);
+  handleTranslationRelay(message, client).catch(err => console.error('[TranslationRelay] Unhandled error:', err));
 });
 client.on('guildMemberUpdate', (oldMember, newMember) => handleTranslationRole(oldMember, newMember, client));
 

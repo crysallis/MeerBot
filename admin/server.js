@@ -1120,6 +1120,61 @@ app.get('/api/presence', (req, res) => {
     }
 });
 
+// ── Translation Relay ───────────────────────────────────────────────────────
+
+// GET /api/translation-relay — list configured relay channels
+// Allowlist the response shape -- webhook_id/webhook_token are non-expiring bearer
+// credentials for that channel's webhook and must never reach read-tier clients.
+app.get('/api/translation-relay', (req, res) => {
+    try {
+        const rows = db.getRelayChannels().map(({ id, channel_id, language, flag_emoji }) => ({
+            id, channel_id, language, flag_emoji,
+        }));
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/translation-relay — add a channel to the relay
+app.post('/api/translation-relay', (req, res) => {
+    const channelId = (req.body.channelId || '').trim();
+    const language = (req.body.language || '').trim();
+    const flagEmoji = (req.body.flagEmoji || '').trim();
+    if (!channelId || !language || !flagEmoji) {
+        return res.status(400).json({ error: 'channelId, language, and flagEmoji are all required' });
+    }
+    try {
+        const id = db.addRelayChannel({ channelId, language, flagEmoji });
+        res.json({ ok: true, id });
+    } catch (err) {
+        res.status(err.message.includes('UNIQUE') ? 400 : 500)
+           .json({ error: err.message.includes('UNIQUE') ? 'That channel is already in the relay' : err.message });
+    }
+});
+
+// DELETE /api/translation-relay/:id — remove a channel from the relay
+// Deletes the Discord webhook first (token-authenticated, no bot-token auth needed) so the
+// bearer credential can't outlive the DB row -- otherwise it's permanently unrevocable from
+// here, and re-adding the same channel later mints a second webhook toward Discord's cap.
+app.delete('/api/translation-relay/:id', async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+        const row = db.prepare('SELECT webhook_id, webhook_token FROM translation_relay_channels WHERE id = ?').get(id);
+        if (row?.webhook_id && row?.webhook_token) {
+            try {
+                await fetch(`${DISCORD_API}/webhooks/${row.webhook_id}/${row.webhook_token}`, { method: 'DELETE' });
+            } catch (err) {
+                console.error('[TranslationRelay] Failed to delete Discord webhook:', err.message);
+            }
+        }
+        db.removeRelayChannel(id);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ── Access control (local-only · see auth.requiredTier) ───────────────────────
 
 // GET /api/access — operations (grouped by tab) + role->tier map + recent audit log
