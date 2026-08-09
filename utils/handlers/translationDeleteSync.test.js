@@ -101,3 +101,54 @@ test('handleTranslationDeleteSync re-translates remaining lines when one line of
         if (targetId) db.removeRelayChannel(targetId);
     }
 });
+
+test('handleTranslationDeleteSync no-ops when the deleted message is a relayed COPY, not the source', async () => {
+    // Design spec: a moderator deleting a relayed copy is a deliberate moderation action
+    // needing no bot handling. A copy row's batch_message_ids stores the SOURCE message's
+    // id, not a self-reference, so without the row.id !== row.relay_group_message_id guard
+    // this would fall through to resyncRelayGroup and silently overwrite the copy's own
+    // stored text/last_line_text with re-translated SOURCE-language content.
+    const { WebhookClient } = require('discord.js');
+    let srcId, targetId, groupId;
+    let updateCalled = false;
+    let deleteMessageCalled = false;
+    const originalUpdate = db.updateRelayMessageText;
+    db.updateRelayMessageText = (...args) => { updateCalled = true; return originalUpdate(...args); };
+    const originalDeleteMsg = WebhookClient.prototype.deleteMessage;
+    WebhookClient.prototype.deleteMessage = async function () { deleteMessageCalled = true; };
+    const stubClient = {
+        channels: { fetch: async () => ({ createWebhook: async () => ({ id: 'wh-copy', token: 'tok-copy' }) }) },
+    };
+    try {
+        srcId = db.addRelayChannel({ channelId: 'chan-delcopy-src', language: 'English', flagEmoji: '🇺🇸', relayGroup: 'delcopy-group' });
+        targetId = db.addRelayChannel({ channelId: 'chan-delcopy-target', language: 'Spanish', flagEmoji: '🇪🇸', relayGroup: 'delcopy-group' });
+
+        groupId = db.insertRelayMessage({
+            relayGroupMessageId: 0, channelId: 'chan-delcopy-src', messageId: 'msg-delcopy-src',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'original message',
+        });
+        db.setRelayMessageGroupId(groupId, groupId);
+        db.insertRelayMessage({
+            relayGroupMessageId: groupId, channelId: 'chan-delcopy-target', messageId: 'msg-delcopy-copy',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'mensaje original',
+        });
+
+        await handleTranslationDeleteSync({ id: 'msg-delcopy-copy' }, stubClient);
+
+        assert.strictEqual(updateCalled, false, 'must not touch the copy row\'s stored text');
+        assert.strictEqual(deleteMessageCalled, false, 'must not delete anything via webhook');
+
+        const copyRow = db.getRelayMessagesByGroupId(groupId).find(r => r.message_id === 'msg-delcopy-copy');
+        const sourceRow = db.getRelayMessagesByGroupId(groupId).find(r => r.message_id === 'msg-delcopy-src');
+        assert.strictEqual(copyRow.text, 'mensaje original', 'copy text must be unchanged');
+        assert.strictEqual(copyRow.last_line_text, 'mensaje original', 'copy last_line_text must be unchanged');
+        assert.ok(sourceRow, 'the source row must still exist -- no cascade delete');
+        assert.strictEqual(sourceRow.text, 'original message', 'source row must be untouched too');
+    } finally {
+        WebhookClient.prototype.deleteMessage = originalDeleteMsg;
+        db.updateRelayMessageText = originalUpdate;
+        if (groupId) db.deleteRelayMessagesByGroupId(groupId);
+        if (srcId) db.removeRelayChannel(srcId);
+        if (targetId) db.removeRelayChannel(targetId);
+    }
+});

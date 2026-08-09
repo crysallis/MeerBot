@@ -417,6 +417,17 @@ async function handleTranslationDeleteSync(message, client) {
     // either the message's own row or a sibling row that merely references this id inside
     // its batch_message_ids. Only trust a direct match.
     if (row.message_id !== message.id) return;
+    // Design spec: deleting a relayed COPY (not the source) is a deliberate moderation
+    // action that needs no bot handling -- a no-op. A copy row's batch_message_ids stores
+    // the SOURCE message's id(s), not a self-reference, so naively rebuilding against the
+    // copy's own message.id would find nothing to remove and fall into resyncRelayGroup,
+    // which unconditionally overwrites this row's own text/last_line_text with the
+    // re-translated SOURCE-language content -- silent, persistent corruption of the copy's
+    // stored translation (and any later reply-quote sourced from it). Only the source row
+    // has id === relay_group_message_id (set by the same setRelayMessageGroupId(X, X) call
+    // right after its own insert); every copy is inserted with relay_group_message_id
+    // pointing at that pre-existing source id, so a copy's own id can never equal it.
+    if (row.id !== row.relay_group_message_id) return;
     const batchMessageIds = JSON.parse(row.batch_message_ids);
     const rebuilt = rebuildBatchAfterChange(batchMessageIds, message.id, null);
 
