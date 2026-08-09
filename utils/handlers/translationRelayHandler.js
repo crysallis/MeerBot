@@ -395,6 +395,15 @@ async function handleTranslationEditSync(message, client) {
     if (message.author?.bot) return;
     const row = db.getRelayMessageByMessageId(message.id);
     if (!row) return;
+    // db.getRelayMessageByMessageId matches a row either by its own message_id OR by any
+    // entry inside ANY row's batch_message_ids JSON (that's how quote-lookup finds a group
+    // from a reply). Every sibling copy stores the SOURCE message's id inside its own
+    // batch_message_ids too, so looking up by the source's id can match the source row OR
+    // a sibling row -- SQLite's .get() has no ORDER BY, so which one comes back is
+    // implementation-defined, not guaranteed. Require a genuine own-row match before
+    // treating this as the source row; anything else (a sibling matched instead) is
+    // treated the same as "not found" rather than guessed at.
+    if (row.message_id !== message.id) return;
     const batchMessageIds = JSON.parse(row.batch_message_ids);
     const newContent = (message.content || '').trim();
     const rebuilt = rebuildBatchAfterChange(batchMessageIds, message.id, newContent);

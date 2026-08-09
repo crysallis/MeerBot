@@ -70,13 +70,24 @@ client.on('messageReactionAdd', (reaction, user) => {
 client.on('messageReactionRemove', (reaction, user) => {
   handleTranslationReactionSync(reaction, user, client, false).catch(err => console.error('[TranslationRelay] Reaction sync (remove) unhandled error:', err));
 });
-client.on('messageUpdate', (oldMessage, newMessage) => {
-  // partials: [Partials.Message] means newMessage/oldMessage can arrive uncached (author
-  // undefined, content unavailable) -- skip rather than risk blanking a relayed copy.
-  if (newMessage.partial || oldMessage?.partial) return;
+client.on('messageUpdate', async (oldMessage, newMessage) => {
+  // partials: [Partials.Message] means newMessage can arrive uncached (author undefined,
+  // content unavailable). Fetch it rather than silently dropping the edit -- mirrors the
+  // existing precedent in handleTranslationReactionSync (Task 3), which fetches partial
+  // reactions instead of discarding them. A fetch failure (e.g. message since deleted)
+  // still bails out, same as before.
+  if (newMessage.partial) {
+    try {
+      newMessage = await newMessage.fetch();
+    } catch (err) {
+      console.error('[TranslationRelay] Failed to fetch partial message for edit sync:', err.message);
+      return;
+    }
+  }
   // Discord also fires messageUpdate ~1s after link-embed unfurl with identical content --
   // skip those so an edit sync isn't triggered (and Claude isn't re-billed) for a no-op edit.
-  if (oldMessage?.content === newMessage.content) return;
+  // oldMessage can still be partial/stale here; only skip when we have real content to compare.
+  if (!oldMessage?.partial && oldMessage?.content === newMessage.content) return;
   handleTranslationEditSync(newMessage, client).catch(err => console.error('[TranslationRelay] Edit sync unhandled error:', err));
 });
 client.on('guildMemberUpdate', (oldMember, newMember) => handleTranslationRole(oldMember, newMember, client));
