@@ -348,6 +348,8 @@ db.exec(`
     author_display_name      TEXT NOT NULL,
     language                 TEXT NOT NULL,
     text                     TEXT NOT NULL,
+    batch_message_ids        TEXT NOT NULL DEFAULT '[]',
+    last_line_text           TEXT NOT NULL DEFAULT '',
     created_at               TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_trm_group_msg ON translation_relay_messages(relay_group_message_id);
@@ -362,6 +364,17 @@ db.exec(`
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
+
+// translation_relay_messages may already exist (shipped pre-batching) without the
+// batch_message_ids/last_line_text columns · SQLite has no ADD COLUMN IF NOT
+// EXISTS, so check first. Safe to run every startup.
+const relayMessageCols = new Set(db.prepare("PRAGMA table_info(translation_relay_messages)").all().map(c => c.name));
+for (const [col, ddl] of [
+    ['batch_message_ids', "ALTER TABLE translation_relay_messages ADD COLUMN batch_message_ids TEXT NOT NULL DEFAULT '[]'"],
+    ['last_line_text', "ALTER TABLE translation_relay_messages ADD COLUMN last_line_text TEXT NOT NULL DEFAULT ''"],
+]) {
+    if (!relayMessageCols.has(col)) db.exec(ddl);
+}
 
 /**
  * Merge duplicate members: repoint all of dropId's data onto keepId, alias the
@@ -558,11 +571,12 @@ function setRelayChannelWebhook(id, webhookId, webhookToken) {
         .run(webhookId, webhookToken, id);
 }
 
-function insertRelayMessage({ relayGroupMessageId, channelId, messageId, authorId, authorDisplayName, language, text }) {
+function insertRelayMessage({ relayGroupMessageId, channelId, messageId, authorId, authorDisplayName, language, text, batchMessageIds, lastLineText }) {
     const r = db.prepare(`INSERT INTO translation_relay_messages
-        (relay_group_message_id, channel_id, message_id, author_id, author_display_name, language, text)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`)
-        .run(relayGroupMessageId, channelId, messageId, authorId, authorDisplayName, language, text);
+        (relay_group_message_id, channel_id, message_id, author_id, author_display_name, language, text, batch_message_ids, last_line_text)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(relayGroupMessageId, channelId, messageId, authorId, authorDisplayName, language, text,
+             JSON.stringify(batchMessageIds ?? [messageId]), lastLineText ?? text);
     return r.lastInsertRowid;
 }
 

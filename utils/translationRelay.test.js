@@ -56,6 +56,29 @@ test('insertRelayMessage + getRelayMessageByMessageId + getRelayMessagesByGroupI
     db.prepare('DELETE FROM translation_relay_messages WHERE message_id IN (?, ?)').run('msg-source-1', 'msg-copy-1');
 });
 
+test('insertRelayMessage defaults batch_message_ids to [messageId] and last_line_text to text when omitted', () => {
+    db.insertRelayMessage({
+        relayGroupMessageId: 0, channelId: 'test-ch-7', messageId: 'msg-batch-default-1',
+        authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'hello',
+    });
+    const row = db.prepare('SELECT batch_message_ids, last_line_text FROM translation_relay_messages WHERE message_id = ?').get('msg-batch-default-1');
+    assert.deepEqual(JSON.parse(row.batch_message_ids), ['msg-batch-default-1']);
+    assert.equal(row.last_line_text, 'hello');
+    db.prepare('DELETE FROM translation_relay_messages WHERE message_id = ?').run('msg-batch-default-1');
+});
+
+test('insertRelayMessage stores explicit batch_message_ids and last_line_text when provided', () => {
+    db.insertRelayMessage({
+        relayGroupMessageId: 0, channelId: 'test-ch-8', messageId: 'msg-batch-explicit-1',
+        authorId: 'user-1', authorDisplayName: 'Tester', language: 'English',
+        text: 'hello\nhow are you', batchMessageIds: ['orig-1', 'orig-2'], lastLineText: 'how are you',
+    });
+    const row = db.prepare('SELECT batch_message_ids, last_line_text FROM translation_relay_messages WHERE message_id = ?').get('msg-batch-explicit-1');
+    assert.deepEqual(JSON.parse(row.batch_message_ids), ['orig-1', 'orig-2']);
+    assert.equal(row.last_line_text, 'how are you');
+    db.prepare('DELETE FROM translation_relay_messages WHERE message_id = ?').run('msg-batch-explicit-1');
+});
+
 test('insertTranslationUsage stores a usage row', () => {
     db.prepare('DELETE FROM translation_usage WHERE message_id = ?').run('msg-usage-1');
     db.insertTranslationUsage({ messageId: 'msg-usage-1', inputTokens: 42, outputTokens: 17, targetCount: 2 });
