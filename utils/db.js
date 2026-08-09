@@ -337,7 +337,7 @@ db.exec(`
 
   -- One row per relayed copy of a message, INCLUDING the original (channel_id = source
   -- channel, message_id = the original message's own id). relay_group_message_id is shared
-  -- across every copy of the same logical message: it is the `id` of that message's
+  -- across every copy of the same logical message: it is the id of that message's
   -- first-inserted row (the source copy), looked up via whichever message a reply references.
   CREATE TABLE IF NOT EXISTS translation_relay_messages (
     id                      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -580,6 +580,11 @@ function insertTranslationUsage({ messageId, inputTokens, outputTokens, targetCo
         VALUES (?, ?, ?, ?)`).run(messageId, inputTokens, outputTokens, targetCount);
 }
 
+function setRelayMessageGroupId(id, relayGroupMessageId) {
+    db.prepare('UPDATE translation_relay_messages SET relay_group_message_id = ? WHERE id = ?')
+        .run(relayGroupMessageId, id);
+}
+
 module.exports = db;
 module.exports.mergeMembers = mergeMembers;
 module.exports.getWarbands = getWarbands;
@@ -607,3 +612,4 @@ module.exports.insertRelayMessage = insertRelayMessage;
 module.exports.getRelayMessageByMessageId = getRelayMessageByMessageId;
 module.exports.getRelayMessagesByGroupId = getRelayMessagesByGroupId;
 module.exports.insertTranslationUsage = insertTranslationUsage;
+module.exports.setRelayMessageGroupId = setRelayMessageGroupId;

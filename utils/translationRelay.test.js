@@ -36,10 +36,12 @@ test('setRelayChannelWebhook updates cached webhook creds', () => {
 });
 
 test('insertRelayMessage + getRelayMessageByMessageId + getRelayMessagesByGroupId', () => {
+    db.prepare('DELETE FROM translation_relay_messages WHERE message_id IN (?, ?)').run('msg-source-1', 'msg-copy-1');
     const groupId = db.insertRelayMessage({
         relayGroupMessageId: 0, channelId: 'test-ch-5', messageId: 'msg-source-1',
         authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'hello',
     });
+    db.setRelayMessageGroupId(groupId, groupId);
     db.insertRelayMessage({
         relayGroupMessageId: groupId, channelId: 'test-ch-6', messageId: 'msg-copy-1',
         authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'hola',
@@ -51,12 +53,15 @@ test('insertRelayMessage + getRelayMessageByMessageId + getRelayMessagesByGroupI
 
     const group = db.getRelayMessagesByGroupId(groupId);
     assert.equal(group.length, 2);
+    db.prepare('DELETE FROM translation_relay_messages WHERE message_id IN (?, ?)').run('msg-source-1', 'msg-copy-1');
 });
 
 test('insertTranslationUsage stores a usage row', () => {
+    db.prepare('DELETE FROM translation_usage WHERE message_id = ?').run('msg-usage-1');
     db.insertTranslationUsage({ messageId: 'msg-usage-1', inputTokens: 42, outputTokens: 17, targetCount: 2 });
     const row = db.prepare('SELECT * FROM translation_usage WHERE message_id = ?').get('msg-usage-1');
     assert.equal(row.input_tokens, 42);
     assert.equal(row.output_tokens, 17);
     assert.equal(row.target_count, 2);
+    db.prepare('DELETE FROM translation_usage WHERE message_id = ?').run('msg-usage-1');
 });
