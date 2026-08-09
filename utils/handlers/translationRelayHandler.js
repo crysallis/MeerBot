@@ -239,7 +239,7 @@ async function processTranslationRelay(client, batch) {
     let translations = null;
     let usage = null;
     try {
-        const result = await callClaude(sourceChannelRow.language, targetLanguages, messages.map(m => m.text));
+        const result = await module.exports.callClaude(sourceChannelRow.language, targetLanguages, messages.map(m => m.text));
         translations = result.translations;
         usage = result.usage;
     } catch (err) {
@@ -313,4 +313,4 @@ async function processTranslationRelay(client, batch) {
     }
 }
 
-module.exports = { handleTranslationRelay, processTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches, __callClaude: callClaude };
+module.exports = { handleTranslationRelay, processTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches, callClaude };

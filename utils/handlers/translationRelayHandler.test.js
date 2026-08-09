@@ -244,12 +244,12 @@ test('processTranslationRelay includes files in the webhook send payload when at
     let sendCallCount = 0;
     const uniqueId = `files-test-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const originalSend = WebhookClient.prototype.send;
-    const originalCallClaude = translationRelayHandlerModule.__callClaude;
+    const originalCallClaude = translationRelayHandlerModule.callClaude;
     WebhookClient.prototype.send = async function (payload) {
         sentPayloads.push(payload);
         return { id: `sent-${uniqueId}-${++sendCallCount}` };
     };
-    translationRelayHandlerModule.__callClaude = async () => {
+    translationRelayHandlerModule.callClaude = async () => {
         return { translations: { Spanish: ['mira esto'] }, usage: { input_tokens: 10, output_tokens: 5 } };
     };
     try {
@@ -298,6 +298,6 @@ test('processTranslationRelay includes files in the webhook send payload when at
         }
     } finally {
         WebhookClient.prototype.send = originalSend;
-        translationRelayHandlerModule.__callClaude = originalCallClaude;
+        translationRelayHandlerModule.callClaude = originalCallClaude;
     }
 });
