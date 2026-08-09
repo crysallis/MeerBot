@@ -235,6 +235,228 @@ test('resyncRelayGroup (direct unit test): stubbed Claude, multiple siblings, on
     }
 });
 
+test('resyncRelayGroup rebuilds the quote-prefix and applies fitContent when editing a reply (Fix 2)', async () => {
+    // Design spec Feature 3 Step 7 requires the quote-prefix to survive an edit -- before
+    // the fix, resyncRelayGroup sent bare { content: bodyText } with no prefix and no
+    // length guard, silently stripping the "> quoted text" header from every copy on edit.
+    // The quoted message and the reply must share the same TARGET channel (both live in
+    // the same relay_group and route to the same Spanish channel) -- resyncRelayGroup's
+    // quote lookup matches replySource entries by channel_id against each sibling's own
+    // channel_id, so the reply's Spanish copy and the quoted message's Spanish copy need
+    // to be in the same channel for the match to succeed.
+    const quotedChannelId = db.addRelayChannel({ channelId: 'chan-quoted-src', language: 'English', flagEmoji: '🇺🇸', relayGroup: 'quote-test-group' });
+    const sharedTargetId = db.addRelayChannel({ channelId: 'chan-shared-target', language: 'Spanish', flagEmoji: '🇪🇸', relayGroup: 'quote-test-group' });
+    const replySourceId = db.addRelayChannel({ channelId: 'chan-reply-src', language: 'English', flagEmoji: '🇺🇸', relayGroup: 'quote-test-group-2' });
+
+    // The message being replied to -- needs its own relay group (source + copy row) so
+    // resyncRelayGroup's replySource lookup can find the copy in the reply's target channel.
+    const quotedGroupId = db.insertRelayMessage({
+        relayGroupMessageId: 0, channelId: 'chan-quoted-src', messageId: 'msg-quoted-src',
+        authorId: 'user-2', authorDisplayName: 'Other', language: 'English', text: 'the original quoted message',
+    });
+    db.setRelayMessageGroupId(quotedGroupId, quotedGroupId);
+    db.insertRelayMessage({
+        relayGroupMessageId: quotedGroupId, channelId: 'chan-shared-target', messageId: 'msg-quoted-copy',
+        authorId: 'user-2', authorDisplayName: 'Other', language: 'Spanish', text: 'el mensaje citado original',
+    });
+
+    // The reply row being edited -- its Spanish copy lives in the SAME 'chan-shared-target'
+    // channel as the quoted message's Spanish copy above.
+    const replyGroupId = db.insertRelayMessage({
+        relayGroupMessageId: 0, channelId: 'chan-reply-src', messageId: 'msg-reply-src',
+        authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'a reply',
+    });
+    db.setRelayMessageGroupId(replyGroupId, replyGroupId);
+    db.insertRelayMessage({
+        relayGroupMessageId: replyGroupId, channelId: 'chan-shared-target', messageId: 'msg-reply-copy',
+        authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: '> el mensaje citado original\nuna respuesta',
+    });
+
+    const { WebhookClient } = require('discord.js');
+    const editedPayloads = [];
+    const originalEdit = WebhookClient.prototype.editMessage;
+    WebhookClient.prototype.editMessage = async function (messageId, payload) {
+        editedPayloads.push({ messageId, payload });
+        return { id: messageId };
+    };
+    const originalCallClaude = translationRelayHandler.callClaude;
+    translationRelayHandler.callClaude = async () => ({
+        translations: { Spanish: ['una respuesta editada'] },
+        usage: { input_tokens: 1, output_tokens: 1 },
+    });
+    const stubClient = {
+        channels: { fetch: async () => ({ createWebhook: async () => ({ id: 'wh-quote', token: 'tok-quote' }) }) },
+    };
+    try {
+        const sourceRow = db.getRelayMessageByMessageId('msg-reply-src');
+        const rebuilt = rebuildBatchAfterChange(JSON.parse(sourceRow.batch_message_ids), 'msg-reply-src', 'an edited reply');
+
+        // Pass the quoted message's id as replyMessageId, same as handleTranslationEditSync
+        // now derives from message.reference?.messageId.
+        await resyncRelayGroup(stubClient, sourceRow, rebuilt, 'msg-quoted-src');
+
+        assert.strictEqual(editedPayloads.length, 1);
+        assert.strictEqual(editedPayloads[0].messageId, 'msg-reply-copy');
+        assert.ok(
+            editedPayloads[0].payload.content.startsWith('> '),
+            `expected the edited content to keep the quote-prefix, got: ${JSON.stringify(editedPayloads[0].payload.content)}`,
+        );
+        assert.ok(editedPayloads[0].payload.content.includes('una respuesta editada'));
+
+        // The stored text (DB) stays prefix-free, matching processTranslationRelay's own
+        // convention (text column never includes the quote-prefix, only the sent content does).
+        const updatedCopy = db.getRelayMessageByMessageId('msg-reply-copy');
+        assert.strictEqual(updatedCopy.text, 'una respuesta editada');
+    } finally {
+        WebhookClient.prototype.editMessage = originalEdit;
+        translationRelayHandler.callClaude = originalCallClaude;
+        db.deleteRelayMessagesByGroupId(quotedGroupId);
+        db.deleteRelayMessagesByGroupId(replyGroupId);
+        db.removeRelayChannel(quotedChannelId);
+        db.removeRelayChannel(sharedTargetId);
+        db.removeRelayChannel(replySourceId);
+    }
+});
+
+test('resyncRelayGroup applies fitContent to keep the edited content under Discord\'s 2000-char limit (Fix 2)', async () => {
+    const sourceChannelId = db.addRelayChannel({ channelId: 'chan-fit-src', language: 'English', flagEmoji: '🇺🇸', relayGroup: 'fit-test-group' });
+    const targetChannelId = db.addRelayChannel({ channelId: 'chan-fit-target', language: 'Spanish', flagEmoji: '🇪🇸', relayGroup: 'fit-test-group' });
+
+    const groupId = db.insertRelayMessage({
+        relayGroupMessageId: 0, channelId: 'chan-fit-src', messageId: 'msg-fit-src',
+        authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'short',
+    });
+    db.setRelayMessageGroupId(groupId, groupId);
+    db.insertRelayMessage({
+        relayGroupMessageId: groupId, channelId: 'chan-fit-target', messageId: 'msg-fit-copy',
+        authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'corto',
+    });
+
+    const { WebhookClient } = require('discord.js');
+    const editedPayloads = [];
+    const originalEdit = WebhookClient.prototype.editMessage;
+    WebhookClient.prototype.editMessage = async function (messageId, payload) {
+        editedPayloads.push({ messageId, payload });
+        return { id: messageId };
+    };
+    const originalCallClaude = translationRelayHandler.callClaude;
+    const oversized = 'x'.repeat(2500);
+    translationRelayHandler.callClaude = async () => ({
+        translations: { Spanish: [oversized] },
+        usage: { input_tokens: 1, output_tokens: 1 },
+    });
+    const stubClient = {
+        channels: { fetch: async () => ({ createWebhook: async () => ({ id: 'wh-fit', token: 'tok-fit' }) }) },
+    };
+    try {
+        const sourceRow = db.getRelayMessageByMessageId('msg-fit-src');
+        const rebuilt = rebuildBatchAfterChange(JSON.parse(sourceRow.batch_message_ids), 'msg-fit-src', 'a very long edit');
+
+        await resyncRelayGroup(stubClient, sourceRow, rebuilt);
+
+        assert.strictEqual(editedPayloads.length, 1);
+        assert.ok(editedPayloads[0].payload.content.length <= 2000, `expected content to fit Discord's 2000-char limit, got length ${editedPayloads[0].payload.content.length}`);
+    } finally {
+        WebhookClient.prototype.editMessage = originalEdit;
+        translationRelayHandler.callClaude = originalCallClaude;
+        db.deleteRelayMessagesByGroupId(groupId);
+        db.removeRelayChannel(sourceChannelId);
+        db.removeRelayChannel(targetChannelId);
+    }
+});
+
+test('handleTranslationEditSync no-ops when the edited message is a relayed COPY, not the source (Fix 5 symmetry)', async () => {
+    const sourceChannelId = db.addRelayChannel({ channelId: 'chan-editcopy-src', language: 'English', flagEmoji: '🇺🇸', relayGroup: 'editcopy-group' });
+    const targetChannelId = db.addRelayChannel({ channelId: 'chan-editcopy-target', language: 'Spanish', flagEmoji: '🇪🇸', relayGroup: 'editcopy-group' });
+
+    const groupId = db.insertRelayMessage({
+        relayGroupMessageId: 0, channelId: 'chan-editcopy-src', messageId: 'msg-editcopy-src',
+        authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'original message',
+    });
+    db.setRelayMessageGroupId(groupId, groupId);
+    db.insertRelayMessage({
+        relayGroupMessageId: groupId, channelId: 'chan-editcopy-target', messageId: 'msg-editcopy-copy',
+        authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'mensaje original',
+    });
+
+    let updateCalled = false;
+    const originalUpdate = db.updateRelayMessageText;
+    db.updateRelayMessageText = (...args) => { updateCalled = true; return originalUpdate(...args); };
+    try {
+        // Edit-syncing the COPY row's own message id -- getRelayMessageByMessageId would
+        // find this row's message_id directly, so it passes the row.message_id === message.id
+        // check; only the row.id !== row.relay_group_message_id copy-detection guard stops it.
+        await handleTranslationEditSync({ author: { bot: false }, id: 'msg-editcopy-copy', content: 'edited copy text' }, {});
+        assert.strictEqual(updateCalled, false, 'must not touch the copy row -- only the source row is editable');
+
+        const copyRow = db.getRelayMessagesByGroupId(groupId).find(r => r.message_id === 'msg-editcopy-copy');
+        assert.strictEqual(copyRow.text, 'mensaje original', 'copy text must be unchanged');
+    } finally {
+        db.updateRelayMessageText = originalUpdate;
+        db.deleteRelayMessagesByGroupId(groupId);
+        db.removeRelayChannel(sourceChannelId);
+        db.removeRelayChannel(targetChannelId);
+    }
+});
+
+test('handleTranslationEditSync routes its resync through enqueueRelay keyed by the row\'s ACTUAL relay_group string, not its numeric row id (Fix 3)', async () => {
+    // enqueueRelay(relayGroup, task) keys its queue Map on the relay_group STRING (e.g.
+    // 'default' or a custom group name) -- handleTranslationEditSync only has
+    // row.relay_group_message_id (a numeric row id) after its DB lookup, NOT that string.
+    // The fix derives it via db.getRelayChannelByChannelId(row.channel_id).relay_group.
+    // This test proves the derivation is correct by using a NON-default relay_group name
+    // and confirming translationRelayHandler.relayQueues gets a new entry under that exact
+    // string key (not under 'default', not under the numeric row id) once the edit's
+    // queued task settles.
+    const { relayQueues } = translationRelayHandler;
+    const customGroup = `custom-relay-group-${Date.now()}`;
+    const sourceChannelId = db.addRelayChannel({ channelId: 'chan-enqueue-src', language: 'English', flagEmoji: '🇺🇸', relayGroup: customGroup });
+    const targetChannelId = db.addRelayChannel({ channelId: 'chan-enqueue-target', language: 'Spanish', flagEmoji: '🇪🇸', relayGroup: customGroup });
+
+    const groupId = db.insertRelayMessage({
+        relayGroupMessageId: 0, channelId: 'chan-enqueue-src', messageId: 'msg-enqueue-src',
+        authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'hi',
+    });
+    db.setRelayMessageGroupId(groupId, groupId);
+    db.insertRelayMessage({
+        relayGroupMessageId: groupId, channelId: 'chan-enqueue-target', messageId: 'msg-enqueue-copy',
+        authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'hola',
+    });
+
+    const { WebhookClient } = require('discord.js');
+    const originalEdit = WebhookClient.prototype.editMessage;
+    WebhookClient.prototype.editMessage = async function (messageId) { return { id: messageId }; };
+    const originalCallClaude = translationRelayHandler.callClaude;
+    translationRelayHandler.callClaude = async () => ({
+        translations: { Spanish: ['hola editado'] },
+        usage: { input_tokens: 1, output_tokens: 1 },
+    });
+    const stubClient = {
+        channels: { fetch: async () => ({ createWebhook: async () => ({ id: 'wh-enq', token: 'tok-enq' }) }) },
+    };
+    try {
+        assert.ok(!relayQueues.has(customGroup), 'sanity check: no pre-existing queue entry for this fresh custom group');
+        assert.ok(!relayQueues.has(String(groupId)), 'sanity check: nothing keyed under the numeric row id string either');
+
+        await handleTranslationEditSync({ author: { bot: false }, id: 'msg-enqueue-src', content: 'hi edited' }, stubClient);
+
+        assert.ok(relayQueues.has(customGroup), 'expected the edit\'s task to have been enqueued under the row\'s real relay_group string');
+        assert.ok(!relayQueues.has(groupId), 'must not have been keyed under the numeric relay_group_message_id');
+
+        // Confirm the queued promise actually settled (the work really ran through the queue).
+        await relayQueues.get(customGroup);
+        const updatedSource = db.getRelayMessageByMessageId('msg-enqueue-src');
+        assert.strictEqual(updatedSource.text, 'hi edited');
+    } finally {
+        WebhookClient.prototype.editMessage = originalEdit;
+        translationRelayHandler.callClaude = originalCallClaude;
+        relayQueues.delete(customGroup);
+        db.deleteRelayMessagesByGroupId(groupId);
+        db.removeRelayChannel(sourceChannelId);
+        db.removeRelayChannel(targetChannelId);
+    }
+});
+
 test('handleTranslationEditSync updates the source row and edits target copies (real Claude call)', async () => {
     // Requires ANTHROPIC_API_KEY to be set in this worktree's .env -- same live-API
     // convention as the batching feature's stub-client + real-API split (see

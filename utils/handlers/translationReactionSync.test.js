@@ -40,105 +40,171 @@ test('handleTranslationReactionSync no-ops when the reacted message is not a tra
 });
 
 test('handleTranslationReactionSync mirrors a reaction on the original onto its relayed copy', async () => {
-    const groupId = db.insertRelayMessage({
-        relayGroupMessageId: 0, channelId: 'chan-src', messageId: 'msg-orig-1',
-        authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'hi',
-    });
-    db.setRelayMessageGroupId(groupId, groupId);
-    db.insertRelayMessage({
-        relayGroupMessageId: groupId, channelId: 'chan-target', messageId: 'msg-copy-1',
-        authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'hola',
-    });
+    let groupId;
+    try {
+        groupId = db.insertRelayMessage({
+            relayGroupMessageId: 0, channelId: 'chan-src', messageId: 'msg-orig-1',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'hi',
+        });
+        db.setRelayMessageGroupId(groupId, groupId);
+        db.insertRelayMessage({
+            relayGroupMessageId: groupId, channelId: 'chan-target', messageId: 'msg-copy-1',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'hola',
+        });
 
-    const reactedMessageIds = [];
-    const stubClient = {
-        user: { id: BOT_USER_ID },
-        channels: {
-            fetch: async () => ({
-                messages: { fetch: async (id) => ({ react: async (emoji) => reactedMessageIds.push([id, emoji]) }) },
-            }),
-        },
-    };
-    const reaction = makeStubReaction({ messageId: 'msg-orig-1', emojiName: '🔥' });
-    const user = { id: 'real-user-1' };
-    await handleTranslationReactionSync(reaction, user, stubClient, true);
-    assert.strictEqual(reactedMessageIds.length, 1);
-    assert.strictEqual(reactedMessageIds[0][0], 'msg-copy-1');
+        const reactedMessageIds = [];
+        const stubClient = {
+            user: { id: BOT_USER_ID },
+            channels: {
+                fetch: async () => ({
+                    messages: { fetch: async (id) => ({ react: async (emoji) => reactedMessageIds.push([id, emoji]) }) },
+                }),
+            },
+        };
+        const reaction = makeStubReaction({ messageId: 'msg-orig-1', emojiName: '🔥' });
+        const user = { id: 'real-user-1' };
+        await handleTranslationReactionSync(reaction, user, stubClient, true);
+        assert.strictEqual(reactedMessageIds.length, 1);
+        assert.strictEqual(reactedMessageIds[0][0], 'msg-copy-1');
+    } finally {
+        if (groupId) db.deleteRelayMessagesByGroupId(groupId);
+    }
 });
 
 test('handleTranslationReactionSync mirrors a reaction on a relayed copy back onto the original (bidirectional)', async () => {
-    const groupId = db.insertRelayMessage({
-        relayGroupMessageId: 0, channelId: 'chan-src', messageId: 'msg-orig-2',
-        authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'hi again',
-    });
-    db.setRelayMessageGroupId(groupId, groupId);
-    db.insertRelayMessage({
-        relayGroupMessageId: groupId, channelId: 'chan-target', messageId: 'msg-copy-2',
-        authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'hola de nuevo',
-    });
+    let groupId;
+    try {
+        groupId = db.insertRelayMessage({
+            relayGroupMessageId: 0, channelId: 'chan-src', messageId: 'msg-orig-2',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'hi again',
+        });
+        db.setRelayMessageGroupId(groupId, groupId);
+        db.insertRelayMessage({
+            relayGroupMessageId: groupId, channelId: 'chan-target', messageId: 'msg-copy-2',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'hola de nuevo',
+        });
 
-    const reactedMessageIds = [];
-    const stubClient = {
-        user: { id: BOT_USER_ID },
-        channels: {
-            fetch: async () => ({
-                messages: { fetch: async (id) => ({ react: async (emoji) => reactedMessageIds.push([id, emoji]) }) },
-            }),
-        },
-    };
-    const reaction = makeStubReaction({ messageId: 'msg-copy-2', emojiName: '🔥' });
-    const user = { id: 'real-user-1' };
-    await handleTranslationReactionSync(reaction, user, stubClient, true);
-    assert.strictEqual(reactedMessageIds.length, 1);
-    assert.strictEqual(reactedMessageIds[0][0], 'msg-orig-2');
+        const reactedMessageIds = [];
+        const stubClient = {
+            user: { id: BOT_USER_ID },
+            channels: {
+                fetch: async () => ({
+                    messages: { fetch: async (id) => ({ react: async (emoji) => reactedMessageIds.push([id, emoji]) }) },
+                }),
+            },
+        };
+        const reaction = makeStubReaction({ messageId: 'msg-copy-2', emojiName: '🔥' });
+        const user = { id: 'real-user-1' };
+        await handleTranslationReactionSync(reaction, user, stubClient, true);
+        assert.strictEqual(reactedMessageIds.length, 1);
+        assert.strictEqual(reactedMessageIds[0][0], 'msg-orig-2');
+    } finally {
+        if (groupId) db.deleteRelayMessagesByGroupId(groupId);
+    }
 });
 
 test('handleTranslationReactionSync fetches a partial reaction before reading its emoji', async () => {
-    const groupId = db.insertRelayMessage({
-        relayGroupMessageId: 0, channelId: 'chan-src', messageId: 'msg-orig-3',
-        authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'partial test',
-    });
-    db.setRelayMessageGroupId(groupId, groupId);
-    db.insertRelayMessage({
-        relayGroupMessageId: groupId, channelId: 'chan-target', messageId: 'msg-copy-3',
-        authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'prueba parcial',
-    });
-    let fetchWasCalled = false;
-    const reaction = makeStubReaction({ messageId: 'msg-orig-3', partial: true });
-    reaction.fetch = async function () { fetchWasCalled = true; this.partial = false; return this; };
-    const stubClient = {
-        user: { id: BOT_USER_ID },
-        channels: { fetch: async () => ({ messages: { fetch: async () => ({ react: async () => {} }) } }) },
-    };
-    await handleTranslationReactionSync(reaction, { id: 'real-user-1' }, stubClient, true);
-    assert.strictEqual(fetchWasCalled, true);
+    let groupId;
+    try {
+        groupId = db.insertRelayMessage({
+            relayGroupMessageId: 0, channelId: 'chan-src', messageId: 'msg-orig-3',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'partial test',
+        });
+        db.setRelayMessageGroupId(groupId, groupId);
+        db.insertRelayMessage({
+            relayGroupMessageId: groupId, channelId: 'chan-target', messageId: 'msg-copy-3',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'prueba parcial',
+        });
+        let fetchWasCalled = false;
+        const reaction = makeStubReaction({ messageId: 'msg-orig-3', partial: true });
+        reaction.fetch = async function () { fetchWasCalled = true; this.partial = false; return this; };
+        const stubClient = {
+            user: { id: BOT_USER_ID },
+            channels: { fetch: async () => ({ messages: { fetch: async () => ({ react: async () => {} }) } }) },
+        };
+        await handleTranslationReactionSync(reaction, { id: 'real-user-1' }, stubClient, true);
+        assert.strictEqual(fetchWasCalled, true);
+    } finally {
+        if (groupId) db.deleteRelayMessagesByGroupId(groupId);
+    }
+});
+
+test('handleTranslationReactionSync reacting to a non-first message of a batch does not spuriously self-react on the batch anchor', async () => {
+    // The row's own message_id is always the batch's FIRST/anchor message id (see
+    // processTranslationRelay: messages[0].messageId anchors the row). Reacting to the
+    // batch's SECOND message means reaction.message.id !== row.message_id -- filtering
+    // siblings by reaction.message.id (the old bug) would fail to exclude the row itself,
+    // producing a spurious extra react() call against the anchor message alongside the
+    // real sibling copies.
+    let groupId;
+    try {
+        const batchMessageIds = [
+            { messageId: 'msg-batch-anchor', text: 'first line' },
+            { messageId: 'msg-batch-second', text: 'second line' },
+        ];
+        groupId = db.insertRelayMessage({
+            relayGroupMessageId: 0, channelId: 'chan-src', messageId: 'msg-batch-anchor',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'English',
+            text: 'first line\nsecond line', batchMessageIds, lastLineText: 'second line',
+        });
+        db.setRelayMessageGroupId(groupId, groupId);
+        db.insertRelayMessage({
+            relayGroupMessageId: groupId, channelId: 'chan-target', messageId: 'msg-batchcopy',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'primera linea\nsegunda linea',
+        });
+
+        const reactedMessageIds = [];
+        const stubClient = {
+            user: { id: BOT_USER_ID },
+            channels: {
+                fetch: async () => ({
+                    messages: { fetch: async (id) => ({ react: async (emoji) => reactedMessageIds.push(id) }) },
+                }),
+            },
+        };
+        // React to the SECOND message of the batch, not the anchor.
+        const reaction = makeStubReaction({ messageId: 'msg-batch-second', emojiName: '🔥' });
+        const user = { id: 'real-user-1' };
+        await handleTranslationReactionSync(reaction, user, stubClient, true);
+
+        assert.strictEqual(reactedMessageIds.length, 1, 'expected exactly one react call (the sibling copy), no spurious self-react on the anchor');
+        assert.strictEqual(reactedMessageIds[0], 'msg-batchcopy');
+        assert.ok(!reactedMessageIds.includes('msg-batch-anchor'), 'must not spuriously react to the batch\'s own anchor message');
+    } finally {
+        if (groupId) db.deleteRelayMessagesByGroupId(groupId);
+    }
 });
 
 test('handleTranslationReactionSync one target channel failing does not block others', async () => {
-    const groupId = db.insertRelayMessage({
-        relayGroupMessageId: 0, channelId: 'chan-src', messageId: 'msg-orig-4',
-        authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'multi target',
-    });
-    db.setRelayMessageGroupId(groupId, groupId);
-    db.insertRelayMessage({
-        relayGroupMessageId: groupId, channelId: 'chan-target-fail', messageId: 'msg-copy-fail',
-        authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'fallara',
-    });
-    db.insertRelayMessage({
-        relayGroupMessageId: groupId, channelId: 'chan-target-ok', messageId: 'msg-copy-ok',
-        authorId: 'user-1', authorDisplayName: 'Tester', language: 'Russian', text: 'budet rabotat',
-    });
-    const reacted = [];
-    const stubClient = {
-        user: { id: BOT_USER_ID },
-        channels: {
-            fetch: async (channelId) => {
-                if (channelId === 'chan-target-fail') throw new Error('missing access');
-                return { messages: { fetch: async (id) => ({ react: async () => reacted.push(id) }) } };
+    let groupId;
+    try {
+        groupId = db.insertRelayMessage({
+            relayGroupMessageId: 0, channelId: 'chan-src', messageId: 'msg-orig-4',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'multi target',
+        });
+        db.setRelayMessageGroupId(groupId, groupId);
+        db.insertRelayMessage({
+            relayGroupMessageId: groupId, channelId: 'chan-target-fail', messageId: 'msg-copy-fail',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'fallara',
+        });
+        db.insertRelayMessage({
+            relayGroupMessageId: groupId, channelId: 'chan-target-ok', messageId: 'msg-copy-ok',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'Russian', text: 'budet rabotat',
+        });
+        const reacted = [];
+        const stubClient = {
+            user: { id: BOT_USER_ID },
+            channels: {
+                fetch: async (channelId) => {
+                    if (channelId === 'chan-target-fail') throw new Error('missing access');
+                    return { messages: { fetch: async (id) => ({ react: async () => reacted.push(id) }) } };
+                },
             },
-        },
-    };
-    const reaction = makeStubReaction({ messageId: 'msg-orig-4' });
-    await handleTranslationReactionSync(reaction, { id: 'real-user-1' }, stubClient, true);
-    assert.deepStrictEqual(reacted, ['msg-copy-ok']);
+        };
+        const reaction = makeStubReaction({ messageId: 'msg-orig-4' });
+        await handleTranslationReactionSync(reaction, { id: 'real-user-1' }, stubClient, true);
+        assert.deepStrictEqual(reacted, ['msg-copy-ok']);
+    } finally {
+        if (groupId) db.deleteRelayMessagesByGroupId(groupId);
+    }
 });

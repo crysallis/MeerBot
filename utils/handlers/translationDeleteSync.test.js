@@ -102,6 +102,56 @@ test('handleTranslationDeleteSync re-translates remaining lines when one line of
     }
 });
 
+test('handleTranslationDeleteSync routes its work through enqueueRelay keyed by the row\'s ACTUAL relay_group string (Fix 3)', async () => {
+    // Same derivation requirement as edit sync: enqueueRelay keys on the relay_group
+    // STRING, but handleTranslationDeleteSync only has row.relay_group_message_id (a
+    // numeric row id) after its DB lookup. The fix derives the real key via
+    // db.getRelayChannelByChannelId(row.channel_id).relay_group. This test uses a
+    // non-default group name and confirms translationRelayHandler.relayQueues gets an
+    // entry under that exact string, proving the whole delete-or-resync body (not just
+    // resyncRelayGroup) ran inside the queue.
+    const translationRelayHandler = require('./translationRelayHandler');
+    const { relayQueues } = translationRelayHandler;
+    const customGroup = `custom-delete-group-${Date.now()}`;
+    let srcId, targetId, groupId;
+    const { WebhookClient } = require('discord.js');
+    const originalDelete = WebhookClient.prototype.deleteMessage;
+    WebhookClient.prototype.deleteMessage = async function () {};
+    const stubClient = {
+        channels: { fetch: async () => ({ createWebhook: async () => ({ id: 'wh-enq-del', token: 'tok-enq-del' }) }) },
+    };
+    try {
+        srcId = db.addRelayChannel({ channelId: 'chan-enqdel-src', language: 'English', flagEmoji: '🇺🇸', relayGroup: customGroup });
+        targetId = db.addRelayChannel({ channelId: 'chan-enqdel-target', language: 'Spanish', flagEmoji: '🇪🇸', relayGroup: customGroup });
+
+        groupId = db.insertRelayMessage({
+            relayGroupMessageId: 0, channelId: 'chan-enqdel-src', messageId: 'msg-enqdel-src',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'solo message',
+        });
+        db.setRelayMessageGroupId(groupId, groupId);
+        db.insertRelayMessage({
+            relayGroupMessageId: groupId, channelId: 'chan-enqdel-target', messageId: 'msg-enqdel-copy',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'mensaje solo',
+        });
+
+        assert.ok(!relayQueues.has(customGroup), 'sanity check: no pre-existing queue entry for this fresh custom group');
+        assert.ok(!relayQueues.has(groupId), 'sanity check: nothing keyed under the numeric row id either');
+
+        await handleTranslationDeleteSync({ id: 'msg-enqdel-src' }, stubClient);
+
+        assert.ok(relayQueues.has(customGroup), 'expected the delete\'s task to have been enqueued under the row\'s real relay_group string');
+        assert.ok(!relayQueues.has(groupId), 'must not have been keyed under the numeric relay_group_message_id');
+        await relayQueues.get(customGroup);
+        assert.strictEqual(db.getRelayMessagesByGroupId(groupId).length, 0, 'the queued delete task should still have completed the actual delete');
+    } finally {
+        WebhookClient.prototype.deleteMessage = originalDelete;
+        relayQueues.delete(customGroup);
+        if (groupId) db.deleteRelayMessagesByGroupId(groupId);
+        if (srcId) db.removeRelayChannel(srcId);
+        if (targetId) db.removeRelayChannel(targetId);
+    }
+});
+
 test('handleTranslationDeleteSync no-ops when the deleted message is a relayed COPY, not the source', async () => {
     // Design spec: a moderator deleting a relayed copy is a deliberate moderation action
     // needing no bot handling. A copy row's batch_message_ids stores the SOURCE message's

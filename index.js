@@ -86,8 +86,10 @@ client.on('messageUpdate', async (oldMessage, newMessage) => {
   }
   // Discord also fires messageUpdate ~1s after link-embed unfurl with identical content --
   // skip those so an edit sync isn't triggered (and Claude isn't re-billed) for a no-op edit.
-  // oldMessage can still be partial/stale here; only skip when we have real content to compare.
-  if (!oldMessage?.partial && oldMessage?.content === newMessage.content) return;
+  // When oldMessage itself is partial, its content can't be compared reliably at all (may
+  // be missing/stale) -- treat that case as "skip" too, rather than falling through to a
+  // real re-translation for what's likely just another no-op embed-load update.
+  if (oldMessage?.partial || oldMessage?.content === newMessage.content) return;
   handleTranslationEditSync(newMessage, client).catch(err => console.error('[TranslationRelay] Edit sync unhandled error:', err));
 });
 client.on('messageDelete', message => {

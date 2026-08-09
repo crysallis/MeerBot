@@ -301,3 +301,122 @@ test('processTranslationRelay includes files in the webhook send payload when at
         translationRelayHandlerModule.callClaude = originalCallClaude;
     }
 });
+
+// --- Fix 1 verification: batch_message_ids must store {messageId,text}[], never flat
+// strings, for a FRESH write made within this running process (not just after a restart's
+// migration heals a pre-existing row). ----------------------------------------------------
+
+test('processTranslationRelay stores batch_message_ids as {messageId,text}[] on a fresh write, both for the source row and every target copy', async () => {
+    const uniqueId = `shape-test-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const originalSend = WebhookClient.prototype.send;
+    const originalCallClaude = translationRelayHandlerModule.callClaude;
+    let sendCallCount = 0;
+    WebhookClient.prototype.send = async function () {
+        return { id: `sent-${uniqueId}-${++sendCallCount}` };
+    };
+    translationRelayHandlerModule.callClaude = async () => {
+        return {
+            translations: { Spanish: ['primera linea', 'segunda linea'] },
+            usage: { input_tokens: 10, output_tokens: 5 },
+        };
+    };
+    try {
+        const srcChanId = `src-${uniqueId}`;
+        const tgtChanId = `tgt-${uniqueId}`;
+        const groupId = `group-${uniqueId}`;
+        const msgIdA = `msg-a-${uniqueId}`;
+        const msgIdB = `msg-b-${uniqueId}`;
+
+        const stubClient = {
+            channels: {
+                fetch: async () => ({ createWebhook: async () => ({ id: 'wh-shape', token: 'tok-shape' }) }),
+            },
+        };
+        const sourceId = db.addRelayChannel({ channelId: srcChanId, language: 'English', flagEmoji: '🇺🇸', relayGroup: groupId });
+        const targetId = db.addRelayChannel({ channelId: tgtChanId, language: 'Spanish', flagEmoji: '🇪🇸', relayGroup: groupId });
+        const sourceRow = db.getRelayChannelByChannelId(srcChanId);
+
+        const batch = {
+            authorId: 'user-1',
+            sourceChannelRow: sourceRow,
+            isReply: false,
+            replyMessageId: null,
+            authorDisplayName: 'Tester',
+            authorAvatarURL: 'http://example.com/a.png',
+            messages: [
+                { messageId: msgIdA, text: 'first line', attachments: [] },
+                { messageId: msgIdB, text: 'second line', attachments: [] },
+            ],
+        };
+        try {
+            await processTranslationRelay(stubClient, batch);
+
+            const sourceRelayRow = db.getRelayMessageByMessageId(msgIdA);
+            assert.ok(sourceRelayRow, 'expected the source row to be findable by its anchor message id');
+            const parsedSource = JSON.parse(sourceRelayRow.batch_message_ids);
+            assert.deepStrictEqual(parsedSource, [
+                { messageId: msgIdA, text: 'first line' },
+                { messageId: msgIdB, text: 'second line' },
+            ], 'source row batch_message_ids must be {messageId,text}[], not a flat string array');
+
+            const copyRow = db.prepare('SELECT * FROM translation_relay_messages WHERE channel_id = ?').get(tgtChanId);
+            assert.ok(copyRow, 'expected a target copy row to exist');
+            const parsedCopy = JSON.parse(copyRow.batch_message_ids);
+            assert.ok(Array.isArray(parsedCopy) && parsedCopy.length > 0, 'copy row batch_message_ids must be a non-empty array');
+            for (const entry of parsedCopy) {
+                assert.strictEqual(typeof entry, 'object', 'every entry must be an object, not a bare string');
+                assert.ok('messageId' in entry && 'text' in entry, 'every entry must have messageId and text keys');
+            }
+        } finally {
+            db.removeRelayChannel(sourceId);
+            db.removeRelayChannel(targetId);
+            db.prepare('DELETE FROM translation_relay_messages WHERE message_id LIKE ? OR channel_id = ?').run(`%${uniqueId}%`, tgtChanId);
+            db.prepare('DELETE FROM translation_usage WHERE message_id LIKE ?').run(`%${uniqueId}%`);
+        }
+    } finally {
+        WebhookClient.prototype.send = originalSend;
+        translationRelayHandlerModule.callClaude = originalCallClaude;
+    }
+});
+
+test('getRelayMessageByMessageId does not throw when a legacy flat-shaped row exists alongside normal rows, and returns no match for an unrelated lookup', () => {
+    const uniqueId = `legacy-test-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const legacyChan = `legacy-chan-${uniqueId}`;
+    const normalChan = `normal-chan-${uniqueId}`;
+    const legacyMsgId = `legacy-msg-${uniqueId}`;
+    const normalMsgId = `normal-msg-${uniqueId}`;
+    const unrelatedMsgId = `unrelated-msg-${uniqueId}`;
+
+    // Simulate a still-poisoned row (old flat-string shape) inserted directly, bypassing
+    // insertRelayMessage's own serialization -- same technique the migration test uses.
+    db.prepare(`INSERT INTO translation_relay_messages
+        (relay_group_message_id, channel_id, message_id, author_id, author_display_name, language, text, batch_message_ids, last_line_text)
+        VALUES (0, ?, ?, 'user-1', 'Tester', 'English', 'legacy text', ?, 'legacy text')`)
+        .run(legacyChan, legacyMsgId, JSON.stringify([legacyMsgId]));
+
+    const normalGroupId = db.insertRelayMessage({
+        relayGroupMessageId: 0, channelId: normalChan, messageId: normalMsgId,
+        authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'normal text',
+    });
+    db.setRelayMessageGroupId(normalGroupId, normalGroupId);
+
+    try {
+        // The direct match path (message_id = ?) still finds the legacy row fine -- the
+        // risk was always the EXISTS/json_each scan across OTHER rows' batch_message_ids.
+        assert.doesNotThrow(() => db.getRelayMessageByMessageId(legacyMsgId));
+
+        // A lookup that must fall through to the json_each scan (misses on direct match)
+        // must not throw just because the legacy row is sitting in the table.
+        let result;
+        assert.doesNotThrow(() => { result = db.getRelayMessageByMessageId(unrelatedMsgId); });
+        assert.strictEqual(result, undefined, 'an unrelated lookup must return no match, not throw or false-match');
+
+        // A genuine match via a normal (non-legacy) row's batch_message_ids must still work
+        // correctly with the legacy row present.
+        const found = db.getRelayMessageByMessageId(normalMsgId);
+        assert.ok(found, 'expected to still find the normal row by its own message_id');
+        assert.strictEqual(found.message_id, normalMsgId);
+    } finally {
+        db.prepare('DELETE FROM translation_relay_messages WHERE channel_id IN (?, ?)').run(legacyChan, normalChan);
+    }
+});

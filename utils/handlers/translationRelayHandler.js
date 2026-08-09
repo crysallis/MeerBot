@@ -210,7 +210,7 @@ async function processTranslationRelay(client, batch) {
 
     const combinedText = messages.map(m => m.text).join('\n');
     const lastLine = messages[messages.length - 1].text;
-    const batchMessageIds = messages.map(m => m.messageId);
+    const batchMessageIds = messages.map(m => ({ messageId: m.messageId, text: m.text }));
 
     // Record the source batch's own row first -- its id becomes the shared
     // relay_group_message_id for every translated copy.
@@ -325,8 +325,14 @@ async function handleTranslationReactionSync(reaction, user, client, isAdd) {
     }
     const row = db.getRelayMessageByMessageId(reaction.message.id);
     if (!row) return;
+    // Compare against the ROW's own message_id, not reaction.message.id -- for a reaction
+    // on a non-first message of a multi-message batch, reaction.message.id is that
+    // specific line's id, but row.message_id is always the batch's first/anchor message
+    // (getRelayMessageByMessageId matches via batch_message_ids for non-anchor lines).
+    // Filtering on reaction.message.id would fail to exclude the row itself in that case,
+    // causing a spurious extra react() call against the row's own anchor message.
     const siblings = db.getRelayMessagesByGroupId(row.relay_group_message_id)
-        .filter(r => r.message_id !== reaction.message.id);
+        .filter(r => r.message_id !== row.message_id);
 
     for (const sibling of siblings) {
         try {
@@ -351,7 +357,16 @@ function rebuildBatchAfterChange(batchMessageIds, messageId, newText) {
     return batchMessageIds.map(entry => entry.messageId === messageId ? { ...entry, text: newText } : entry);
 }
 
-async function resyncRelayGroup(client, sourceRow, rebuiltBatch) {
+// replyMessageId (optional): the message.reference?.messageId of the edited/deleted
+// message, when available -- the same value processTranslationRelay's caller reads off
+// the live Discord message to build batch.replyMessageId. Nothing in the DB tracks
+// whether a source row was itself a reply (translation_relay_messages has no such
+// column, and copy rows store bodyText WITHOUT the quote-prefix baked in -- only the
+// live send in processTranslationRelay ever combined them), so this must be threaded in
+// from the caller's live message object rather than re-derived from stored rows. A
+// deleted message often arrives partial with no reference available -- degrading to no
+// quote-prefix in that case is an honest best-effort, not a bug.
+async function resyncRelayGroup(client, sourceRow, rebuiltBatch, replyMessageId = null) {
     const combinedText = rebuiltBatch.map(e => e.text).join('\n');
     const lastLineText = rebuiltBatch.length > 0 ? rebuiltBatch[rebuiltBatch.length - 1].text : '';
     db.updateRelayMessageText(sourceRow.id, { text: combinedText, batchMessageIds: rebuiltBatch, lastLineText });
@@ -371,14 +386,36 @@ async function resyncRelayGroup(client, sourceRow, rebuiltBatch) {
         return siblings;
     }
 
+    // Same quote-prefix derivation as processTranslationRelay (lines ~230-236): resolve
+    // the replied-to message's relay group, then per-target find that group's copy in the
+    // matching channel.
+    let replySource = null;
+    if (replyMessageId) {
+        const referenced = db.getRelayMessageByMessageId(replyMessageId);
+        if (referenced) {
+            replySource = db.getRelayMessagesByGroupId(referenced.relay_group_message_id);
+        }
+    }
+
     for (const sibling of siblings) {
         try {
             const targetRow = db.getRelayChannelByChannelId(sibling.channel_id);
             const bodyLines = translations[sibling.language];
-            const bodyText = bodyLines.join('\n');
+            let bodyText = bodyLines.join('\n');
+
+            let quotePrefix = '';
+            if (replySource) {
+                const quoteRow = replySource.find(r => r.channel_id === sibling.channel_id);
+                if (quoteRow) {
+                    const quoteText = quoteRow.last_line_text || quoteRow.text; // fallback for pre-batching rows
+                    quotePrefix = `> ${truncateQuote(quoteText)}\n`;
+                }
+            }
+            bodyText = fitContent(quotePrefix, bodyText);
+
             const channel = await client.channels.fetch(sibling.channel_id);
             const webhook = await getOrCreateWebhook(targetRow, channel);
-            await webhook.editMessage(sibling.message_id, { content: bodyText });
+            await webhook.editMessage(sibling.message_id, { content: quotePrefix + bodyText });
             db.updateRelayMessageText(sibling.id, {
                 text: bodyText,
                 batchMessageIds: sibling.batch_message_ids ? JSON.parse(sibling.batch_message_ids) : [],
@@ -404,10 +441,35 @@ async function handleTranslationEditSync(message, client) {
     // treating this as the source row; anything else (a sibling matched instead) is
     // treated the same as "not found" rather than guessed at.
     if (row.message_id !== message.id) return;
-    const batchMessageIds = JSON.parse(row.batch_message_ids);
+    // Same copy-row-detection guard as handleTranslationDeleteSync (Task 5's fix round):
+    // only the source row has id === relay_group_message_id. Editing a copy directly is
+    // already impossible via Discord (webhook-token-only), but this closes the same class
+    // of gap symmetrically for one line.
+    if (row.id !== row.relay_group_message_id) return;
+    const relayGroup = db.getRelayChannelByChannelId(row.channel_id)?.relay_group;
+    if (!relayGroup) {
+        console.error(`[TranslationRelay] Edit sync: no relay channel row found for channel ${row.channel_id}, cannot serialize -- skipping`);
+        return;
+    }
     const newContent = (message.content || '').trim();
-    const rebuilt = rebuildBatchAfterChange(batchMessageIds, message.id, newContent);
-    await resyncRelayGroup(client, row, rebuilt);
+    const replyMessageId = message.reference?.messageId ?? null;
+    // Re-read the row INSIDE the queued task rather than closing over the snapshot fetched
+    // above -- an edit and a delete on the same batch can both pass their guards and enqueue
+    // before either runs. If this task built `rebuilt` from the pre-queue snapshot, whichever
+    // of the two runs second would rebuild from stale (pre-sibling-task) data and silently
+    // revert the first task's change when it writes back. Re-fetching here, inside the task,
+    // is what makes the two tasks actually see each other's effects in queue order. (In
+    // practice, with the current anchor-only guards, the only reachable operations on an
+    // entry are wholesale text replacement and whole-group deletion -- neither reads prior
+    // entry content, so no currently-reachable interleaving produces stale-based corruption.
+    // This re-read is defense-in-depth: it becomes load-bearing the moment per-line
+    // edit/delete for non-anchor batch messages ships.)
+    await enqueueRelay(relayGroup, async () => {
+        const fresh = db.getRelayMessageByMessageId(message.id);
+        if (!fresh || fresh.message_id !== message.id || fresh.id !== fresh.relay_group_message_id) return;
+        const rebuilt = rebuildBatchAfterChange(JSON.parse(fresh.batch_message_ids), message.id, newContent);
+        await resyncRelayGroup(client, fresh, rebuilt, replyMessageId);
+    });
 }
 
 async function handleTranslationDeleteSync(message, client) {
@@ -428,27 +490,46 @@ async function handleTranslationDeleteSync(message, client) {
     // right after its own insert); every copy is inserted with relay_group_message_id
     // pointing at that pre-existing source id, so a copy's own id can never equal it.
     if (row.id !== row.relay_group_message_id) return;
-    const batchMessageIds = JSON.parse(row.batch_message_ids);
-    const rebuilt = rebuildBatchAfterChange(batchMessageIds, message.id, null);
-
-    if (rebuilt.length > 0) {
-        await resyncRelayGroup(client, row, rebuilt);
+    const relayGroup = db.getRelayChannelByChannelId(row.channel_id)?.relay_group;
+    if (!relayGroup) {
+        console.error(`[TranslationRelay] Delete sync: no relay channel row found for channel ${row.channel_id}, cannot serialize -- skipping`);
         return;
     }
+    // The whole resync-or-delete body runs as ONE queued task, keyed by the same
+    // relay_group string flushBatch/edit-sync use -- not just the resyncRelayGroup call.
+    // The full-delete branch below does its own webhook deletes + deleteRelayMessagesByGroupId
+    // outside resyncRelayGroup; leaving that part unserialized would still let a delete-all
+    // interleave with a concurrent edit on the same batch, which is the exact race this fix
+    // exists to close.
+    //
+    // Re-read the row INSIDE the task rather than closing over the pre-queue snapshot, same
+    // reasoning as handleTranslationEditSync: an edit and a delete on the same batch can
+    // both pass their guards and enqueue before either runs. Rebuilding from a stale
+    // snapshot here would silently revert whichever sibling task ran first.
+    await enqueueRelay(relayGroup, async () => {
+        const fresh = db.getRelayMessageByMessageId(message.id);
+        if (!fresh || fresh.message_id !== message.id || fresh.id !== fresh.relay_group_message_id) return;
+        const rebuilt = rebuildBatchAfterChange(JSON.parse(fresh.batch_message_ids), message.id, null);
 
-    const siblings = db.getRelayMessagesByGroupId(row.relay_group_message_id)
-        .filter(r => r.id !== row.id);
-    for (const sibling of siblings) {
-        try {
-            const targetRow = db.getRelayChannelByChannelId(sibling.channel_id);
-            const channel = await client.channels.fetch(sibling.channel_id);
-            const webhook = await getOrCreateWebhook(targetRow, channel);
-            await webhook.deleteMessage(sibling.message_id);
-        } catch (err) {
-            console.error(`[TranslationRelay] Failed to delete relayed copy in channel ${sibling.channel_id}:`, err.message);
+        if (rebuilt.length > 0) {
+            await resyncRelayGroup(client, fresh, rebuilt);
+            return;
         }
-    }
-    db.deleteRelayMessagesByGroupId(row.relay_group_message_id);
+
+        const siblings = db.getRelayMessagesByGroupId(fresh.relay_group_message_id)
+            .filter(r => r.id !== fresh.id);
+        for (const sibling of siblings) {
+            try {
+                const targetRow = db.getRelayChannelByChannelId(sibling.channel_id);
+                const channel = await client.channels.fetch(sibling.channel_id);
+                const webhook = await getOrCreateWebhook(targetRow, channel);
+                await webhook.deleteMessage(sibling.message_id);
+            } catch (err) {
+                console.error(`[TranslationRelay] Failed to delete relayed copy in channel ${sibling.channel_id}:`, err.message);
+            }
+        }
+        db.deleteRelayMessagesByGroupId(fresh.relay_group_message_id);
+    });
 }
 
-module.exports = { handleTranslationRelay, processTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches, callClaude, handleTranslationReactionSync, handleTranslationEditSync, handleTranslationDeleteSync, rebuildBatchAfterChange, resyncRelayGroup };
+module.exports = { handleTranslationRelay, processTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches, callClaude, handleTranslationReactionSync, handleTranslationEditSync, handleTranslationDeleteSync, rebuildBatchAfterChange, resyncRelayGroup, enqueueRelay, relayQueues };

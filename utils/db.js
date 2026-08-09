@@ -606,12 +606,17 @@ function insertRelayMessage({ relayGroupMessageId, channelId, messageId, authorI
 }
 
 function getRelayMessageByMessageId(messageId) {
+    // The `value LIKE '{%'` guard skips any still-legacy-shaped entry (a flat string like
+    // "id1", which never starts with "{") before json_extract runs on it -- json_extract
+    // throws SQLITE_ERROR: malformed JSON on a bare string, and since this EXISTS subquery
+    // scans every row's batch_message_ids array, one still-poisoned row anywhere in the
+    // table would otherwise break lookups for every OTHER, correctly-shaped row too.
     return db.prepare(`
         SELECT * FROM translation_relay_messages
         WHERE message_id = ?
            OR EXISTS (
                SELECT 1 FROM json_each(batch_message_ids)
-               WHERE json_extract(value, '$.messageId') = ?
+               WHERE value LIKE '{%' AND json_extract(value, '$.messageId') = ?
            )
     `).get(messageId, messageId);
 }
