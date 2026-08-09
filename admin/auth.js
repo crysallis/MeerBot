@@ -68,6 +68,7 @@ const OPERATIONS = [
     { key: 'guilds',          group: 'Warbands',       label: 'Edit guild override roles',defaultTier: 'manage', match: r => /^\/api\/guilds/.test(r.path) },
     { key: 'dream_bosses',    group: 'DR Bosses',      label: 'Edit Dream Realm bosses',  defaultTier: 'manage', match: r => /^\/api\/dream-realm-bosses/.test(r.path) },
     { key: 'seasons',         group: 'Seasons',        label: 'Edit seasons & servers',   defaultTier: 'manage', match: r => /^\/api\/seasons/.test(r.path) },
+    { key: 'translation-relay', group: 'Translation Relay', label: 'Edit translation relay channels', defaultTier: 'manage', match: r => /^\/api\/translation-relay/.test(r.path) },
 ];
 const OP_BY_KEY = new Map(OPERATIONS.map(op => [op.key, op]));
 

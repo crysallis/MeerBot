@@ -1120,6 +1120,45 @@ app.get('/api/presence', (req, res) => {
     }
 });
 
+// ── Translation Relay ───────────────────────────────────────────────────────
+
+// GET /api/translation-relay — list configured relay channels
+app.get('/api/translation-relay', (req, res) => {
+    try {
+        res.json(db.getRelayChannels());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/translation-relay — add a channel to the relay
+app.post('/api/translation-relay', (req, res) => {
+    const channelId = (req.body.channelId || '').trim();
+    const language = (req.body.language || '').trim();
+    const flagEmoji = (req.body.flagEmoji || '').trim();
+    if (!channelId || !language || !flagEmoji) {
+        return res.status(400).json({ error: 'channelId, language, and flagEmoji are all required' });
+    }
+    try {
+        const id = db.addRelayChannel({ channelId, language, flagEmoji });
+        res.json({ ok: true, id });
+    } catch (err) {
+        res.status(err.message.includes('UNIQUE') ? 400 : 500)
+           .json({ error: err.message.includes('UNIQUE') ? 'That channel is already in the relay' : err.message });
+    }
+});
+
+// DELETE /api/translation-relay/:id — remove a channel from the relay
+app.delete('/api/translation-relay/:id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+        db.removeRelayChannel(id);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ── Access control (local-only · see auth.requiredTier) ───────────────────────
 
 // GET /api/access — operations (grouped by tab) + role->tier map + recent audit log
