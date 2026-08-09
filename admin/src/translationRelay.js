@@ -95,7 +95,7 @@ async function removeRelayChannel(id, label) {
 async function saveBatchTimeout() {
     const input = document.getElementById('relayBatchTimeout');
     const status = document.getElementById('relayBatchTimeoutStatus');
-    const seconds = parseInt(input.value, 10);
+    const seconds = Number(input.value);
     const res = await fetch('/api/translation-relay/batch-timeout', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

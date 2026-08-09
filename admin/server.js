@@ -1187,7 +1187,7 @@ app.get('/api/translation-relay/batch-timeout', (req, res) => {
 
 // PUT /api/translation-relay/batch-timeout
 app.put('/api/translation-relay/batch-timeout', (req, res) => {
-    const seconds = parseInt(req.body.seconds, 10);
+    const seconds = Number(req.body.seconds);
     if (!Number.isInteger(seconds) || seconds < 1 || seconds > RELAY_BATCH_TIMEOUT_MAX) {
         return res.status(400).json({ error: `seconds must be an integer between 1 and ${RELAY_BATCH_TIMEOUT_MAX}` });
     }
