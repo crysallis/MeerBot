@@ -6,7 +6,7 @@ Discord bot for AFK Journey guild management. Reads from a shared SQLite databas
 
 ## Prerequisites
 
-- **Node.js 18+**
+- **Node.js 24+** (LTS · upgraded 2026-08-08 from Node 21.7.1, which reached EOL)
 - **PM2** for persistent process management (`npm install -g pm2`)
 - The AFKDataMining scraper set up and having run at least one scan
 - A Discord application with a bot token ([discord.com/developers](https://discord.com/developers))
@@ -158,6 +158,10 @@ List commands show badges inline with member names:
 All tasks run through a single unified job scheduler (`utils/jobScheduler.js`) backed by the `scheduled_jobs` DB table. **Next fire time and repeat interval for each job are configurable from the admin panel's Scheduled Jobs tab** -- no restart needed for schedule changes. User reminders (`/remindme`) use the same queue as one-shot jobs. The scheduler polls every 30 seconds.
 
 **Panel-authored text jobs:** beyond the code-backed tasks above, the admin panel's Scheduled Jobs tab can create fully self-contained recurring (or one-off) Discord posts -- name, fire date/time, repeat interval, day-of-week filter, channel, title, body, and mentions -- entirely from the UI, no code file or deploy required. The Daily Reset weekday/weekend split (different wording for the Guild Duel crest-earning phase vs. the boss-attack weekend) is built this way: two independent text jobs, not one job with branching logic. Skipped entirely if the bot was offline more than 2h past fire time; a smaller configurable threshold (`LATE_WARNING_MINUTES`, default 30 min) adds a "late" note without skipping the send.
+
+### Translation relay
+
+Unlike the scheduled tasks above, this is event-triggered, not timer-driven: posting in any admin-panel-configured channel relays a translated copy into every other channel in that relay group, via a per-channel webhook so the copy appears under the original author's real name/avatar. One Claude Haiku 4.5 call per batch of consecutive same-author messages (not per message), configurable batch window (default 10s, max 15s) so a quick multi-message burst becomes one combined, one-call translation instead of several. Reactions mirror bidirectionally across every copy of a message; editing or deleting the original message re-translates or removes the already-relayed copies to match. Attachments pass through unchanged. Configured entirely from the admin panel's Translation Relay tab -- no code change needed to add a language/channel to an existing relay group.
 
 ---
 

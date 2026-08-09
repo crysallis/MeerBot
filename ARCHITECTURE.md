@@ -381,6 +381,45 @@ SQLite's `julianday()` converts dates to a continuous float (Julian Day Number),
 
 ---
 
+## utils/handlers/translationRelayHandler.js
+
+Relays a message posted in one admin-panel-configured Discord channel into every other channel in the same `relay_group`, translated by Claude Haiku 4.5, posted via a per-channel webhook so it appears under the original author's real name/avatar (`User X (app)`) rather than the bot's own identity.
+
+### Batching
+
+Consecutive same-author, non-reply messages in the same source channel within a configurable window (`translation_relay_batch_timeout_seconds`, default 10s, max 15s) combine into one Claude call and one relayed post per target channel, instead of firing independently. A reply, a different author, or a message from a different source channel force-flushes whatever batch is open and starts fresh. Batch state lives in an in-memory `Map` (`openBatches`, keyed by `relay_group`) with a per-batch `setTimeout`; `takeBatch()` synchronously claims/clears a group's slot so a timeout firing and an interrupting message racing for the same batch can't both process it.
+
+### Data model
+
+`translation_relay_messages` holds one row per relayed copy of a message, including the original (`channel_id` = source channel). Every copy of the same logical message shares one `relay_group_message_id` (the source row's own `id`), used to resolve reply-quote lookups and to find sibling copies for reaction/edit/delete sync. `batch_message_ids` stores `[{messageId, text}]` -- one entry per original Discord message folded into the batch, each with that line's own source text -- which is what makes it possible to precisely rebuild a batch after one line is edited or deleted, rather than only ever operating on an unsplittable joined blob.
+
+### Translation call
+
+`callClaude(sourceLanguage, targetLanguages, lines)` sends the whole batch as one numbered-list prompt and expects back a single JSON object keyed by target language, each value an array of translated lines in the same order -- one call handles every target language and every batched line at once, not one call per language or per message. `max_tokens` scales with both line count and target-language count (`BASE_MAX_TOKENS + lines.length * targetLanguages.length * PER_LINE_PER_LANGUAGE_TOKENS`, floored at the pre-batching baseline of 1024) since batching multiplies required output size. The system prompt explicitly forbids markdown-fencing the JSON response (Claude does it anyway often enough that `stripCodeFence()` still strips any fence defensively before `JSON.parse`, even after the prompt names the exact behavior to avoid). On translation failure, the message still relays untranslated with a flag-emoji reaction per target channel as a fallback signal.
+
+### Attachments
+
+`message.attachments` is captured onto each batch entry as `{url, name}` pairs and passed straight into the webhook `files` payload on send -- no re-hosting, no DB persistence, read once at send time. Because attachments are never persisted, `resyncRelayGroup()` (the shared edit/delete engine, below) has no attachment data to work with -- editing or deleting a line with an image re-flows the surviving text but cannot retain or re-attach the image.
+
+### Reaction sync
+
+`handleTranslationReactionSync()`, wired to `messageReactionAdd`/`messageReactionRemove`, mirrors a reaction bidirectionally across every copy of a relay group. Webhooks cannot react to messages at all (no such method exists on `discord.js`'s `WebhookClient`), so this always goes through the bot's own client/user account -- which means the synced reaction re-fires the same event, guarded against via `user.id === client.user.id`. This is not a reproduction of the real per-user reaction count, just one reaction from the bot's account mirrored onto each sibling.
+
+### Edit and delete sync
+
+`handleTranslationEditSync()`/`handleTranslationDeleteSync()`, wired to `messageUpdate`/`messageDelete`, re-translate and edit (or delete) every relayed copy when the source message changes. Both share `rebuildBatchAfterChange()` (replace or remove one entry from a batch's `{messageId,text}[]` array) and `resyncRelayGroup()` (rebuild the combined text, re-translate, re-derive the quote-prefix if the message was a reply, and edit every sibling copy via webhook).
+
+Two guards precede any write in both handlers:
+
+- `row.message_id !== message.id` -- `getRelayMessageByMessageId` matches a row either by its own `message_id` or by any entry inside *any* row's `batch_message_ids` (every sibling copy stores the source message's id for quote-lookup purposes), so a lookup by the source's own id can ambiguously return the source row or a sibling row with no guaranteed ordering. Only a genuine own-`message_id` match is trusted; anything else is treated as not-found.
+- `row.id !== row.relay_group_message_id` -- only the source row has these equal (set together at insert time); a copy row can never pass. Editing/deleting a relayed *copy* is a documented no-op, matching the design intent that a moderator manually deleting a copy needs no special bot handling.
+
+Both handlers route their entire body through `enqueueRelay()` (the same per-`relay_group` promise-chain queue batching uses), keyed by the row's actual `relay_group` string derived via `db.getRelayChannelByChannelId(row.channel_id).relay_group` -- not the numeric `relay_group_message_id`. This prevents a concurrent edit and delete on the same batch from interleaving; each queued task re-reads the row fresh rather than closing over a pre-queue snapshot, so one task always sees the other's effect if it ran first.
+
+**Known limitation:** both handlers only ever act on a batch's anchor (first) message, since `row.message_id` is set once at insert time and never repoints. Editing or deleting a non-first line of an already-relayed batch is a no-op -- and once the anchor itself is deleted, every remaining line in that batch becomes permanently un-editable/undeletable, not just a one-off edge case. Accepted as a low-priority gap (deletes are rare); fixing it would need a source-row-only DB lookup, not a guard relaxation, since relaxing the guard alone would reintroduce the exact multi-row-match ambiguity described above.
+
+---
+
 ## utils/permissions.js
 
 Two complementary permission systems:
