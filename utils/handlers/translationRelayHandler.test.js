@@ -1,7 +1,8 @@
 require('dotenv').config();
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { stripCodeFence, truncateQuote, processTranslationRelay } = require('./translationRelayHandler');
+const translationRelayHandlerModule = require('./translationRelayHandler');
+const { stripCodeFence, truncateQuote, processTranslationRelay } = translationRelayHandlerModule;
 const { WebhookClient } = require('discord.js');
 const db = require('../db');
 
@@ -231,9 +232,9 @@ test('handleTranslationRelay captures message attachments onto the batch entry',
         assert.ok(batch, 'expected an open batch');
         assert.strictEqual(batch.messages[0].attachments.length, 1);
         assert.strictEqual(batch.messages[0].attachments[0].url, 'https://cdn.discordapp.com/attachments/1/2/image.png');
-        clearTimeout(batch.timeoutHandle);
-        openBatches.delete(group);
     } finally {
+        const leftover = takeBatch(group);
+        if (leftover) clearTimeout(leftover.timeoutHandle);
         db.removeRelayChannel(chId);
     }
 });
@@ -243,9 +244,13 @@ test('processTranslationRelay includes files in the webhook send payload when at
     let sendCallCount = 0;
     const uniqueId = `files-test-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const originalSend = WebhookClient.prototype.send;
+    const originalCallClaude = translationRelayHandlerModule.__callClaude;
     WebhookClient.prototype.send = async function (payload) {
         sentPayloads.push(payload);
         return { id: `sent-${uniqueId}-${++sendCallCount}` };
+    };
+    translationRelayHandlerModule.__callClaude = async () => {
+        return { translations: { Spanish: ['mira esto'] }, usage: { input_tokens: 10, output_tokens: 5 } };
     };
     try {
         const srcChanId = `src-${uniqueId}`;
@@ -257,6 +262,9 @@ test('processTranslationRelay includes files in the webhook send payload when at
             channels: {
                 fetch: async () => ({
                     createWebhook: async () => ({ id: 'wh-1', token: 'tok-1' }),
+                    messages: {
+                        fetch: async () => ({ react: async () => {} }),
+                    },
                 }),
             },
         };
@@ -281,6 +289,7 @@ test('processTranslationRelay includes files in the webhook send payload when at
             await processTranslationRelay(stubClient, batch);
             assert.ok(sentPayloads[0].files, 'expected files key on payload');
             assert.strictEqual(sentPayloads[0].files[0].attachment, 'https://cdn.discordapp.com/attachments/1/2/image.png');
+            assert.strictEqual(sentPayloads[0].files[0].name, 'image.png');
         } finally {
             db.removeRelayChannel(sourceId);
             db.removeRelayChannel(targetId);
@@ -289,5 +298,6 @@ test('processTranslationRelay includes files in the webhook send payload when at
         }
     } finally {
         WebhookClient.prototype.send = originalSend;
+        translationRelayHandlerModule.__callClaude = originalCallClaude;
     }
 });

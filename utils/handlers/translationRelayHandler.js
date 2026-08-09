@@ -313,4 +313,4 @@ async function processTranslationRelay(client, batch) {
     }
 }
 
-module.exports = { handleTranslationRelay, processTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches };
+module.exports = { handleTranslationRelay, processTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches, __callClaude: callClaude };
