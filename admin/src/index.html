@@ -360,15 +360,25 @@
 
   <div class="section" id="section-translationrelay">
     <div class="section-title">Translation Relay</div>
-    <p style="color:var(--color-neutral-content); font-size:12px; margin-bottom:12px">
+    <p class="muted-note" style="margin-bottom:12px">
       Channels in this list stay in sync as one translated conversation: a message posted in
       any one of them is relayed into all the others, translated into each channel's language,
       and posted as the original author via webhook.
     </p>
+    <div style="margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em">Batch window (seconds, 1-15)</label>
+        <div style="display:flex; gap:8px">
+          <input type="number" id="relayBatchTimeout" min="1" max="15" step="1" style="max-width:80px">
+          <button id="saveRelayBatchTimeoutBtn" class="save-btn">Save</button>
+        </div>
+        <span id="relayBatchTimeoutStatus" class="muted-note" style="font-size:11px"></span>
+      </div>
+    </div>
     <div style="margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap">
       <select id="newRelayChannel" style="max-width:280px"></select>
-      <input id="newRelayLanguage" placeholder="Language (e.g. Spanish)" style="max-width:180px">
-      <input id="newRelayFlag" placeholder="Flag emoji (e.g. 🇪🇸)" style="max-width:100px">
+      <input type="text" id="newRelayLanguage" placeholder="Language (e.g. Spanish)" style="max-width:180px">
+      <input type="text" id="newRelayFlag" placeholder="Flag emoji (e.g. 🇪🇸)" style="max-width:100px">
       <button id="addRelayChannelBtn" class="save-btn" style="background:var(--color-success)">+ Add Channel</button>
     </div>
     <div class="panel-card">

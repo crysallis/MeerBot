@@ -10,6 +10,17 @@ export async function loadTranslationRelay() {
         relayData = [];
     }
     renderTranslationRelay();
+    await loadBatchTimeout();
+}
+
+async function loadBatchTimeout() {
+    try {
+        const { seconds } = await fetch('/api/translation-relay/batch-timeout').then(r => r.json());
+        const input = document.getElementById('relayBatchTimeout');
+        if (input) input.value = seconds;
+    } catch {
+        // If load fails, input stays blank and save will be the next action
+    }
 }
 
 function channelLabel(channelId) {
@@ -81,6 +92,25 @@ async function removeRelayChannel(id, label) {
     await loadTranslationRelay();
 }
 
+async function saveBatchTimeout() {
+    const input = document.getElementById('relayBatchTimeout');
+    const status = document.getElementById('relayBatchTimeoutStatus');
+    const seconds = parseInt(input.value, 10);
+    const res = await fetch('/api/translation-relay/batch-timeout', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seconds }),
+    });
+    const body = await res.json();
+    if (!res.ok) {
+        status.textContent = body.error || 'Failed to save';
+        return;
+    }
+    status.textContent = 'Saved.';
+    setTimeout(() => { status.textContent = ''; }, 2000);
+}
+
 export function initTranslationRelay() {
     document.getElementById('addRelayChannelBtn')?.addEventListener('click', addRelayChannel);
+    document.getElementById('saveRelayBatchTimeoutBtn')?.addEventListener('click', saveBatchTimeout);
 }

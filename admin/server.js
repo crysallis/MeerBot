@@ -1175,6 +1175,26 @@ app.delete('/api/translation-relay/:id', async (req, res) => {
     }
 });
 
+const RELAY_BATCH_TIMEOUT_KEY = 'translation_relay_batch_timeout_seconds';
+const RELAY_BATCH_TIMEOUT_DEFAULT = 10;
+const RELAY_BATCH_TIMEOUT_MAX = 15;
+
+// GET /api/translation-relay/batch-timeout
+app.get('/api/translation-relay/batch-timeout', (req, res) => {
+    const raw = botConfig.get(RELAY_BATCH_TIMEOUT_KEY, String(RELAY_BATCH_TIMEOUT_DEFAULT));
+    res.json({ seconds: parseInt(raw, 10) || RELAY_BATCH_TIMEOUT_DEFAULT });
+});
+
+// PUT /api/translation-relay/batch-timeout
+app.put('/api/translation-relay/batch-timeout', (req, res) => {
+    const seconds = parseInt(req.body.seconds, 10);
+    if (!Number.isInteger(seconds) || seconds < 1 || seconds > RELAY_BATCH_TIMEOUT_MAX) {
+        return res.status(400).json({ error: `seconds must be an integer between 1 and ${RELAY_BATCH_TIMEOUT_MAX}` });
+    }
+    botConfig.set(RELAY_BATCH_TIMEOUT_KEY, String(seconds));
+    res.json({ ok: true, seconds });
+});
+
 // ── Access control (local-only · see auth.requiredTier) ───────────────────────
 
 // GET /api/access — operations (grouped by tab) + role->tier map + recent audit log
