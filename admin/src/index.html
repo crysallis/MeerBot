@@ -358,6 +358,29 @@
     </div>
   </div>
 
+  <div class="section" id="section-translationrelay">
+    <div class="section-title">Translation Relay</div>
+    <p style="color:var(--color-neutral-content); font-size:12px; margin-bottom:12px">
+      Channels in this list stay in sync as one translated conversation: a message posted in
+      any one of them is relayed into all the others, translated into each channel's language,
+      and posted as the original author via webhook.
+    </p>
+    <div style="margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap">
+      <select id="newRelayChannel" style="max-width:280px"></select>
+      <input id="newRelayLanguage" placeholder="Language (e.g. Spanish)" style="max-width:180px">
+      <input id="newRelayFlag" placeholder="Flag emoji (e.g. 🇪🇸)" style="max-width:100px">
+      <button id="addRelayChannelBtn" class="save-btn" style="background:var(--color-success)">+ Add Channel</button>
+    </div>
+    <div class="panel-card">
+      <table class="jobs-table">
+        <thead>
+          <tr class="jobs-header-row"><th>Channel</th><th>Language</th><th>Flag</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="translationRelayBody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="section" id="section-permissions">
     <div class="section-title">Command Permissions</div>
     <p style="color:var(--color-neutral-content);font-size:12px;margin-bottom:12px">

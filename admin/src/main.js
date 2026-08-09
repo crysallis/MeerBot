@@ -9,6 +9,7 @@ import { renderScheduledJobs, toggleScheduledJob, saveScheduledJob, renderJobs, 
 import { loadReactions, openReactionForm, cancelReactionForm, saveReactionRule, deleteReactionRule, updatePreview, rxPatternTypeChange, rxResponseTypeChange, rxSyncColorPicker, rxFilterSelect, rxInsert, refreshDiscordData } from './reactions.js';
 import { loadMembers, renderMembers, approveMember, renameMember, linkMember, mergeMemberPrompt, setWarband, setIngameId, addWarband, renameWarbandUI, archiveWarband } from './members.js';
 import { loadSeasons, addSeason, toggleSeason, deleteSeason, toggleServerPanel, bulkAddServers, removeServer, loadDreamBosses, addDreamBoss, updateDreamBoss, deleteDreamBoss } from './seasons.js';
+import { loadTranslationRelay, initTranslationRelay } from './translationRelay.js';
 import { loadPermissions, populatePermCommands, permCommandChanged, populatePermCheckboxes, addPermRule, deletePermRule, removePermGroup, editPermGroup, cancelPermEdit } from './permissions.js';
 import { loadAccess, setOpTier, setRoleTierUI } from './access.js';
 import { loadServerStructure, refreshServerStructure } from './serverStructure.js';
@@ -311,6 +312,7 @@ async function init() {
   await loadReactions();
   await loadMembers();
   await loadSeasons();
+  await loadTranslationRelay();
   await loadPermissions();
   populatePermCommands();
   populatePermCheckboxes();
@@ -341,6 +343,7 @@ function renderTabs() {
     { id: 'warbands',      label: 'Warbands',         local: false },
     { id: 'dreambosses',   label: 'DR Bosses',        local: false },
     { id: 'seasons',       label: 'Seasons',          local: false },
+    { id: 'translationrelay', label: 'Translation Relay', local: false },
     { id: 'serverstructure', label: 'Server Structure', local: false },
     { id: 'access',        label: 'Access',           local: true  },
   ];
@@ -357,11 +360,12 @@ function switchTab(cat) {
   activeTab = cat;
   closeNav();
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const cats = [...new Set(state.allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'dreambosses', 'seasons', 'serverstructure', 'access'];
+    const cats = [...new Set(state.allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'dreambosses', 'seasons', 'translationrelay', 'serverstructure', 'access'];
     t.classList.toggle('active', cats[i] === cat);
   });
   if (cat === 'access') loadAccess();
   if (cat === 'serverstructure') loadServerStructure();
+  if (cat === 'translationrelay') loadTranslationRelay();
   document.querySelectorAll('.section').forEach(s => {
     s.classList.toggle('visible', s.id === 'section-' + cat);
   });
@@ -683,6 +687,7 @@ async function loadBotStatus() {
   document.getElementById('addWarbandBtn')?.addEventListener('click', addWarband);
   document.getElementById('addSeasonBtn')?.addEventListener('click', addSeason);
   document.getElementById('addDreamBossBtn')?.addEventListener('click', addDreamBoss);
+  initTranslationRelay();
 
   document.getElementById('perm-command')?.addEventListener('change', permCommandChanged);
   document.getElementById('perm-add-btn')?.addEventListener('click', addPermRule);
