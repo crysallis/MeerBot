@@ -59,6 +59,10 @@ async function sendViaWebhook(channelRow, channel, payload) {
     }
 }
 
+// Safety net, kept even after the system prompt explicitly forbids code fences (2026-08-09
+// probe: 3/3 fenced with the old "Output ONLY" wording alone, 0/3 fenced once the prompt
+// named the fence directly and told the model not to add one) -- an explicit instruction
+// makes it rare, not guaranteed, so this stays as defense-in-depth rather than being removed.
 function stripCodeFence(text) {
     const fenced = text.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
     return fenced ? fenced[1].trim() : text;
@@ -83,6 +87,7 @@ async function callClaude(sourceLanguage, targetLanguages, lines) {
             'The message is a numbered list of one or more lines, all from the same person, sent in order.',
             'Output ONLY a JSON object mapping each requested language name to an ARRAY of translated strings,',
             'one array entry per input line, in the same order -- never a single string, even for one line.',
+            'Output raw JSON with no markdown formatting -- do not wrap it in ```json or any code fence.',
         ].join(' '),
         messages: [{
             role: 'user',
