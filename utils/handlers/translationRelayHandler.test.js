@@ -1,7 +1,8 @@
 require('dotenv').config();
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { stripCodeFence, truncateQuote } = require('./translationRelayHandler');
+const { stripCodeFence, truncateQuote, processTranslationRelay } = require('./translationRelayHandler');
+const { WebhookClient } = require('discord.js');
 const db = require('../db');
 
 test('stripCodeFence leaves plain JSON unchanged', () => {
@@ -98,6 +99,7 @@ function fakeMessage({ channelId, authorId, content, isReply = false, username =
         id: `msg-${Math.random().toString(36).slice(2)}`,
         content,
         reference: isReply ? { messageId: 'referenced-msg-id' } : undefined,
+        attachments: new Map(),
     };
 }
 
@@ -205,5 +207,87 @@ test('handleTranslationRelay: a reply from the same author flushes the open batc
         const leftover = takeBatch(group);
         if (leftover) clearTimeout(leftover.timeoutHandle);
         db.removeRelayChannel(chId);
+    }
+});
+
+test('handleTranslationRelay captures message attachments onto the batch entry', async () => {
+    const { handleTranslationRelay, takeBatch, openBatches } = require('./translationRelayHandler');
+    const group = 'test-attach-A';
+    const chId = db.addRelayChannel({ channelId: 'attach-ch1', language: 'English', flagEmoji: '🇺🇸', relayGroup: group });
+    try {
+        const fakeMessage = {
+            id: 'msg-attach-1',
+            author: { id: 'user-1', bot: false, username: 'tester', displayAvatarURL: () => 'http://example.com/a.png' },
+            member: { displayName: 'Tester' },
+            content: 'check this out',
+            channelId: 'attach-ch1',
+            reference: null,
+            attachments: new Map([
+                ['att-1', { url: 'https://cdn.discordapp.com/attachments/1/2/image.png', name: 'image.png' }],
+            ]),
+        };
+        await handleTranslationRelay(fakeMessage, noopClient);
+        const batch = openBatches.get(group);
+        assert.ok(batch, 'expected an open batch');
+        assert.strictEqual(batch.messages[0].attachments.length, 1);
+        assert.strictEqual(batch.messages[0].attachments[0].url, 'https://cdn.discordapp.com/attachments/1/2/image.png');
+        clearTimeout(batch.timeoutHandle);
+        openBatches.delete(group);
+    } finally {
+        db.removeRelayChannel(chId);
+    }
+});
+
+test('processTranslationRelay includes files in the webhook send payload when attachments are present', async () => {
+    const sentPayloads = [];
+    let sendCallCount = 0;
+    const uniqueId = `files-test-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const originalSend = WebhookClient.prototype.send;
+    WebhookClient.prototype.send = async function (payload) {
+        sentPayloads.push(payload);
+        return { id: `sent-${uniqueId}-${++sendCallCount}` };
+    };
+    try {
+        const srcChanId = `src-${uniqueId}`;
+        const tgtChanId = `tgt-${uniqueId}`;
+        const msgId = `msg-${uniqueId}`;
+        const groupId = `group-${uniqueId}`;
+
+        const stubClient = {
+            channels: {
+                fetch: async () => ({
+                    createWebhook: async () => ({ id: 'wh-1', token: 'tok-1' }),
+                }),
+            },
+        };
+        const sourceId = db.addRelayChannel({ channelId: srcChanId, language: 'English', flagEmoji: '🇺🇸', relayGroup: groupId });
+        const targetId = db.addRelayChannel({ channelId: tgtChanId, language: 'Spanish', flagEmoji: '🇪🇸', relayGroup: groupId });
+        const sourceRow = db.getRelayChannelByChannelId(srcChanId);
+
+        const batch = {
+            authorId: 'user-1',
+            sourceChannelRow: sourceRow,
+            isReply: false,
+            replyMessageId: null,
+            authorDisplayName: 'Tester',
+            authorAvatarURL: 'http://example.com/a.png',
+            messages: [{
+                messageId: msgId,
+                text: 'look at this',
+                attachments: [{ url: 'https://cdn.discordapp.com/attachments/1/2/image.png', name: 'image.png' }],
+            }],
+        };
+        try {
+            await processTranslationRelay(stubClient, batch);
+            assert.ok(sentPayloads[0].files, 'expected files key on payload');
+            assert.strictEqual(sentPayloads[0].files[0].attachment, 'https://cdn.discordapp.com/attachments/1/2/image.png');
+        } finally {
+            db.removeRelayChannel(sourceId);
+            db.removeRelayChannel(targetId);
+            db.prepare('DELETE FROM translation_relay_messages WHERE message_id LIKE ?').run(`%${uniqueId}%`);
+            db.prepare('DELETE FROM translation_usage WHERE message_id LIKE ?').run(`%${uniqueId}%`);
+        }
+    } finally {
+        WebhookClient.prototype.send = originalSend;
     }
 });

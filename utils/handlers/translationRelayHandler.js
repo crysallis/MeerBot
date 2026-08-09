@@ -169,7 +169,11 @@ async function handleTranslationRelay(message, client) {
     const current = openBatches.get(relayGroup);
     const authorDisplayName = message.member?.displayName ?? message.author.username;
     const authorAvatarURL = message.author.displayAvatarURL();
-    const entry = { messageId: message.id, text };
+    const entry = {
+        messageId: message.id,
+        text,
+        attachments: [...message.attachments.values()].map(a => ({ url: a.url, name: a.name })),
+    };
 
     if (current && !isReply && current.authorId === message.author.id) {
         current.messages.push(entry);
@@ -275,11 +279,17 @@ async function processTranslationRelay(client, batch) {
         }
         bodyText = fitContent(quotePrefix, bodyText);
 
+        const allAttachments = messages.flatMap(m => m.attachments ?? []);
+        const files = allAttachments.length > 0
+            ? allAttachments.map(a => ({ attachment: a.url, name: a.name }))
+            : undefined;
+
         const sent = await sendViaWebhook(targetRow, channel, {
             content: quotePrefix + bodyText,
             username: authorDisplayName,
             avatarURL: authorAvatarURL,
             allowedMentions: { parse: ['users'] },
+            ...(files ? { files } : {}),
         });
         if (!sent) continue;
 
@@ -303,4 +313,4 @@ async function processTranslationRelay(client, batch) {
     }
 }
 
-module.exports = { handleTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches };
+module.exports = { handleTranslationRelay, processTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches };
