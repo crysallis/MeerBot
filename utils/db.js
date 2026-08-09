@@ -376,6 +376,31 @@ for (const [col, ddl] of [
     if (!relayMessageCols.has(col)) db.exec(ddl);
 }
 
+// v3: batch_message_ids shape changed from string[] (message IDs only) to
+// {messageId, text}[] (ID + that line's own source text), needed for precise
+// edit/delete sync on one line of a multi-message batch. Rewrite any row still
+// in the old flat-string shape. Safe to run every startup -- a no-op once migrated.
+function runRelayMessageMigration() {
+    const rows = db.prepare('SELECT id, message_id, text, batch_message_ids FROM translation_relay_messages').all();
+    const update = db.prepare('UPDATE translation_relay_messages SET batch_message_ids = ? WHERE id = ?');
+    for (const row of rows) {
+        let parsed;
+        try {
+            parsed = JSON.parse(row.batch_message_ids);
+        } catch {
+            continue; // corrupt/unreadable, leave as-is rather than guess
+        }
+        if (!Array.isArray(parsed) || parsed.length === 0) continue;
+        if (typeof parsed[0] === 'object' && parsed[0] !== null && 'messageId' in parsed[0]) continue; // already migrated
+        const lines = row.text.split('\n');
+        const rebuilt = parsed.length === lines.length
+            ? parsed.map((messageId, i) => ({ messageId, text: lines[i] }))
+            : parsed.map(messageId => ({ messageId, text: row.text })); // count mismatch: fall back to whole text per id, best effort
+        update.run(JSON.stringify(rebuilt), row.id);
+    }
+}
+runRelayMessageMigration();
+
 /**
  * Merge duplicate members: repoint all of dropId's data onto keepId, alias the
  * dropped name, and delete the dropped row. Used to collapse OCR phantom dupes
@@ -576,7 +601,7 @@ function insertRelayMessage({ relayGroupMessageId, channelId, messageId, authorI
         (relay_group_message_id, channel_id, message_id, author_id, author_display_name, language, text, batch_message_ids, last_line_text)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(relayGroupMessageId, channelId, messageId, authorId, authorDisplayName, language, text,
-             JSON.stringify(batchMessageIds ?? [messageId]), lastLineText ?? text);
+             JSON.stringify(batchMessageIds ?? [{ messageId, text }]), lastLineText ?? text);
     return r.lastInsertRowid;
 }
 
@@ -584,7 +609,10 @@ function getRelayMessageByMessageId(messageId) {
     return db.prepare(`
         SELECT * FROM translation_relay_messages
         WHERE message_id = ?
-           OR EXISTS (SELECT 1 FROM json_each(batch_message_ids) WHERE value = ?)
+           OR EXISTS (
+               SELECT 1 FROM json_each(batch_message_ids)
+               WHERE json_extract(value, '$.messageId') = ?
+           )
     `).get(messageId, messageId);
 }
 
@@ -601,6 +629,15 @@ function insertTranslationUsage({ messageId, inputTokens, outputTokens, targetCo
 function setRelayMessageGroupId(id, relayGroupMessageId) {
     db.prepare('UPDATE translation_relay_messages SET relay_group_message_id = ? WHERE id = ?')
         .run(relayGroupMessageId, id);
+}
+
+function updateRelayMessageText(id, { text, batchMessageIds, lastLineText }) {
+    db.prepare('UPDATE translation_relay_messages SET text = ?, batch_message_ids = ?, last_line_text = ? WHERE id = ?')
+        .run(text, JSON.stringify(batchMessageIds), lastLineText, id);
+}
+
+function deleteRelayMessagesByGroupId(relayGroupMessageId) {
+    db.prepare('DELETE FROM translation_relay_messages WHERE relay_group_message_id = ?').run(relayGroupMessageId);
 }
 
 module.exports = db;
@@ -631,3 +668,7 @@ module.exports.getRelayMessageByMessageId = getRelayMessageByMessageId;
 module.exports.getRelayMessagesByGroupId = getRelayMessagesByGroupId;
 module.exports.insertTranslationUsage = insertTranslationUsage;
 module.exports.setRelayMessageGroupId = setRelayMessageGroupId;
+module.exports.updateRelayMessageText = updateRelayMessageText;
+module.exports.deleteRelayMessagesByGroupId = deleteRelayMessagesByGroupId;
+module.exports.__runRelayMessageMigration = runRelayMessageMigration;
+module.exports.__testRawDb = db;
