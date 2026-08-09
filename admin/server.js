@@ -1123,9 +1123,14 @@ app.get('/api/presence', (req, res) => {
 // ── Translation Relay ───────────────────────────────────────────────────────
 
 // GET /api/translation-relay — list configured relay channels
+// Allowlist the response shape -- webhook_id/webhook_token are non-expiring bearer
+// credentials for that channel's webhook and must never reach read-tier clients.
 app.get('/api/translation-relay', (req, res) => {
     try {
-        res.json(db.getRelayChannels());
+        const rows = db.getRelayChannels().map(({ id, channel_id, language, flag_emoji }) => ({
+            id, channel_id, language, flag_emoji,
+        }));
+        res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1149,9 +1154,20 @@ app.post('/api/translation-relay', (req, res) => {
 });
 
 // DELETE /api/translation-relay/:id — remove a channel from the relay
-app.delete('/api/translation-relay/:id', (req, res) => {
+// Deletes the Discord webhook first (token-authenticated, no bot-token auth needed) so the
+// bearer credential can't outlive the DB row -- otherwise it's permanently unrevocable from
+// here, and re-adding the same channel later mints a second webhook toward Discord's cap.
+app.delete('/api/translation-relay/:id', async (req, res) => {
     const id = parseInt(req.params.id, 10);
     try {
+        const row = db.prepare('SELECT webhook_id, webhook_token FROM translation_relay_channels WHERE id = ?').get(id);
+        if (row?.webhook_id && row?.webhook_token) {
+            try {
+                await fetch(`${DISCORD_API}/webhooks/${row.webhook_id}/${row.webhook_token}`, { method: 'DELETE' });
+            } catch (err) {
+                console.error('[TranslationRelay] Failed to delete Discord webhook:', err.message);
+            }
+        }
         db.removeRelayChannel(id);
         res.json({ ok: true });
     } catch (err) {
