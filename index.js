@@ -7,7 +7,7 @@ const { logCommand } = require('./utils/commandLogger');
 const { handleMessage } = require('./utils/messageReactions');
 const { handleTranslationRole } = require('./utils/handlers/translationRoleHandler');
 const { handlePromoCode } = require('./utils/handlers/promoCodeHandler');
-const { handleTranslationRelay, handleTranslationReactionSync } = require('./utils/handlers/translationRelayHandler');
+const { handleTranslationRelay, handleTranslationReactionSync, handleTranslationEditSync } = require('./utils/handlers/translationRelayHandler');
 const { handleTransferButton } = require('./utils/handlers/transferButtonHandler');
 const { rateLimit } = require('./config');
 
@@ -69,6 +69,15 @@ client.on('messageReactionAdd', (reaction, user) => {
 });
 client.on('messageReactionRemove', (reaction, user) => {
   handleTranslationReactionSync(reaction, user, client, false).catch(err => console.error('[TranslationRelay] Reaction sync (remove) unhandled error:', err));
+});
+client.on('messageUpdate', (oldMessage, newMessage) => {
+  // partials: [Partials.Message] means newMessage/oldMessage can arrive uncached (author
+  // undefined, content unavailable) -- skip rather than risk blanking a relayed copy.
+  if (newMessage.partial || oldMessage?.partial) return;
+  // Discord also fires messageUpdate ~1s after link-embed unfurl with identical content --
+  // skip those so an edit sync isn't triggered (and Claude isn't re-billed) for a no-op edit.
+  if (oldMessage?.content === newMessage.content) return;
+  handleTranslationEditSync(newMessage, client).catch(err => console.error('[TranslationRelay] Edit sync unhandled error:', err));
 });
 client.on('guildMemberUpdate', (oldMember, newMember) => handleTranslationRole(oldMember, newMember, client));
 

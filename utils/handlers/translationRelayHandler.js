@@ -344,4 +344,61 @@ async function handleTranslationReactionSync(reaction, user, client, isAdd) {
     }
 }
 
-module.exports = { handleTranslationRelay, processTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches, callClaude, handleTranslationReactionSync };
+function rebuildBatchAfterChange(batchMessageIds, messageId, newText) {
+    if (newText === null) {
+        return batchMessageIds.filter(entry => entry.messageId !== messageId);
+    }
+    return batchMessageIds.map(entry => entry.messageId === messageId ? { ...entry, text: newText } : entry);
+}
+
+async function resyncRelayGroup(client, sourceRow, rebuiltBatch) {
+    const combinedText = rebuiltBatch.map(e => e.text).join('\n');
+    const lastLineText = rebuiltBatch.length > 0 ? rebuiltBatch[rebuiltBatch.length - 1].text : '';
+    db.updateRelayMessageText(sourceRow.id, { text: combinedText, batchMessageIds: rebuiltBatch, lastLineText });
+
+    const siblings = db.getRelayMessagesByGroupId(sourceRow.relay_group_message_id)
+        .filter(r => r.id !== sourceRow.id);
+    if (siblings.length === 0 || rebuiltBatch.length === 0) return siblings;
+
+    const sourceChannelRow = db.getRelayChannelByChannelId(sourceRow.channel_id);
+    const targetLanguages = siblings.map(s => s.language);
+    let translations = null;
+    try {
+        const result = await module.exports.callClaude(sourceChannelRow.language, targetLanguages, rebuiltBatch.map(e => e.text));
+        translations = result.translations;
+    } catch (err) {
+        console.error('[TranslationRelay] Re-translation on edit/delete failed, leaving stale copies:', err.message);
+        return siblings;
+    }
+
+    for (const sibling of siblings) {
+        try {
+            const targetRow = db.getRelayChannelByChannelId(sibling.channel_id);
+            const bodyLines = translations[sibling.language];
+            const bodyText = bodyLines.join('\n');
+            const channel = await client.channels.fetch(sibling.channel_id);
+            const webhook = await getOrCreateWebhook(targetRow, channel);
+            await webhook.editMessage(sibling.message_id, { content: bodyText });
+            db.updateRelayMessageText(sibling.id, {
+                text: bodyText,
+                batchMessageIds: sibling.batch_message_ids ? JSON.parse(sibling.batch_message_ids) : [],
+                lastLineText: bodyLines[bodyLines.length - 1],
+            });
+        } catch (err) {
+            console.error(`[TranslationRelay] Failed to sync edit to channel ${sibling.channel_id}:`, err.message);
+        }
+    }
+    return siblings;
+}
+
+async function handleTranslationEditSync(message, client) {
+    if (message.author?.bot) return;
+    const row = db.getRelayMessageByMessageId(message.id);
+    if (!row) return;
+    const batchMessageIds = JSON.parse(row.batch_message_ids);
+    const newContent = (message.content || '').trim();
+    const rebuilt = rebuildBatchAfterChange(batchMessageIds, message.id, newContent);
+    await resyncRelayGroup(client, row, rebuilt);
+}
+
+module.exports = { handleTranslationRelay, processTranslationRelay, stripCodeFence, truncateQuote, takeBatch, openBatches, callClaude, handleTranslationReactionSync, handleTranslationEditSync, rebuildBatchAfterChange, resyncRelayGroup };
