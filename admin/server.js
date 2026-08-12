@@ -354,17 +354,19 @@ function validateRecurrence(recurrence, dayOfMonth, lastDayOffset) {
         if (dayOfMonth === undefined || dayOfMonth === null || isNaN(dom) || dom === 0 || dom < -1 || dom > 31) {
             return 'day_of_month is required for monthly recurrence (1-31, or -1 for last day of month)';
         }
-        // last_day_offset only means something when day_of_month is the "last day"
-        // sentinel -- reject a nonzero offset paired with a fixed numbered day so a
-        // stale/leftover value from switching the dropdown can't silently apply.
-        if (lastDayOffset !== undefined && lastDayOffset !== null && lastDayOffset !== 0) {
-            if (dom !== MONTHLY_LAST_DAY) {
-                return 'last_day_offset can only be set when day_of_month is -1 (last day of month)';
-            }
-            const offset = parseInt(lastDayOffset, 10);
-            if (isNaN(offset) || offset < 0) {
-                return 'last_day_offset must be a non-negative integer';
-            }
+    }
+    // last_day_offset only means something when unit is monthly AND day_of_month
+    // is the "last day" sentinel -- reject a nonzero offset paired with anything
+    // else (non-monthly recurrence, or a fixed numbered day) so a stale/leftover
+    // value from switching the dropdown can't silently apply.
+    if (lastDayOffset !== undefined && lastDayOffset !== null && lastDayOffset !== 0) {
+        const dom = parseInt(dayOfMonth, 10);
+        if (unit !== 'monthly' || dom !== MONTHLY_LAST_DAY) {
+            return 'last_day_offset can only be set when day_of_month is -1 (last day of month)';
+        }
+        const offset = parseInt(lastDayOffset, 10);
+        if (isNaN(offset) || offset < 0) {
+            return 'last_day_offset must be a non-negative integer';
         }
     }
     return null;
@@ -445,7 +447,7 @@ app.post('/api/text-jobs', (req, res) => {
     // all-days here as a backstop even though the UI hides the dow picker
     // while monthly is selected.
     const effectiveDow = unit === 'monthly' ? null : (days_of_week || null);
-    const effectiveOffset = (unit === 'monthly' && day_of_month === MONTHLY_LAST_DAY) ? (last_day_offset || 0) : null;
+    const effectiveOffset = (unit === 'monthly' && parseInt(day_of_month, 10) === MONTHLY_LAST_DAY) ? (last_day_offset || 0) : null;
 
     try {
         const insertJob = db.prepare(
