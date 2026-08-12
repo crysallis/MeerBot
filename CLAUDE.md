@@ -133,7 +133,7 @@ Schema ownership: the miner (`AFKDataMining/src/db.py`) owns the shared scan/ide
 - `snapshots` · one row per scan run
 - `member_snapshots` · power/activeness per member per snapshot
 - `member_afk` · active AFK records · return_date is YYYY-MM-DD
-- `scheduled_jobs` · unified job queue · id, type (`script_job`/`text_job`/`remindme`/`recruitment_followup`), fire_at, recurrence (`daily:N`/`weekly:N`), enabled
+- `scheduled_jobs` · unified job queue · id, type (`script_job`/`text_job`/`remindme`/`recruitment_followup`), fire_at, recurrence (`daily:N`/`weekly:N`), enabled, `last_day_offset` (nullable, meaningful only when `day_of_month=-1`: N = fire N days before the last day of the month; NULL/0 = on the last day)
 - `text_jobs` · sub-table for type='text_job', FK `job_id` → scheduled_jobs · name, channel_id, title, body, mentions (JSON array), days_of_week (comma-separated ISO 1-7, NULL = every day), log_name (UNIQUE) · fully panel-authored, no code file needed
 - `scheduler_log` · one row per job execution, no uniqueness constraint · every fire logs, including an accidental same-day double-fire — that's deliberate, so duplicates are visible instead of hidden · pruned to 90 days by `jobLog.js`
 - `name_corrections` · OCR correction map
