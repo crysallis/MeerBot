@@ -25,7 +25,7 @@ async function loadBatchTimeout() {
 
 function channelLabel(channelId) {
     const ch = state.channelList.find(c => c.id === channelId);
-    return ch ? `${ch.name.replace(/[^\w\s#-]/gu, '').trim()} (${channelId})` : channelId;
+    return ch ? `${ch.name} (${channelId})` : channelId;
 }
 
 export function renderTranslationRelay() {

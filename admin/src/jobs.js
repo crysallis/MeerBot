@@ -67,9 +67,8 @@ function attachUtcPreview(fireInput) {
 
 function channelOptions(selectedId) {
   return '<option value="">— not set —</option>' + state.channelList.map(ch => {
-    const cleanName = ch.name.replace(/[^\w\s#\-]/gu, '').trim();
     const sel = ch.id === selectedId ? ' selected' : '';
-    return `<option value="${ch.id}"${sel}>${cleanName} (${ch.id})</option>`;
+    return `<option value="${ch.id}"${sel}>${ch.name} (${ch.id})</option>`;
   }).join('');
 }
 

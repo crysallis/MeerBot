@@ -275,9 +275,8 @@ const JOB_CHANNEL_KEYS = new Set([
 
 function channelOptions(selectedId) {
   return '<option value="">— not set —</option>' + state.channelList.map(ch => {
-    const cleanName = ch.name.replace(/[^\w\s#\-]/gu, '').trim();
     const sel = ch.id === selectedId ? ' selected' : '';
-    return `<option value="${ch.id}"${sel}>${cleanName} (${ch.id})</option>`;
+    return `<option value="${ch.id}"${sel}>${ch.name} (${ch.id})</option>`;
   }).join('');
 }
 
@@ -441,7 +440,7 @@ function buildRow(entry, cat) {
     for (const ch of state.channelList) {
       const opt = document.createElement('option');
       opt.value = ch.id;
-      opt.textContent = ch.name.replace(/[^\w\s#\-]/gu, '').trim() + ' (' + ch.id + ')';
+      opt.textContent = ch.name + ' (' + ch.id + ')';
       if (ch.id === entry.value) opt.selected = true;
       sel.appendChild(opt);
     }
