@@ -14,7 +14,7 @@ const MONTHLY_LAST_DAY = -1;
 // permanently ratchet the date down next cycle (Jan 31 -> Feb 28 -> Mar 28 ->
 // ...). Clamping happens before the date is constructed, not via Date.UTC
 // overflow (Date.UTC(y, 1, 31) rolls into March rather than clamping to 28).
-function computeMonthlyNext(fireAtIso, count, dayOfMonth, nowMs) {
+function computeMonthlyNext(fireAtIso, count, dayOfMonth, nowMs, lastDayOffset = 0) {
     const prev = new Date(fireAtIso);
     const hh = prev.getUTCHours();
     const mm = prev.getUTCMinutes();
@@ -24,9 +24,18 @@ function computeMonthlyNext(fireAtIso, count, dayOfMonth, nowMs) {
 
     function build(m) {
         const lastDayOfMonth = new Date(Date.UTC(year, m + 1, 0)).getUTCDate();
-        const day = dayOfMonth === MONTHLY_LAST_DAY
-            ? lastDayOfMonth
-            : Math.min(dayOfMonth, lastDayOfMonth);
+        let day;
+        if (dayOfMonth === MONTHLY_LAST_DAY) {
+            // Clamp so "N days before" can never cross into the previous month,
+            // even if a larger offset was saved while looking at a longer month
+            // (e.g. 28 saved in a 31-day month, later evaluated against a 28-day
+            // February) -- recomputed fresh per month, same principle as the
+            // dayOfMonth clamp below.
+            const offset = Math.min(Math.max(lastDayOffset || 0, 0), lastDayOfMonth - 1);
+            day = lastDayOfMonth - offset;
+        } else {
+            day = Math.min(dayOfMonth, lastDayOfMonth);
+        }
         return Date.UTC(year, m, day, hh, mm, ss);
     }
 
@@ -47,7 +56,7 @@ function nextFire(job) {
     const count = parseInt(n || '1', 10);
 
     if (unit === 'monthly') {
-        return computeMonthlyNext(job.fire_at, count, job.day_of_month, Date.now());
+        return computeMonthlyNext(job.fire_at, count, job.day_of_month, Date.now(), job.last_day_offset);
     }
 
     const days = unit === 'weekly' ? count * 7 : count;
@@ -261,4 +270,4 @@ function initJobScheduler(client) {
     console.log('[JobScheduler] Initialized · polling every 30s');
 }
 
-module.exports = { initJobScheduler, computeMonthlyNext };
+module.exports = { initJobScheduler, computeMonthlyNext, MONTHLY_LAST_DAY };

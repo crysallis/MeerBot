@@ -9,6 +9,7 @@ const fs = require('fs');
 const { exec } = require('child_process');
 const botConfig = require('../utils/botConfig');
 const db = require('../utils/db');
+const { MONTHLY_LAST_DAY } = require('../utils/jobScheduler');
 const auth = require('./auth');
 
 const VALID_PATTERN_TYPES  = ['contains', 'exact', 'regex', 'mention'];
@@ -296,7 +297,7 @@ const JOB_DISPLAY = {
 app.get('/api/scheduled-jobs', (req, res) => {
     try {
         const scriptRows = db.prepare(`
-            SELECT sj.id, sj.fire_at, sj.recurrence, sj.day_of_month, sj.enabled, scj.handler_path
+            SELECT sj.id, sj.fire_at, sj.recurrence, sj.day_of_month, sj.last_day_offset, sj.enabled, scj.handler_path
             FROM scheduled_jobs sj
             JOIN script_jobs scj ON scj.job_id = sj.id
         `).all().map(r => ({
@@ -307,11 +308,12 @@ app.get('/api/scheduled-jobs', (req, res) => {
             fire_at:      r.fire_at,
             recurrence:   r.recurrence ?? 'daily:1',
             day_of_month: r.day_of_month,
+            last_day_offset: r.last_day_offset,
             enabled:      r.enabled ?? 1,
         }));
 
         const textRows = db.prepare(`
-            SELECT sj.id, sj.fire_at, sj.recurrence, sj.day_of_month, sj.enabled,
+            SELECT sj.id, sj.fire_at, sj.recurrence, sj.day_of_month, sj.last_day_offset, sj.enabled,
                    tj.name, tj.channel_id, tj.title, tj.body, tj.mentions, tj.days_of_week, tj.log_name
             FROM scheduled_jobs sj
             JOIN text_jobs tj ON tj.job_id = sj.id
@@ -322,6 +324,7 @@ app.get('/api/scheduled-jobs', (req, res) => {
             fire_at:      r.fire_at,
             recurrence:   r.recurrence ?? 'daily:1',
             day_of_month: r.day_of_month,
+            last_day_offset: r.last_day_offset,
             enabled:      r.enabled ?? 1,
             channel_id:   r.channel_id,
             title:        r.title,
@@ -340,7 +343,7 @@ app.get('/api/scheduled-jobs', (req, res) => {
 // Shared by PUT /api/scheduled-jobs/:id and validateTextJobBody. Returns an
 // error string, or null if recurrence (+ day_of_month, when unit is monthly)
 // is valid.
-function validateRecurrence(recurrence, dayOfMonth) {
+function validateRecurrence(recurrence, dayOfMonth, lastDayOffset) {
     const [unit, n] = (recurrence || 'daily:1').split(':');
     const count = parseInt(n || '1', 10);
     if (!['daily', 'weekly', 'monthly'].includes(unit) || isNaN(count) || count < 1) {
@@ -352,13 +355,27 @@ function validateRecurrence(recurrence, dayOfMonth) {
             return 'day_of_month is required for monthly recurrence (1-31, or -1 for last day of month)';
         }
     }
+    // last_day_offset only means something when unit is monthly AND day_of_month
+    // is the "last day" sentinel -- reject a nonzero offset paired with anything
+    // else (non-monthly recurrence, or a fixed numbered day) so a stale/leftover
+    // value from switching the dropdown can't silently apply.
+    if (lastDayOffset !== undefined && lastDayOffset !== null && lastDayOffset !== 0) {
+        const dom = parseInt(dayOfMonth, 10);
+        if (unit !== 'monthly' || dom !== MONTHLY_LAST_DAY) {
+            return 'last_day_offset can only be set when day_of_month is -1 (last day of month)';
+        }
+        const offset = parseInt(lastDayOffset, 10);
+        if (isNaN(offset) || offset < 0) {
+            return 'last_day_offset must be a non-negative integer';
+        }
+    }
     return null;
 }
 
 // PUT /api/scheduled-jobs/:id — update fire_at and/or recurrence
 app.put('/api/scheduled-jobs/:id', (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const { fire_at, recurrence, day_of_month, enabled } = req.body;
+    const { fire_at, recurrence, day_of_month, last_day_offset, enabled } = req.body;
 
     if (fire_at) {
         const d = new Date(fire_at);
@@ -366,7 +383,7 @@ app.put('/api/scheduled-jobs/:id', (req, res) => {
     }
 
     if (recurrence) {
-        const err = validateRecurrence(recurrence, day_of_month);
+        const err = validateRecurrence(recurrence, day_of_month, last_day_offset);
         if (err) return res.status(400).json({ error: err });
     }
 
@@ -376,10 +393,11 @@ app.put('/api/scheduled-jobs/:id', (req, res) => {
 
         const fields = [];
         const values = [];
-        if (enabled !== undefined)      { fields.push('enabled = ?');      values.push(enabled ? 1 : 0); }
-        if (fire_at !== undefined)      { fields.push('fire_at = ?');      values.push(fire_at); }
-        if (recurrence !== undefined)   { fields.push('recurrence = ?');   values.push(recurrence); }
-        if (day_of_month !== undefined) { fields.push('day_of_month = ?'); values.push(day_of_month); }
+        if (enabled !== undefined)         { fields.push('enabled = ?');         values.push(enabled ? 1 : 0); }
+        if (fire_at !== undefined)         { fields.push('fire_at = ?');         values.push(fire_at); }
+        if (recurrence !== undefined)      { fields.push('recurrence = ?');      values.push(recurrence); }
+        if (day_of_month !== undefined)    { fields.push('day_of_month = ?');    values.push(day_of_month); }
+        if (last_day_offset !== undefined) { fields.push('last_day_offset = ?'); values.push(last_day_offset); }
 
         if (fields.length) {
             values.push(id);
@@ -393,13 +411,13 @@ app.put('/api/scheduled-jobs/:id', (req, res) => {
 });
 
 function validateTextJobBody(body) {
-    const { name, channel_id, body: msgBody, fire_at, recurrence, day_of_month } = body;
+    const { name, channel_id, body: msgBody, fire_at, recurrence, day_of_month, last_day_offset } = body;
     if (!name || !String(name).trim()) return 'name is required';
     if (!channel_id) return 'channel_id is required';
     if (!msgBody || !String(msgBody).trim()) return 'body is required';
     if (!fire_at || isNaN(new Date(fire_at))) return 'Invalid fire_at datetime';
 
-    const recurErr = validateRecurrence(recurrence, day_of_month);
+    const recurErr = validateRecurrence(recurrence, day_of_month, last_day_offset);
     if (recurErr) return recurErr;
 
     if (body.days_of_week) {
@@ -422,18 +440,19 @@ app.post('/api/text-jobs', (req, res) => {
     const err = validateTextJobBody(req.body);
     if (err) return res.status(400).json({ error: err });
 
-    const { name, channel_id, title, body: msgBody, fire_at, recurrence, day_of_month, days_of_week, mentions } = req.body;
+    const { name, channel_id, title, body: msgBody, fire_at, recurrence, day_of_month, last_day_offset, days_of_week, mentions } = req.body;
     const now = new Date().toISOString();
     const unit = (recurrence || 'daily:1').split(':')[0];
     // A monthly job must fire every month regardless of weekday -- force
     // all-days here as a backstop even though the UI hides the dow picker
     // while monthly is selected.
     const effectiveDow = unit === 'monthly' ? null : (days_of_week || null);
+    const effectiveOffset = (unit === 'monthly' && parseInt(day_of_month, 10) === MONTHLY_LAST_DAY) ? (last_day_offset || 0) : null;
 
     try {
         const insertJob = db.prepare(
-            'INSERT INTO scheduled_jobs (type, fire_at, recurrence, day_of_month, created_at) VALUES (?, ?, ?, ?, ?)'
-        ).run('text_job', fire_at, recurrence || 'daily:1', unit === 'monthly' ? day_of_month : null, now);
+            'INSERT INTO scheduled_jobs (type, fire_at, recurrence, day_of_month, last_day_offset, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run('text_job', fire_at, recurrence || 'daily:1', unit === 'monthly' ? day_of_month : null, effectiveOffset, now);
 
         const jobId = insertJob.lastInsertRowid;
         const logName = `text_job_${jobId}`;

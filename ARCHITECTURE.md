@@ -134,7 +134,10 @@ member_notes        Admin notes on members. Multiple notes per member (/note com
 member_afk          AFK status. One row per member (UNIQUE on member_id).
 scheduled_jobs      Unified job queue. One row per pending or recurring job.
                     type = 'script_job' | 'text_job' | 'remindme' | 'recruitment_followup'.
-                    fire_at is next execution time.
+                    fire_at is next execution time. day_of_month (1-31, or -1 for
+                    last day of month) and last_day_offset (N days before the last
+                    day, only meaningful when day_of_month is -1) drive monthly
+                    recurrence.
 remindme_jobs       Sub-table for type='remindme'. Holds user_id, channel_id, message.
                     ON DELETE CASCADE from scheduled_jobs.
 script_jobs         Sub-table for type='script_job'. Holds handler_path to module.
@@ -537,8 +540,11 @@ badge, and next local fire time. Clicking a tile expands it in place (`.sj-card.
 spans the full grid width) into the full edit form: fire date/time (with a live
 "will fire at HH:MM UTC" hint under the input, `attachUtcPreview`), repeat interval,
 channel, and -- for text jobs -- title, body, day-of-week filter, and a mentions
-picker. All three actions (Enabled/Disabled toggle, Delete Job [text jobs only],
-Save) live together in one `actionsRow` at the bottom of the expanded body.
+picker. When the recurrence is monthly and the day is set to "Last day of month",
+a Before/On offset row appears (`lastDayOffsetField`) to pick N days before the
+last day, hidden otherwise. All three actions (Enabled/Disabled toggle, Delete Job
+[text jobs only], Save) live together in one `actionsRow` at the bottom of the
+expanded body.
 
 A "Create Job" form (`#cjForm`) at the top of the tab creates new text jobs from
 scratch -- no code file or deploy required. Both create and edit paths validate
@@ -581,7 +587,9 @@ Each job type has its own sub-table. The scheduler JOINs both sub-tables on ever
 
 ### Recurrence format
 
-Stored in `scheduled_jobs.recurrence` as `daily:N` or `weekly:N` where N is the repeat count. Examples: `daily:1` (every day), `daily:2` (every 2 days), `weekly:1` (every 7 days), `weekly:2` (every 14 days).
+Stored in `scheduled_jobs.recurrence` as `daily:N`, `weekly:N`, or `monthly:N` where N is the repeat count. Examples: `daily:1` (every day), `daily:2` (every 2 days), `weekly:1` (every 7 days), `weekly:2` (every 14 days), `monthly:1` (every month).
+
+Monthly recurrence also reads `day_of_month`: a fixed day 1-31 (clamped to the month's actual length), or the sentinel `-1` for "last day of month". When `day_of_month` is `-1`, `last_day_offset` (N, default 0) shifts the fire day to N days before the last day of the month, reclamped per month so the offset can never cross into the previous month (see `computeMonthlyNext`).
 
 ### Startup bootstrap
 
