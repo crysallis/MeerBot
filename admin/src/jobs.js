@@ -74,6 +74,7 @@ function channelOptions(selectedId) {
 }
 
 const DOW = [['1','Mon'],['2','Tue'],['3','Wed'],['4','Thu'],['5','Fri'],['6','Sat'],['7','Sun']];
+const MONTHLY_LAST_DAY = -1;
 
 function dowPicker(id, selectedCsv) {
   const selected = new Set((selectedCsv || '1,2,3,4,5,6,7').split(',').filter(Boolean));
@@ -115,6 +116,67 @@ function domPicker(id, selectedValue) {
     sel.appendChild(opt);
   }
   return sel;
+}
+
+// Only meaningful when day_of_month is MONTHLY_LAST_DAY (-1). "On" needs no
+// number (implicitly offset 0); "Before" reveals a required >=1 number input.
+// The per-month clamp that prevents crossing into the previous month happens
+// server-side in computeMonthlyNext -- this field has no client-side max.
+function lastDayOffsetField(idPrefix, initialOffset) {
+  const wrap = document.createElement('div');
+  wrap.className = 'sj-field';
+  wrap.id = `${idPrefix}-wrap`;
+  wrap.innerHTML = '<label>Fire</label>';
+
+  const row = document.createElement('div');
+  row.className = 'sj-recur-row';
+
+  const qualSel = document.createElement('select');
+  qualSel.id = `${idPrefix}-qual`;
+  for (const [val, label] of [['on', 'On'], ['before', 'Before']]) {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = label;
+    qualSel.appendChild(opt);
+  }
+
+  const numInput = document.createElement('input');
+  numInput.type = 'number';
+  numInput.id = `${idPrefix}-num`;
+  numInput.min = '1';
+  numInput.style.width = '60px';
+
+  const initial = parseInt(initialOffset, 10) || 0;
+  if (initial > 0) {
+    qualSel.value = 'before';
+    numInput.value = String(initial);
+  } else {
+    qualSel.value = 'on';
+    numInput.value = '1';
+    numInput.style.display = 'none';
+  }
+
+  qualSel.addEventListener('change', () => {
+    numInput.style.display = qualSel.value === 'before' ? '' : 'none';
+  });
+
+  const daysLabel = document.createElement('span');
+  daysLabel.textContent = 'day(s)';
+  daysLabel.className = 'muted-note';
+
+  row.append(qualSel, numInput, daysLabel);
+  wrap.appendChild(row);
+  return wrap;
+}
+
+// Reads the offset field built by lastDayOffsetField. Returns 0 for "On" or
+// when the qualifier select isn't present (e.g. day-of-month isn't "last day").
+function readLastDayOffset(idPrefix) {
+  const qualSel = document.getElementById(`${idPrefix}-qual`);
+  if (!qualSel || qualSel.value === 'on') return 0;
+  const numInput = document.getElementById(`${idPrefix}-num`);
+  const n = parseInt(numInput.value, 10);
+  return isNaN(n) || n < 1 ? 1 : n;
 }
 
 function mentionsPicker(id, initialMentions) {
@@ -242,13 +304,22 @@ export function renderScheduledJobs(jobs) {
     const domField = document.createElement('div');
     domField.className = 'sj-field';
     domField.innerHTML = '<label>Day of month</label>';
-    domField.appendChild(domPicker(`sj-dom-${job.id}`, job.day_of_month));
+    const domSelect = domPicker(`sj-dom-${job.id}`, job.day_of_month);
+    domField.appendChild(domSelect);
     domField.style.display = unit === 'monthly' ? '' : 'none';
+
+    const offsetField = lastDayOffsetField(`sj-offset-${job.id}`, job.last_day_offset);
+    offsetField.style.display = (unit === 'monthly' && domSelect.value === String(MONTHLY_LAST_DAY)) ? '' : 'none';
+
+    domSelect.addEventListener('change', () => {
+      offsetField.style.display = domSelect.value === String(MONTHLY_LAST_DAY) ? '' : 'none';
+    });
     unitSel.addEventListener('change', () => {
       domField.style.display = unitSel.value === 'monthly' ? '' : 'none';
+      offsetField.style.display = (unitSel.value === 'monthly' && domSelect.value === String(MONTHLY_LAST_DAY)) ? '' : 'none';
     });
 
-    fields.append(fireField, recurField, domField);
+    fields.append(fireField, recurField, domField, offsetField);
 
     // Optional "Posts to" channel field
     const chKey = JOB_CHANNEL_KEY[job.handler_path];
@@ -374,6 +445,7 @@ export async function saveScheduledJob(id) {
   const unit      = document.getElementById(`sj-unit-${id}`).value;
   const domEl     = document.getElementById(`sj-dom-${id}`);
   const dayOfMonth = unit === 'monthly' ? parseInt(domEl.value, 10) : null;
+  const lastDayOffset = (unit === 'monthly' && dayOfMonth === MONTHLY_LAST_DAY) ? readLastDayOffset(`sj-offset-${id}`) : null;
 
   if (!fireLocal) { setFieldError(fireInput, 'Next fire time is required'); return false; }
   setFieldError(fireInput, '');
@@ -383,7 +455,7 @@ export async function saveScheduledJob(id) {
   const res = await fetch(`/api/scheduled-jobs/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fire_at: fireAt, recurrence, day_of_month: dayOfMonth }),
+    body: JSON.stringify({ fire_at: fireAt, recurrence, day_of_month: dayOfMonth, last_day_offset: lastDayOffset }),
   });
   const data = await res.json();
   if (!data.ok) { setFieldError(fireInput, data.error); return false; }
@@ -493,11 +565,18 @@ export function renderCreateJobForm() {
   recurRow.append(countInput, unitSel);
   recurField.appendChild(recurRow);
 
+  const domSelect = domPicker('cj-dom', null);
   const domField = document.createElement('div');
   domField.className = 'sj-field';
   domField.innerHTML = '<label>Day of month</label>';
-  domField.appendChild(domPicker('cj-dom', null));
+  domField.appendChild(domSelect);
   domField.style.display = 'none';
+
+  const offsetField = lastDayOffsetField('cj-offset', null);
+  offsetField.style.display = 'none';
+  domSelect.addEventListener('change', () => {
+    offsetField.style.display = (domField.style.display !== 'none' && domSelect.value === String(MONTHLY_LAST_DAY)) ? '' : 'none';
+  });
 
   const dowField = document.createElement('div');
   dowField.className = 'sj-field';
@@ -507,6 +586,7 @@ export function renderCreateJobForm() {
   unitSel.addEventListener('change', () => {
     domField.style.display = unitSel.value === 'monthly' ? '' : 'none';
     dowField.style.display = unitSel.value === 'monthly' ? 'none' : '';
+    offsetField.style.display = (unitSel.value === 'monthly' && domSelect.value === String(MONTHLY_LAST_DAY)) ? '' : 'none';
   });
 
   const titleField = document.createElement('div');
@@ -545,7 +625,7 @@ export function renderCreateJobForm() {
 
   const fields = document.createElement('div');
   fields.className = 'sj-fields';
-  fields.append(nameField, chField, fireField, recurField, domField, dowField, titleField, bodyField, mentionsField, actionsField);
+  fields.append(nameField, chField, fireField, recurField, domField, offsetField, dowField, titleField, bodyField, mentionsField, actionsField);
   form.appendChild(fields);
 }
 
@@ -564,6 +644,7 @@ export async function submitNewTextJob() {
   if (hasError) return;
 
   const unit = document.getElementById('cj-unit').value;
+  const cjDayOfMonth = unit === 'monthly' ? parseInt(document.getElementById('cj-dom').value, 10) : null;
   const payload = {
     name:       nameInput.value,
     channel_id: channelInput.value,
@@ -571,7 +652,8 @@ export async function submitNewTextJob() {
     body:       bodyInput.value,
     fire_at:    new Date(fireInput.value).toISOString(),
     recurrence: `${unit}:${document.getElementById('cj-count').value}`,
-    day_of_month: unit === 'monthly' ? parseInt(document.getElementById('cj-dom').value, 10) : null,
+    day_of_month: cjDayOfMonth,
+    last_day_offset: (unit === 'monthly' && cjDayOfMonth === MONTHLY_LAST_DAY) ? readLastDayOffset('cj-offset') : null,
     days_of_week: readDowPicker('cj-dow'),
     mentions:   readMentionsPicker('cj-mentions'),
   };
