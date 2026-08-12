@@ -87,13 +87,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_bd_month_day ON birthdays(month, day);
 
   CREATE TABLE IF NOT EXISTS scheduled_jobs (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    type          TEXT NOT NULL,
-    fire_at       TEXT NOT NULL,
-    recurrence    TEXT,
-    day_of_month  INTEGER,
-    created_at    TEXT NOT NULL,
-    enabled       INTEGER NOT NULL DEFAULT 1
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    type            TEXT NOT NULL,
+    fire_at         TEXT NOT NULL,
+    recurrence      TEXT,
+    day_of_month    INTEGER,
+    last_day_offset INTEGER,
+    created_at      TEXT NOT NULL,
+    enabled         INTEGER NOT NULL DEFAULT 1
   );
   CREATE INDEX IF NOT EXISTS idx_sj_fire_at ON scheduled_jobs(fire_at);
 
@@ -374,6 +375,16 @@ for (const [col, ddl] of [
     ['last_line_text', "ALTER TABLE translation_relay_messages ADD COLUMN last_line_text TEXT NOT NULL DEFAULT ''"],
 ]) {
     if (!relayMessageCols.has(col)) db.exec(ddl);
+}
+
+// scheduled_jobs may already exist (shipped pre-offset-qualifier) without the
+// last_day_offset column · SQLite has no ADD COLUMN IF NOT EXISTS, so check
+// first. Safe to run every startup.
+const scheduledJobCols = new Set(db.prepare("PRAGMA table_info(scheduled_jobs)").all().map(c => c.name));
+for (const [col, ddl] of [
+    ['last_day_offset', 'ALTER TABLE scheduled_jobs ADD COLUMN last_day_offset INTEGER'],
+]) {
+    if (!scheduledJobCols.has(col)) db.exec(ddl);
 }
 
 // v3: batch_message_ids shape changed from string[] (message IDs only) to
