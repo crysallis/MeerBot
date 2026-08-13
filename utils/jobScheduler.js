@@ -208,6 +208,11 @@ async function handleGloryctaTally(client, job) {
 
         await channel.send({ embeds: [embed] });
         await message.unpin().catch(err => console.error('[Glorycta] Failed to unpin poll message:', err.message));
+        // Poll is resolved -- the Cancel Vote button would otherwise linger, clickable,
+        // on a poll that's already been tallied and whose glorycta_polls row is about
+        // to be deleted below (the button's own handler fails safe on a missing row,
+        // but removing it here avoids a dead control being visible at all).
+        await message.edit({ components: [] }).catch(err => console.error('[Glorycta] Failed to remove cancel button:', err.message));
     } catch (err) {
         console.error(`[Glorycta] Tally failed for poll ${poll.id} (message ${poll.message_id}):`, err.message);
     } finally {

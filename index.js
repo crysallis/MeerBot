@@ -10,6 +10,7 @@ const { handlePromoCode } = require('./utils/handlers/promoCodeHandler');
 const { handleTranslationRelay, handleTranslationReactionSync, handleTranslationEditSync, handleTranslationDeleteSync } = require('./utils/handlers/translationRelayHandler');
 const { handleTransferButton } = require('./utils/handlers/transferButtonHandler');
 const { handleGloryctaReactionGuard } = require('./utils/handlers/gloryctaReactionGuard');
+const { handleGloryctaCancelButton } = require('./utils/handlers/gloryctaCancelButtonHandler');
 const { rateLimit } = require('./config');
 
 require('./utils/db');
@@ -105,7 +106,8 @@ client.on('guildMemberUpdate', (oldMember, newMember) => handleTranslationRole(o
 client.on('interactionCreate', async interaction => {
   if (interaction.isButton()) {
     try {
-      await handleTransferButton(interaction);
+      const handled = await handleTransferButton(interaction);
+      if (!handled) await handleGloryctaCancelButton(interaction);
     } catch (err) {
       console.error('Button interaction error:', err);
     }

@@ -1,5 +1,5 @@
 // slash-commands/glorycta.js
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('../utils/db');
 const { pickColor } = require('../utils/colors');
 const { enforcePermissions } = require('../utils/permissions');
@@ -81,7 +81,7 @@ module.exports = {
             ).run('glorycta_tally', tallyFireAt, nowIso);
             jobId = jobResult.lastInsertRowid;
 
-            db.createGloryctaPoll({
+            const poll = db.createGloryctaPoll({
                 jobId,
                 messageId: message.id,
                 channelId: message.channelId,
@@ -90,6 +90,14 @@ module.exports = {
                 fireAtA: fireAtA.toISOString(),
                 fireAtB: fireAtB.toISOString(),
             });
+
+            // The cancel button's customId needs the poll row's own id, which only
+            // exists after the INSERT above -- so the button is attached via a
+            // follow-up edit rather than in the original send().
+            const cancelRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`glorycta_cancel:${poll.id}`).setLabel('Cancel Vote').setStyle(ButtonStyle.Danger)
+            );
+            await message.edit({ components: [cancelRow] });
         } catch (err) {
             console.error('[Glorycta] Failed to post poll, cleaning up:', err.message);
             if (message) await message.delete().catch(() => {});
