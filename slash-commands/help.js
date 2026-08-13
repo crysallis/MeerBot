@@ -37,7 +37,7 @@ const COMMANDS = {
         description: 'Clash of Glory guild coordination · vote on a battle time, confirm the decided time, and count reactions.',
         subcommands: [
             { name: '/glory cta time1: time2: duration:', desc: 'Post a poll offering two UTC HH:MM battle times to vote between. Closes and tallies automatically after `duration` hours. Has a Cancel Vote button, same permission as the command.' },
-            { name: '/glory confirm time:', desc: 'Post the decided battle time for yes/no/maybe (✅/❌/🤔) availability confirmation. No time limit, not auto-tallied.' },
+            { name: '/glory confirm time:', desc: 'Post the decided UTC HH:MM battle time (shown in Local + UTC, same as `/glory cta`) for yes/no/maybe (✅/❌/🤔) availability confirmation. No time limit, not auto-tallied.' },
             { name: '/glory count message:', desc: 'Count reactions on a `/glory cta` or `/glory confirm` post. Pass a message link (right-click/long-press the post → Copy Message Link).' },
         ],
     },

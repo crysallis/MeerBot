@@ -123,12 +123,21 @@ async function executeConfirm(interaction) {
     const time = interaction.options.getString('time');
     const [emojiYes, emojiNo, emojiMaybe] = CONFIRM_EMOJI;
 
+    if (!TIME_RE.test(time)) {
+        return interaction.editReply({
+            content: '❌ Time must be in 24-hour UTC `HH:MM` format, e.g. `06:00` or `20:00`.',
+        });
+    }
+
+    const fireAt = nextOccurrenceUtc(time, new Date());
+    const ts = Math.floor(fireAt.getTime() / 1000);
+
     const embed = new EmbedBuilder()
         .setColor(pickColor())
         .setTitle('⚔️ Clash of Glory · The Guild Has Spoken')
         .setDescription(
-            `The guild has spoken, and the time will be **${time}**. ` +
-            `React below to confirm you'll be available.`
+            `The guild has spoken! React below to confirm you'll be available.\n\n` +
+            `Local: <t:${ts}:t>\nUTC: ${time}`
         )
         .addFields(
             { name: `${emojiYes} Yes`, value: 'Available', inline: true },
@@ -220,7 +229,7 @@ module.exports = {
         .addSubcommand(s => s
             .setName('confirm')
             .setDescription('Post the decided battle time for yes/no/maybe confirmation')
-            .addStringOption(opt => opt.setName('time').setDescription('The decided time, e.g. "20:00 UTC" or "8pm EST Friday"').setRequired(true)))
+            .addStringOption(opt => opt.setName('time').setDescription('The decided UTC time, HH:MM (e.g. 06:00 or 20:00)').setRequired(true)))
         .addSubcommand(s => s
             .setName('count')
             .setDescription('Count reactions on a /glory cta or /glory confirm post')
