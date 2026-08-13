@@ -26,6 +26,13 @@ function stripVariationSelectors(str) {
 // immediately and silently -- no DM, no channel message. Untracked messages (not
 // an open glory post, or a cta poll already tallied) are a no-op: fail safe,
 // never act on a message this handler can't positively identify.
+//
+// cta polls allow a voter to hold BOTH valid emoji at once (an explicit "either
+// time works" signal, tallied in both columns) -- confirm posts do not: only one
+// of yes/no/maybe should stick per person, since those are mutually exclusive
+// answers, not a combinable pair. On a confirm post, reacting with a second valid
+// emoji swaps the vote (old one removed, new one kept) rather than letting both
+// stand.
 async function handleGloryctaReactionGuard(reaction, user, client) {
     if (user.bot) return;
 
@@ -45,12 +52,29 @@ async function handleGloryctaReactionGuard(reaction, user, client) {
     const validEmoji = [poll.emoji_a, poll.emoji_b, poll.emoji_c]
         .filter(Boolean)
         .map(stripVariationSelectors);
-    if (validEmoji.includes(emojiName)) return;
 
-    try {
-        await reaction.users.remove(user.id);
-    } catch (err) {
-        console.error(`[Glorycta] Failed to remove invalid reaction from ${user.id}:`, err.message);
+    if (!validEmoji.includes(emojiName)) {
+        try {
+            await reaction.users.remove(user.id);
+        } catch (err) {
+            console.error(`[Glorycta] Failed to remove invalid reaction from ${user.id}:`, err.message);
+        }
+        return;
+    }
+
+    if (poll.kind !== 'confirm') return;
+
+    const otherReactions = reaction.message.reactions.cache.filter(r => {
+        const name = stripVariationSelectors(r.emoji.name);
+        return validEmoji.includes(name) && name !== emojiName;
+    });
+    for (const other of otherReactions.values()) {
+        try {
+            const hasUser = other.users.cache.has(user.id) || (await other.users.fetch()).has(user.id);
+            if (hasUser) await other.users.remove(user.id);
+        } catch (err) {
+            console.error(`[Glorycta] Failed to swap prior confirm vote for ${user.id}:`, err.message);
+        }
     }
 }
 

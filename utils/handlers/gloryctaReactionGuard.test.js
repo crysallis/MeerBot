@@ -1,6 +1,7 @@
 require('dotenv').config();
 const test = require('node:test');
 const assert = require('node:assert');
+const { Collection } = require('@discordjs/collection');
 const { handleGloryctaReactionGuard, stripVariationSelectors } = require('./gloryctaReactionGuard');
 const db = require('../db');
 
@@ -13,6 +14,35 @@ function makeStubReaction({ messageId, emojiName, partial = false }) {
         fetch: async function () { this.partial = false; return this; },
         users: { remove: async (userId) => { removeCalledWith = userId; } },
         get removeCalledWith() { return removeCalledWith; },
+    };
+}
+
+// Builds a reaction whose message.reactions.cache also exposes OTHER existing
+// reactions on the same message -- needed for the confirm-post one-vote-per-person
+// swap path, which reads reaction.message.reactions.cache to find a user's prior
+// pick among the other valid emoji. existingReactorsByEmoji maps an emoji string to
+// the set of user ids already holding that reaction (simulating Discord's own
+// per-reaction user list at the moment this new reaction arrives).
+function makeStubReactionWithSiblings({ messageId, emojiName, existingReactorsByEmoji = {} }) {
+    const removedFrom = {};
+    const cache = new Collection();
+    for (const [emoji, userIds] of Object.entries(existingReactorsByEmoji)) {
+        const userSet = new Set(userIds);
+        cache.set(emoji, {
+            emoji: { name: emoji, id: null },
+            users: {
+                cache: userSet,
+                fetch: async () => userSet,
+                remove: async (userId) => { removedFrom[emoji] = userId; userSet.delete(userId); },
+            },
+        });
+    }
+    return {
+        partial: false,
+        message: { id: messageId, reactions: { cache } },
+        emoji: { name: emojiName, id: null },
+        users: { remove: async () => {} },
+        get removedFrom() { return removedFrom; },
     };
 }
 
@@ -92,7 +122,10 @@ test('handleGloryctaReactionGuard removes a reaction using an emoji outside the 
     });
 });
 
-test('handleGloryctaReactionGuard allows the third emoji (emoji_c) on a confirm-kind poll', async () => {
+test('handleGloryctaReactionGuard allows the third emoji (emoji_c) on a cta-kind poll', async () => {
+    // kind intentionally left unset here (mirrors the plain cta stub polls above) --
+    // this test only checks emoji_c acceptance in the non-confirm early-return path,
+    // not the swap logic. See the dedicated 'kind: confirm' tests below for that.
     const poll = { emoji_a: '✅', emoji_b: '❌', emoji_c: '🤔' };
     await withStubbedPoll(poll, async () => {
         const reaction = makeStubReaction({ messageId: 'msg-confirm-1', emojiName: '🤔' });
@@ -109,6 +142,63 @@ test('handleGloryctaReactionGuard removes an emoji outside a confirm poll\'s thr
         const user = { id: 'user-1', bot: false };
         await handleGloryctaReactionGuard(reaction, user, {});
         assert.strictEqual(reaction.removeCalledWith, 'user-1');
+    });
+});
+
+test('handleGloryctaReactionGuard swaps a confirm vote: removes the user\'s prior pick when they react with a different valid emoji', async () => {
+    const poll = { kind: 'confirm', emoji_a: '✅', emoji_b: '❌', emoji_c: '🤔' };
+    await withStubbedPoll(poll, async () => {
+        const reaction = makeStubReactionWithSiblings({
+            messageId: 'msg-confirm-swap-1',
+            emojiName: '🤔',
+            existingReactorsByEmoji: { '✅': ['user-1', 'user-2'], '❌': [] },
+        });
+        const user = { id: 'user-1', bot: false };
+        await handleGloryctaReactionGuard(reaction, user, {});
+        assert.strictEqual(reaction.removedFrom['✅'], 'user-1');
+        assert.strictEqual(reaction.removedFrom['❌'], undefined);
+    });
+});
+
+test('handleGloryctaReactionGuard does not touch other users\' reactions when swapping', async () => {
+    const poll = { kind: 'confirm', emoji_a: '✅', emoji_b: '❌', emoji_c: '🤔' };
+    await withStubbedPoll(poll, async () => {
+        const reaction = makeStubReactionWithSiblings({
+            messageId: 'msg-confirm-swap-2',
+            emojiName: '❌',
+            existingReactorsByEmoji: { '✅': ['user-2', 'user-3'] },
+        });
+        const user = { id: 'user-1', bot: false };
+        await handleGloryctaReactionGuard(reaction, user, {});
+        assert.strictEqual(reaction.removedFrom['✅'], undefined);
+    });
+});
+
+test('handleGloryctaReactionGuard swap is a no-op when the user had no prior reaction on this confirm post', async () => {
+    const poll = { kind: 'confirm', emoji_a: '✅', emoji_b: '❌', emoji_c: '🤔' };
+    await withStubbedPoll(poll, async () => {
+        const reaction = makeStubReactionWithSiblings({
+            messageId: 'msg-confirm-swap-3',
+            emojiName: '✅',
+            existingReactorsByEmoji: { '❌': ['user-2'], '🤔': ['user-3'] },
+        });
+        const user = { id: 'user-1', bot: false };
+        await handleGloryctaReactionGuard(reaction, user, {});
+        assert.deepStrictEqual(reaction.removedFrom, {});
+    });
+});
+
+test('handleGloryctaReactionGuard does not swap on a cta-kind poll (both-emoji is a valid combined vote there)', async () => {
+    const poll = { kind: 'cta', emoji_a: '⚔️', emoji_b: '🛡️' };
+    await withStubbedPoll(poll, async () => {
+        const reaction = makeStubReactionWithSiblings({
+            messageId: 'msg-cta-both',
+            emojiName: '🛡️',
+            existingReactorsByEmoji: { '⚔️': ['user-1'] },
+        });
+        const user = { id: 'user-1', bot: false };
+        await handleGloryctaReactionGuard(reaction, user, {});
+        assert.deepStrictEqual(reaction.removedFrom, {});
     });
 });
 
