@@ -65,10 +65,20 @@ module.exports = {
                 { name: `${emojiB} Option B`, value: `Local: <t:${tsB}:t>\nUTC: ${time2}`, inline: true },
             );
 
-        const message = await interaction.channel.send({ embeds: [embed] });
-        await message.react(emojiA);
-        await message.react(emojiB);
-        await message.pin();
+        let message;
+        try {
+            message = await interaction.channel.send({ embeds: [embed] });
+            await message.react(emojiA);
+            await message.react(emojiB);
+            await message.pin();
+        } catch (err) {
+            console.error('[Glorycta] Failed to post poll, cleaning up:', err.message);
+            if (message) await message.delete().catch(() => {});
+            return interaction.reply({
+                content: '❌ Could not finish posting the vote (reactions or pin failed). The partial message was removed — try again.',
+                flags: MessageFlags.Ephemeral,
+            }).catch(() => {});
+        }
 
         const nowIso = now.toISOString();
         const tallyFireAt = new Date(now.getTime() + duration * 60 * 60 * 1000).toISOString();
