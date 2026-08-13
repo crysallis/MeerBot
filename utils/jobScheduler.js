@@ -5,6 +5,7 @@ const { pickColor } = require('./colors');
 const { logJobRun } = require('./jobLog');
 const botConfig = require('./botConfig');
 const { renderTemplate, shouldFireToday, computeLateness, buildMentions, MAX_LATE_MINUTES } = require('./jobTemplate');
+const { stripVariationSelectors } = require('./handlers/gloryctaReactionGuard');
 
 const MONTHLY_LAST_DAY = -1;
 
@@ -173,6 +174,63 @@ async function handleRecruitmentFollowup(client, job) {
     }
 }
 
+async function handleGloryctaTally(client, job) {
+    const poll = db.prepare('SELECT * FROM glorycta_polls WHERE job_id = ?').get(job.id);
+    if (!poll) {
+        console.error(`[Glorycta] No poll row found for tally job ${job.id}`);
+        return;
+    }
+
+    try {
+        const channel = await client.channels.fetch(poll.channel_id);
+        const message = await channel.messages.fetch(poll.message_id);
+
+        const reactionA = findPollReaction(message.reactions.cache, poll.emoji_a);
+        const reactionB = findPollReaction(message.reactions.cache, poll.emoji_b);
+        const usersA = reactionA ? [...(await reactionA.users.fetch()).values()].filter(u => !u.bot) : [];
+        const usersB = reactionB ? [...(await reactionB.users.fetch()).values()].filter(u => !u.bot) : [];
+
+        const resolve = discordUser => {
+            const member = db.prepare('SELECT ingame_name FROM members WHERE discord_id = ?').get(discordUser.id);
+            return member ? `${discordUser.tag} (${member.ingame_name})` : discordUser.tag;
+        };
+
+        const linesA = usersA.length ? usersA.map(resolve).map(s => `· ${s}`).join('\n') : '*No votes*';
+        const linesB = usersB.length ? usersB.map(resolve).map(s => `· ${s}`).join('\n') : '*No votes*';
+
+        const embed = new EmbedBuilder()
+            .setColor(pickColor())
+            .setTitle('⚔️ Clash of Glory · Vote Results')
+            .addFields(
+                { name: `${poll.emoji_a} UTC ${poll.label_a} (${usersA.length})`, value: linesA.slice(0, 1024), inline: true },
+                { name: `${poll.emoji_b} UTC ${poll.label_b} (${usersB.length})`, value: linesB.slice(0, 1024), inline: true },
+            );
+
+        await channel.send({ embeds: [embed] });
+        await message.unpin().catch(err => console.error('[Glorycta] Failed to unpin poll message:', err.message));
+    } catch (err) {
+        console.error(`[Glorycta] Tally failed for poll ${poll.id} (message ${poll.message_id}):`, err.message);
+    } finally {
+        db.deleteGloryctaPoll(poll.id);
+        logJobRun(`glorycta_${job.id}`);
+    }
+}
+
+// message.reactions.cache is a Map keyed by Discord's canonical emoji.name
+// (see discord.js ReactionManager#_add: `data.emoji.id ?? data.emoji.name`) --
+// an exact-string lookup, not normalized. The EMOJI_POOL in utils/glorycta.js
+// includes VS16-suffixed entries (e.g. '⚔️'), and gloryctaReactionGuard.js
+// already found that a naive === against the DB-stored emoji can mismatch
+// depending on how a given client echoed the variation selector. A cache.get()
+// miss here doesn't throw -- it just returns undefined, which the handler below
+// would silently render as "*No votes*", a quiet undercount rather than a crash.
+// Reusing the same stripVariationSelectors() normalization the guard already
+// verified (collision-free across all 40 EMOJI_POOL entries) avoids that.
+function findPollReaction(reactionsCache, emoji) {
+    const target = stripVariationSelectors(emoji);
+    return reactionsCache.find(r => stripVariationSelectors(r.emoji.name) === target);
+}
+
 async function handleTextJob(client, job) {
     const now = new Date();
 
@@ -256,6 +314,9 @@ async function tick(client) {
             } else if (job.type === 'recruitment_followup') {
                 await handleRecruitmentFollowup(client, job);
                 db.prepare('DELETE FROM scheduled_jobs WHERE id = ?').run(job.id);
+            } else if (job.type === 'glorycta_tally') {
+                await handleGloryctaTally(client, job);
+                db.prepare('DELETE FROM scheduled_jobs WHERE id = ?').run(job.id);
             }
         } catch (err) {
             console.error(`[JobScheduler] Error on job ${job.id} (${job.type}${job.handler_path ? ' / ' + job.handler_path : ''}):`, err);
@@ -270,4 +331,4 @@ function initJobScheduler(client) {
     console.log('[JobScheduler] Initialized · polling every 30s');
 }
 
-module.exports = { initJobScheduler, computeMonthlyNext, MONTHLY_LAST_DAY };
+module.exports = { initJobScheduler, computeMonthlyNext, MONTHLY_LAST_DAY, findPollReaction };
