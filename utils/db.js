@@ -365,22 +365,30 @@ db.exec(`
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
-  -- One row per open /glorycta poll, looked up by message_id from the
-  -- messageReactionAdd guard on every reaction add (so this needs to stay a fast,
-  -- indexed lookup -- UNIQUE gives that for free). Deleted once the tally job fires
-  -- and completes; no historical poll archive is kept, matching this feature's
-  -- disposable one-shot nature (nothing downstream queries past polls).
+  -- One row per open /glory cta or /glory confirm post, looked up by message_id
+  -- from the messageReactionAdd guard on every reaction add (so this needs to stay
+  -- a fast, indexed lookup -- UNIQUE gives that for free). kind distinguishes the
+  -- two: 'cta' is /glory cta's timed two-option vote (job_id set, row deleted once
+  -- the tally job fires); 'confirm' is /glory confirm's untimed three-option
+  -- (yes/no/maybe) check-in (job_id NULL -- no timer, no auto-tally; /glory count
+  -- reads its reactions live and the row is never auto-deleted, by design -- see
+  -- docs/superpowers/specs/2026-08-13-glory-confirm-count-design.md). emoji_c/
+  -- label_c are only populated for 'confirm' rows (the third, "maybe" option);
+  -- NULL for 'cta' rows, which only ever have two options.
   CREATE TABLE IF NOT EXISTS glorycta_polls (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    job_id     INTEGER NOT NULL REFERENCES scheduled_jobs(id) ON DELETE CASCADE,
+    kind       TEXT NOT NULL DEFAULT 'cta' CHECK(kind IN ('cta', 'confirm')),
+    job_id     INTEGER REFERENCES scheduled_jobs(id) ON DELETE CASCADE,
     message_id TEXT NOT NULL UNIQUE,
     channel_id TEXT NOT NULL,
     emoji_a    TEXT NOT NULL,
     emoji_b    TEXT NOT NULL,
+    emoji_c    TEXT,
     label_a    TEXT NOT NULL,
     label_b    TEXT NOT NULL,
-    fire_at_a  TEXT NOT NULL,
-    fire_at_b  TEXT NOT NULL,
+    label_c    TEXT,
+    fire_at_a  TEXT,
+    fire_at_b  TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
@@ -404,6 +412,42 @@ for (const [col, ddl] of [
     ['last_day_offset', 'ALTER TABLE scheduled_jobs ADD COLUMN last_day_offset INTEGER'],
 ]) {
     if (!scheduledJobCols.has(col)) db.exec(ddl);
+}
+
+// glorycta_polls originally had job_id NOT NULL and no kind/emoji_c/label_c
+// columns (cta-only shape). /glory confirm needs job_id nullable (no timer/tally
+// job) plus the extra columns for its third yes/no/maybe option -- SQLite's
+// ADD COLUMN can't relax an existing NOT NULL, so this rebuilds the table via the
+// standard SQLite recipe (new table, copy, drop, rename) rather than ALTERing in
+// place. Guarded on the OLD shape specifically (job_id still NOT NULL) so it only
+// ever runs once, is a no-op after that, and never touches a fresh install (which
+// gets the new shape directly from the CREATE TABLE above).
+const gloryctaPollsInfo = db.prepare("PRAGMA table_info(glorycta_polls)").all();
+const jobIdCol = gloryctaPollsInfo.find(c => c.name === 'job_id');
+if (jobIdCol && jobIdCol.notnull === 1) {
+    db.exec(`
+        ALTER TABLE glorycta_polls RENAME TO glorycta_polls_old;
+        CREATE TABLE glorycta_polls (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind       TEXT NOT NULL DEFAULT 'cta' CHECK(kind IN ('cta', 'confirm')),
+            job_id     INTEGER REFERENCES scheduled_jobs(id) ON DELETE CASCADE,
+            message_id TEXT NOT NULL UNIQUE,
+            channel_id TEXT NOT NULL,
+            emoji_a    TEXT NOT NULL,
+            emoji_b    TEXT NOT NULL,
+            emoji_c    TEXT,
+            label_a    TEXT NOT NULL,
+            label_b    TEXT NOT NULL,
+            label_c    TEXT,
+            fire_at_a  TEXT,
+            fire_at_b  TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO glorycta_polls (id, kind, job_id, message_id, channel_id, emoji_a, emoji_b, label_a, label_b, fire_at_a, fire_at_b, created_at)
+            SELECT id, 'cta', job_id, message_id, channel_id, emoji_a, emoji_b, label_a, label_b, fire_at_a, fire_at_b, created_at FROM glorycta_polls_old;
+        DROP TABLE glorycta_polls_old;
+    `);
+    console.log('[DB] Migrated glorycta_polls to nullable job_id + kind/emoji_c/label_c columns.');
 }
 
 // v3: batch_message_ids shape changed from string[] (message IDs only) to
@@ -675,11 +719,11 @@ function deleteRelayMessagesByGroupId(relayGroupMessageId) {
     db.prepare('DELETE FROM translation_relay_messages WHERE relay_group_message_id = ?').run(relayGroupMessageId);
 }
 
-function createGloryctaPoll({ jobId, messageId, channelId, emojiA, emojiB, labelA, labelB, fireAtA, fireAtB }) {
+function createGloryctaPoll({ kind = 'cta', jobId = null, messageId, channelId, emojiA, emojiB, emojiC = null, labelA, labelB, labelC = null, fireAtA = null, fireAtB = null }) {
     db.prepare(`INSERT INTO glorycta_polls
-        (job_id, message_id, channel_id, emoji_a, emoji_b, label_a, label_b, fire_at_a, fire_at_b)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(jobId, messageId, channelId, emojiA, emojiB, labelA, labelB, fireAtA, fireAtB);
+        (kind, job_id, message_id, channel_id, emoji_a, emoji_b, emoji_c, label_a, label_b, label_c, fire_at_a, fire_at_b)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(kind, jobId, messageId, channelId, emojiA, emojiB, emojiC, labelA, labelB, labelC, fireAtA, fireAtB);
     return db.prepare('SELECT * FROM glorycta_polls WHERE message_id = ?').get(messageId);
 }
 

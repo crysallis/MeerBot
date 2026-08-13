@@ -20,10 +20,12 @@ function stripVariationSelectors(str) {
     return typeof str === 'string' ? str.replace(/[︎️]/g, '') : str;
 }
 
-// Enforces that only a glorycta poll's own two emoji can be reacted onto its message.
-// Any other emoji is removed immediately and silently -- no DM, no channel message.
-// Untracked messages (not an open glorycta poll, or the poll already closed) are a
-// no-op: fail safe, never act on a message this handler can't positively identify.
+// Enforces that only a glory post's own valid emoji (2 for a cta poll, 3 for a
+// confirm post -- emoji_c is NULL for cta rows, so filtering it out below is a
+// no-op there) can be reacted onto its message. Any other emoji is removed
+// immediately and silently -- no DM, no channel message. Untracked messages (not
+// an open glory post, or a cta poll already tallied) are a no-op: fail safe,
+// never act on a message this handler can't positively identify.
 async function handleGloryctaReactionGuard(reaction, user, client) {
     if (user.bot) return;
 
@@ -40,7 +42,10 @@ async function handleGloryctaReactionGuard(reaction, user, client) {
     if (!poll) return;
 
     const emojiName = stripVariationSelectors(reaction.emoji.name);
-    if (emojiName === stripVariationSelectors(poll.emoji_a) || emojiName === stripVariationSelectors(poll.emoji_b)) return;
+    const validEmoji = [poll.emoji_a, poll.emoji_b, poll.emoji_c]
+        .filter(Boolean)
+        .map(stripVariationSelectors);
+    if (validEmoji.includes(emojiName)) return;
 
     try {
         await reaction.users.remove(user.id);

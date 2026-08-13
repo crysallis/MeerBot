@@ -92,6 +92,26 @@ test('handleGloryctaReactionGuard removes a reaction using an emoji outside the 
     });
 });
 
+test('handleGloryctaReactionGuard allows the third emoji (emoji_c) on a confirm-kind poll', async () => {
+    const poll = { emoji_a: '✅', emoji_b: '❌', emoji_c: '🤔' };
+    await withStubbedPoll(poll, async () => {
+        const reaction = makeStubReaction({ messageId: 'msg-confirm-1', emojiName: '🤔' });
+        const user = { id: 'user-1', bot: false };
+        await handleGloryctaReactionGuard(reaction, user, {});
+        assert.strictEqual(reaction.removeCalledWith, null);
+    });
+});
+
+test('handleGloryctaReactionGuard removes an emoji outside a confirm poll\'s three', async () => {
+    const poll = { emoji_a: '✅', emoji_b: '❌', emoji_c: '🤔' };
+    await withStubbedPoll(poll, async () => {
+        const reaction = makeStubReaction({ messageId: 'msg-confirm-2', emojiName: '🍕' });
+        const user = { id: 'user-1', bot: false };
+        await handleGloryctaReactionGuard(reaction, user, {});
+        assert.strictEqual(reaction.removeCalledWith, 'user-1');
+    });
+});
+
 test('handleGloryctaReactionGuard fetches a partial reaction before reading its emoji', async () => {
     const poll = { emoji_a: '⚔️', emoji_b: '🛡️' };
     await withStubbedPoll(poll, async () => {

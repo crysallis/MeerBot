@@ -3,10 +3,13 @@ const db = require('../db');
 const { enforcePermissions } = require('../permissions');
 
 /**
- * Handles glorycta_cancel:<glorycta_polls.id> button clicks. Permission is
- * the same rule as running /glorycta itself -- enforcePermissions reads
- * interaction.member/interaction.channelId identically for a button click
- * as it does for a slash command, so no separate rule is needed.
+ * Handles glorycta_cancel:<glorycta_polls.id> button clicks -- currently only
+ * attached to /glory cta polls (job_id set); a /glory confirm post has no
+ * button at all, but job_id is guarded as nullable here defensively rather
+ * than assuming that never changes. Permission is the same rule as running
+ * /glory cta itself -- enforcePermissions reads interaction.member/
+ * interaction.channelId identically for a button click as it does for a
+ * slash command, so no separate rule is needed.
  */
 async function handleGloryctaCancelButton(interaction) {
     const [action, pollIdRaw] = interaction.customId.split(':');
@@ -19,9 +22,9 @@ async function handleGloryctaCancelButton(interaction) {
         return true;
     }
 
-    if (!(await enforcePermissions(interaction, 'glorycta'))) return true;
+    if (!(await enforcePermissions(interaction, 'glory', 'cta'))) return true;
 
-    db.prepare('DELETE FROM scheduled_jobs WHERE id = ?').run(poll.job_id);
+    if (poll.job_id) db.prepare('DELETE FROM scheduled_jobs WHERE id = ?').run(poll.job_id);
     db.deleteGloryctaPoll(poll.id);
 
     await interaction.reply({ content: '🗑️ Vote cancelled.', flags: MessageFlags.Ephemeral });

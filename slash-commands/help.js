@@ -33,10 +33,12 @@ const COMMANDS = {
             { name: '/ping', desc: 'Replies with Pong and the measured message latency in ms.' },
         ],
     },
-    glorycta: {
-        description: 'Post a Clash of Glory battle-time vote · two UTC time options, react to pledge, auto-tallied and closed after the given duration.',
+    glory: {
+        description: 'Clash of Glory guild coordination · vote on a battle time, confirm the decided time, and count reactions.',
         subcommands: [
-            { name: '/glorycta time1: time2: duration:', desc: 'Post a poll offering two UTC HH:MM battle times to vote between. Closes and tallies automatically after `duration` hours.' },
+            { name: '/glory cta time1: time2: duration:', desc: 'Post a poll offering two UTC HH:MM battle times to vote between. Closes and tallies automatically after `duration` hours. Has a Cancel Vote button, same permission as the command.' },
+            { name: '/glory confirm time:', desc: 'Post the decided battle time for yes/no/maybe (✅/❌/🤔) availability confirmation. No time limit, not auto-tallied.' },
+            { name: '/glory count message:', desc: 'Count reactions on a `/glory cta` or `/glory confirm` post. Pass a message link (right-click/long-press the post → Copy Message Link).' },
         ],
     },
     member: {
@@ -239,7 +241,7 @@ module.exports = {
             anniversary: 'list · upcoming',
             remindme: 'Set · list · cancel personal reminders',
             ping: 'Latency check with a quip',
-            glorycta: 'Post a Clash of Glory battle-time vote',
+            glory: 'Clash of Glory vote · confirm · count',
             scan: 'Trigger a guild scan',
             rename: 'Rename a member in the database',
             note: 'Add · view · delete notes on members',
