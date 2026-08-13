@@ -364,6 +364,25 @@ db.exec(`
     target_count  INTEGER NOT NULL,
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  -- One row per open /glorycta poll, looked up by message_id from the
+  -- messageReactionAdd guard on every reaction add (so this needs to stay a fast,
+  -- indexed lookup -- UNIQUE gives that for free). Deleted once the tally job fires
+  -- and completes; no historical poll archive is kept, matching this feature's
+  -- disposable one-shot nature (nothing downstream queries past polls).
+  CREATE TABLE IF NOT EXISTS glorycta_polls (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id     INTEGER NOT NULL REFERENCES scheduled_jobs(id) ON DELETE CASCADE,
+    message_id TEXT NOT NULL UNIQUE,
+    channel_id TEXT NOT NULL,
+    emoji_a    TEXT NOT NULL,
+    emoji_b    TEXT NOT NULL,
+    label_a    TEXT NOT NULL,
+    label_b    TEXT NOT NULL,
+    fire_at_a  TEXT NOT NULL,
+    fire_at_b  TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 // translation_relay_messages may already exist (shipped pre-batching) without the
@@ -656,6 +675,22 @@ function deleteRelayMessagesByGroupId(relayGroupMessageId) {
     db.prepare('DELETE FROM translation_relay_messages WHERE relay_group_message_id = ?').run(relayGroupMessageId);
 }
 
+function createGloryctaPoll({ jobId, messageId, channelId, emojiA, emojiB, labelA, labelB, fireAtA, fireAtB }) {
+    db.prepare(`INSERT INTO glorycta_polls
+        (job_id, message_id, channel_id, emoji_a, emoji_b, label_a, label_b, fire_at_a, fire_at_b)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(jobId, messageId, channelId, emojiA, emojiB, labelA, labelB, fireAtA, fireAtB);
+    return db.prepare('SELECT * FROM glorycta_polls WHERE message_id = ?').get(messageId);
+}
+
+function getGloryctaPollByMessageId(messageId) {
+    return db.prepare('SELECT * FROM glorycta_polls WHERE message_id = ?').get(messageId);
+}
+
+function deleteGloryctaPoll(id) {
+    db.prepare('DELETE FROM glorycta_polls WHERE id = ?').run(id);
+}
+
 module.exports = db;
 module.exports.mergeMembers = mergeMembers;
 module.exports.getWarbands = getWarbands;
@@ -686,5 +721,8 @@ module.exports.insertTranslationUsage = insertTranslationUsage;
 module.exports.setRelayMessageGroupId = setRelayMessageGroupId;
 module.exports.updateRelayMessageText = updateRelayMessageText;
 module.exports.deleteRelayMessagesByGroupId = deleteRelayMessagesByGroupId;
+module.exports.createGloryctaPoll = createGloryctaPoll;
+module.exports.getGloryctaPollByMessageId = getGloryctaPollByMessageId;
+module.exports.deleteGloryctaPoll = deleteGloryctaPoll;
 module.exports.__runRelayMessageMigration = runRelayMessageMigration;
 module.exports.__testRawDb = db;
