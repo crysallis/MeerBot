@@ -9,6 +9,7 @@ const { handleTranslationRole } = require('./utils/handlers/translationRoleHandl
 const { handlePromoCode } = require('./utils/handlers/promoCodeHandler');
 const { handleTranslationRelay, handleTranslationReactionSync, handleTranslationEditSync, handleTranslationDeleteSync } = require('./utils/handlers/translationRelayHandler');
 const { handleTransferButton } = require('./utils/handlers/transferButtonHandler');
+const { handleGloryctaReactionGuard } = require('./utils/handlers/gloryctaReactionGuard');
 const { rateLimit } = require('./config');
 
 require('./utils/db');
@@ -66,6 +67,7 @@ client.on('messageCreate', message => {
 });
 client.on('messageReactionAdd', (reaction, user) => {
   handleTranslationReactionSync(reaction, user, client, true).catch(err => console.error('[TranslationRelay] Reaction sync (add) unhandled error:', err));
+  handleGloryctaReactionGuard(reaction, user, client).catch(err => console.error('[Glorycta] Reaction guard unhandled error:', err));
 });
 client.on('messageReactionRemove', (reaction, user) => {
   handleTranslationReactionSync(reaction, user, client, false).catch(err => console.error('[TranslationRelay] Reaction sync (remove) unhandled error:', err));
