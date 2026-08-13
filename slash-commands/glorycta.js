@@ -31,14 +31,15 @@ module.exports = {
     async execute(interaction) {
         if (!(await enforcePermissions(interaction, 'glorycta'))) return;
 
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
         const time1 = interaction.options.getString('time1');
         const time2 = interaction.options.getString('time2');
         const duration = interaction.options.getInteger('duration');
 
         if (!TIME_RE.test(time1) || !TIME_RE.test(time2)) {
-            return interaction.reply({
+            return interaction.editReply({
                 content: '❌ Times must be in 24-hour UTC `HH:MM` format, e.g. `06:00` or `20:00`.',
-                flags: MessageFlags.Ephemeral,
             });
         }
 
@@ -66,39 +67,46 @@ module.exports = {
             );
 
         let message;
+        let jobId;
         try {
             message = await interaction.channel.send({ embeds: [embed] });
             await message.react(emojiA);
             await message.react(emojiB);
             await message.pin();
+
+            const nowIso = now.toISOString();
+            const tallyFireAt = new Date(now.getTime() + duration * 60 * 60 * 1000).toISOString();
+            const jobResult = db.prepare(
+                'INSERT INTO scheduled_jobs (type, fire_at, created_at) VALUES (?, ?, ?)'
+            ).run('glorycta_tally', tallyFireAt, nowIso);
+            jobId = jobResult.lastInsertRowid;
+
+            db.createGloryctaPoll({
+                jobId,
+                messageId: message.id,
+                channelId: message.channelId,
+                emojiA, emojiB,
+                labelA: time1, labelB: time2,
+                fireAtA: fireAtA.toISOString(),
+                fireAtB: fireAtB.toISOString(),
+            });
         } catch (err) {
             console.error('[Glorycta] Failed to post poll, cleaning up:', err.message);
             if (message) await message.delete().catch(() => {});
-            return interaction.reply({
-                content: '❌ Could not finish posting the vote (reactions or pin failed). The partial message was removed — try again.',
-                flags: MessageFlags.Ephemeral,
+            if (jobId) {
+                try {
+                    db.prepare('DELETE FROM scheduled_jobs WHERE id = ?').run(jobId);
+                } catch (cleanupErr) {
+                    console.error('[Glorycta] Failed to clean up orphaned scheduled_jobs row:', cleanupErr.message);
+                }
+            }
+            return interaction.editReply({
+                content: '❌ Could not finish posting the vote. The partial message and any partial data were removed — try again.',
             }).catch(() => {});
         }
 
-        const nowIso = now.toISOString();
-        const tallyFireAt = new Date(now.getTime() + duration * 60 * 60 * 1000).toISOString();
-        const jobResult = db.prepare(
-            'INSERT INTO scheduled_jobs (type, fire_at, created_at) VALUES (?, ?, ?)'
-        ).run('glorycta_tally', tallyFireAt, nowIso);
-
-        db.createGloryctaPoll({
-            jobId: jobResult.lastInsertRowid,
-            messageId: message.id,
-            channelId: message.channelId,
-            emojiA, emojiB,
-            labelA: time1, labelB: time2,
-            fireAtA: fireAtA.toISOString(),
-            fireAtB: fireAtB.toISOString(),
-        });
-
-        await interaction.reply({
+        await interaction.editReply({
             content: `⚔️ Call to arms posted. Vote closes in ${duration} hour${duration === 1 ? '' : 's'}.`,
-            flags: MessageFlags.Ephemeral,
         });
     },
 };

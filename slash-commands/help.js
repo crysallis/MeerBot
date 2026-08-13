@@ -33,6 +33,12 @@ const COMMANDS = {
             { name: '/ping', desc: 'Replies with Pong and the measured message latency in ms.' },
         ],
     },
+    glorycta: {
+        description: 'Post a Clash of Glory battle-time vote · two UTC time options, react to pledge, auto-tallied and closed after the given duration.',
+        subcommands: [
+            { name: '/glorycta time1: time2: duration:', desc: 'Post a poll offering two UTC HH:MM battle times to vote between. Closes and tallies automatically after `duration` hours.' },
+        ],
+    },
     member: {
         description: 'Look up a single guild member.',
         subcommands: [
@@ -233,6 +239,7 @@ module.exports = {
             anniversary: 'list · upcoming',
             remindme: 'Set · list · cancel personal reminders',
             ping: 'Latency check with a quip',
+            glorycta: 'Post a Clash of Glory battle-time vote',
             scan: 'Trigger a guild scan',
             rename: 'Rename a member in the database',
             note: 'Add · view · delete notes on members',
