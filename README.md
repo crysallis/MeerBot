@@ -115,6 +115,9 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 
 | Command | Description |
 |---|---|
+| `/glory cta time1: time2: duration:` | Post a Clash of Glory battle-time vote · two UTC HH:MM options (random emoji, non-pool reactions silently stripped, both-emoji counts as "either works"), auto-tallies and unpins after `duration` hours, has a Cancel Vote button |
+| `/glory confirm time:` | Post the decided UTC HH:MM battle time (Local + UTC shown, same as `cta`) for yes/no/maybe (✅/❌/🤔) availability confirmation · one vote per person, no time limit, not auto-tallied |
+| `/glory count message:` | Count reactions on a `/glory cta` or `/glory confirm` post · pass a Discord message link |
 | `/scan` | Trigger a live guild scrape (authorized user only) · always runs the roster scan; enabled mode scans run alongside |
 | `/roster add guild: user:` | Add a Discord member to a guild role (RiffRaff or Frop) · removes Who Dis? role |
 | `/roster remove guild: user:` | Remove a Discord member from a guild role |
@@ -135,7 +138,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/newsletter generate` | Generate a draft newsletter via Claude. Returns a .txt with material summary + draft. No sign-off included. |
 | `/newsletter seed` | Import past newsletters from the newsletter channel. Re-runnable after each new issue. |
 
-> **Permissions:** All commands support DB-backed role and channel allowlists, configurable from the admin panel's **Permissions** tab without restarting. Per-command and per-subcommand rules are stored in `command_permissions` and checked at runtime by `enforcePermissions()`. `/review` also has a hardcoded code-level gate to the authorized scan user. Commands with no configured DB rules fall back to their built-in Discord permission level (`ManageGuild` for admin commands, public for everything else).
+> **Permissions:** All commands support DB-backed role and channel allowlists, configurable from the admin panel's **Permissions** tab without restarting. Rules are stored in `command_permissions` and checked at runtime by `enforcePermissions()`. A rule saved with no subcommand selected applies to the whole command (every subcommand), unless that subcommand has its own more specific rule of the same type (role/channel decided independently). `/review` also has a hardcoded code-level gate to the authorized scan user. Commands with no configured DB rules fall back to their built-in Discord permission level (`ManageGuild` for admin commands, public for everything else).
 
 ### Visual indicators
 

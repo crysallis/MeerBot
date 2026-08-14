@@ -133,11 +133,11 @@ name_corrections    OCR correction map. Written by scraper and /rename, readable
 member_notes        Admin notes on members. Multiple notes per member (/note command).
 member_afk          AFK status. One row per member (UNIQUE on member_id).
 scheduled_jobs      Unified job queue. One row per pending or recurring job.
-                    type = 'script_job' | 'text_job' | 'remindme' | 'recruitment_followup'.
-                    fire_at is next execution time. day_of_month (1-31, or -1 for
-                    last day of month) and last_day_offset (N days before the last
-                    day, only meaningful when day_of_month is -1) drive monthly
-                    recurrence.
+                    type = 'script_job' | 'text_job' | 'remindme' | 'recruitment_followup'
+                    | 'glorycta_tally'. fire_at is next execution time. day_of_month
+                    (1-31, or -1 for last day of month) and last_day_offset (N days
+                    before the last day, only meaningful when day_of_month is -1)
+                    drive monthly recurrence.
 remindme_jobs       Sub-table for type='remindme'. Holds user_id, channel_id, message.
                     ON DELETE CASCADE from scheduled_jobs.
 script_jobs         Sub-table for type='script_job'. Holds handler_path to module.
@@ -151,6 +151,15 @@ text_jobs           Sub-table for type='text_job'. Fully panel-authored schedule
 recruitment_followups Sub-table for type='recruitment_followup'. 2-day follow-up reminder
                     for /recruitment add. Holds user_id, recruitment_id, channel_id.
                     ON DELETE CASCADE from scheduled_jobs.
+glorycta_polls      One row per open /glory cta or /glory confirm post. kind =
+                    'cta' | 'confirm'. cta rows have job_id set (FK to scheduled_jobs,
+                    ON DELETE CASCADE -- one-shot tally job, deleted once it fires);
+                    confirm rows have job_id NULL (no timer, no auto-tally, never
+                    auto-cleaned). emoji_a/emoji_b/label_a/label_b hold cta's two
+                    options or confirm's yes/no; emoji_c/label_c (nullable) hold
+                    confirm's third "maybe" option. Looked up by message_id (UNIQUE)
+                    from the messageReactionAdd guard on every reaction add, and from
+                    /glory count via a pasted message link.
 scheduler_log       Audit log of every job execution. No uniqueness constraint --
                     every fire (including an accidental double-fire from an edited
                     fire_at) writes its own row, on purpose, so duplicates are visible
@@ -311,13 +320,27 @@ Permission to run `/roster transfer` at all is entirely DB-backed via `enforcePe
 
 ### transferButtonHandler.js
 
-`index.js`'s `interactionCreate` handler's only `isButton()` branch (added for this feature -- previously the bot had no button interactions at all). Dispatches on `custom_id` prefix `transfer_approve:`/`transfer_deny:`.
+`index.js`'s `interactionCreate` handler's `isButton()` branch (added for this feature -- previously the bot had no button interactions at all; a second handler, `gloryctaCancelButtonHandler.js`, was chained onto the same branch later -- see below). Dispatches on `custom_id` prefix `transfer_approve:`/`transfer_deny:`.
 
 Clickable from either the channel post or a DM. A DM interaction has no `interaction.guild`/`interaction.member` (DMs aren't inside any guild), so the handler resolves the bot's one managed guild explicitly via `process.env.GUILD_ID` instead of relying on interaction context -- the same code path handles both origins.
 
 Authorization checks `transfer_approval_eligibility` (was this user recorded eligible for this specific request) rather than re-deriving role membership at click time. This matters on the vacant-leader-role fallback path: `resolveEligibleApprovers()` can return multiple eligible people across several guild override roles, but only one role id is stored on `transfer_approvals.approving_role_id` -- checking that single role at click time would incorrectly reject some of the people who were actually DM'd.
 
 Calls `interaction.deferUpdate()` immediately after the eligibility/status gates, before any role edits or REST fetches -- `applyTransferRoles()` plus several member/user lookups can exceed Discord's 3s interaction ack deadline. On resolution it edits whichever message was clicked, then syncs every other surviving copy (the channel post, if the click came from a DM or vice versa, and every other eligible approver's DM) to the resolved state via `Promise.all`.
+
+### glory.js / gloryctaReactionGuard.js / gloryctaCancelButtonHandler.js
+
+One command file (`slash-commands/glory.js`), three subcommands, all backed by the shared `glorycta_polls` table (see Database Tables above):
+
+- **`/glory cta time1: time2: duration:`** -- posts a pinned two-option UTC battle-time vote. Picks 2 distinct random emoji per invocation from `utils/glorycta.js`'s `EMOJI_POOL` (40 entries, excludes flag and skin-tone-modifier emoji) -- deliberately never fixed/admin-set, so voters can't pattern-match a position instead of reading the times. Each option's `<t:UNIX:t>` Discord dynamic timestamp is computed independently via `nextOccurrenceUtc()` (rolls to tomorrow if that specific clock time already passed today; the two options are never assumed to share a calendar date). Creates a one-shot `scheduled_jobs` row (`type='glorycta_tally'`) and attaches a "Cancel Vote" button (`custom_id: glorycta_cancel:<glorycta_polls.id>`) via a follow-up `message.edit()` once the DB row's own id is known. The post/react/pin/DB-write sequence is wrapped in one try/catch -- on any failure, the partially-posted message and any already-inserted `scheduled_jobs` row are cleaned up so a mid-sequence failure can't leave an orphan poll with dead reaction enforcement (no `glorycta_polls` row = the guard's `if (!poll) return` treats it as untracked).
+- **`/glory confirm time:`** -- posts an untimed yes/no/maybe (✅/❌/🤔, fixed, not randomized -- unlike `cta`, this isn't a vote-integrity-sensitive pick-one) availability check for a decided UTC time, shown Local + UTC same as `cta`. No `scheduled_jobs` row (no timer, no auto-tally); the `glorycta_polls` row is never auto-deleted.
+- **`/glory count message:<link>`** -- parses a pasted Discord message link (`channels/<guild>/<channel>/<message>`), looks up the tracked row by `message_id`, fetches live reactions off the actual message (not stored data -- votes are never persisted anywhere but the Discord message's own reactions), and posts a tally embed in that post's own channel (not wherever `/glory count` was run from, if those differ).
+
+`utils/handlers/gloryctaReactionGuard.js` is a `messageReactionAdd` listener (wired in `index.js` alongside the translation-relay reaction sync) enforcing that only a tracked post's own valid emoji survive on it -- anything else is removed immediately and silently, no DM. Compares emoji via `stripVariationSelectors()` (strips VS15/VS16 variation selectors from both sides before `===`) since Discord's gateway doesn't guarantee echoing them consistently and a naive comparison risks a false-negative that deletes a *legitimate* vote. On a `kind='confirm'` post specifically, reacting with a second valid emoji swaps the vote (the user's prior reaction on this message is auto-removed, keeping only the newest) -- `cta` polls are exempt from this, since holding both of `cta`'s two emoji is a legitimate "either time works" signal tallied in both columns by the tally handler, not a mistake to correct.
+
+`utils/handlers/gloryctaCancelButtonHandler.js` handles `custom_id` prefix `glorycta_cancel:` on the same `isButton()` branch as `transferButtonHandler.js` (chained: `handleTransferButton` first, falls through to this handler on a falsy return). Re-checks `enforcePermissions(interaction, 'glory', 'cta')` -- the same gate as running the command itself, since a button click carries the same `interaction.member`/`interaction.channelId` shape a slash command does. Deletes the message, the `scheduled_jobs` row, and the `glorycta_polls` row.
+
+The tally handler (`handleGloryctaTally` in `utils/jobScheduler.js`, dispatched from `tick()` for `type='glorycta_tally'`) resolves each reactor's Discord ID against `members.discord_id` for an in-game name where linked (unlinked = Discord tag only), posts results as a new message, unpins the original post, strips its Cancel button (`message.edit({components:[]})` -- avoids a dead control lingering on a resolved poll), and deletes its own `glorycta_polls` row in a `finally` block so cleanup runs even if the Discord fetch/post steps throw. No lateness gate (unlike `text_job`/`script_job`) -- if the bot was down across a poll's close time, the tally still fires whenever `tick()` next runs, however late; this is intentional (reactions are durable server-side, so a late tally is still correct), matching the existing `remindme`/`recruitment_followup` one-shot job precedent.
 
 ### note.js / afk.js
 
@@ -434,7 +457,9 @@ Two complementary permission systems:
 - `type = 'role'` -- caller must hold at least one of the listed role IDs.
 - `type = 'channel'` -- command must be invoked in one of the listed channel IDs.
 
-If no rows exist for a command, `enforcePermissions` returns `true` (no restriction). This makes all commands open-by-default until an explicit allowlist is configured. Rules are managed from the admin panel's **Permissions** tab (command/subcommand dropdowns, role and channel chip pickers).
+A row saved with `subcommand = NULL` (the admin panel's "whole command" option) applies to every subcommand of that command that has no more specific rule of its own. Precedence is decided independently per constraint type: if a subcommand has its own `role` rows, those replace the command-wide `role` rows for that call, but a command-wide `channel` rule still applies unless that subcommand also has its own `channel` rows -- a specific rule of one type never suppresses a general rule of the other type. (Fixed 2026-08-14, commit e4edaac -- previously the lookup only ever matched an exact `subcommand` value, so every command-wide rule was silently a no-op for any command with subcommands; see `utils/permissions.test.js` for the regression coverage.)
+
+If no rows exist for a command (specific or general) it returns `true` (no restriction). This makes all commands open-by-default until an explicit allowlist is configured. Rules are managed from the admin panel's **Permissions** tab (command/subcommand dropdowns, role and channel chip pickers).
 
 Most commands call `enforcePermissions` first and then an additional `enforce` check if needed (e.g. `/scan` requires both a DB allowlist pass and the scan-user ID check). New commands should call `enforcePermissions` as their first gate.
 
