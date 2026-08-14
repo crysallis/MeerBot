@@ -51,20 +51,33 @@ async function enforce(interaction, permName) {
     return false;
 }
 
+// A saved rule with subcommand = NULL means "whole command" (the admin panel's own
+// label for it) -- it must apply to every subcommand that doesn't have its OWN more
+// specific rule of the same type. Picking specific-if-any-else-general independently
+// per type (not once for the whole lookup) matters: a subcommand-specific ROLE rule
+// must not silently disable a command-wide CHANNEL rule, or vice versa -- that would
+// just be this same class of bug one layer down.
+function pickRows(rows, subcommand) {
+    const specific = rows.filter(r => r.subcommand === subcommand);
+    return specific.length > 0 ? specific : rows.filter(r => r.subcommand === null);
+}
+
 async function enforcePermissions(interaction, command, subcommand = null) {
     const db = require('./db');
 
     let roleRows, channelRows;
     try {
-        roleRows = db.prepare(
-            `SELECT value_id FROM command_permissions
-             WHERE command = ? AND subcommand IS ? AND type = 'role'`
+        const allRoleRows = db.prepare(
+            `SELECT subcommand, value_id FROM command_permissions
+             WHERE command = ? AND (subcommand IS ? OR subcommand IS NULL) AND type = 'role'`
         ).all(command, subcommand);
+        roleRows = pickRows(allRoleRows, subcommand);
 
-        channelRows = db.prepare(
-            `SELECT value_id FROM command_permissions
-             WHERE command = ? AND subcommand IS ? AND type = 'channel'`
+        const allChannelRows = db.prepare(
+            `SELECT subcommand, value_id FROM command_permissions
+             WHERE command = ? AND (subcommand IS ? OR subcommand IS NULL) AND type = 'channel'`
         ).all(command, subcommand);
+        channelRows = pickRows(allChannelRows, subcommand);
     } catch (err) {
         console.error(`[permissions] DB read failed for ${command}/${subcommand ?? 'null'}: ${err.message}`);
         await interaction.reply({ content: 'Bot is temporarily unavailable. Try again in a moment.', flags: MessageFlags.Ephemeral });
