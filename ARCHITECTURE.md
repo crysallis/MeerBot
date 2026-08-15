@@ -90,6 +90,8 @@ The handler in `utils/handlers/translationRoleHandler.js` checks whether the tra
 
 Requires `GatewayIntentBits.GuildMembers` (privileged intent -- must also be enabled in the Discord Developer Portal under Bot → Server Members Intent).
 
+**`GatewayIntentBits.DirectMessages`** (not privileged, no Developer Portal toggle) is also required -- separately from `GuildMessages` -- for the bot to receive `messageCreate` events for DMs at all. Nothing needed it before `utils/handlers/askHandler.js`: `transferButtonHandler.js`'s DM flow is button *interactions* (`INTERACTION_CREATE`), a different gateway event that doesn't depend on this intent. Without it, a DM to the bot produces no error anywhere -- Discord's gateway simply never sends the event, so no `messageCreate` handler fires at all. `Partials.Channel` is also set, so an uncached DM channel doesn't arrive partial and fail downstream.
+
 ---
 
 ## utils/db.js (Database Layer)
@@ -197,6 +199,13 @@ transfer_approvals  Pending/resolved /roster transfer requests. transfer_id (UUI
                     (requested|approved|denied), approver_user_id + acted_at (who
                     resolved it and when -- null while requested), message_id (the
                     channel post, edited on resolution).
+claude_usage        One row per successful Claude API call, across every feature that
+                    makes one. feature = 'translation' | 'ask'. ref_id is feature-
+                    specific (source message id for translation, asking user's Discord
+                    id for ask). target_count is translation-only (languages in that
+                    batch), NULL otherwise. Not logged on failure. One shared table
+                    (rather than a table per feature) so total or per-feature Claude
+                    cost is a single query instead of unioning several by hand.
 transfer_approval_eligibility  One row per Discord user id eligible to approve/deny a
                     specific transfer, recorded at request time. message_id is the
                     DM sent to them (null if their DMs were closed). This is the
@@ -341,6 +350,22 @@ One command file (`slash-commands/glory.js`), three subcommands, all backed by t
 `utils/handlers/gloryctaCancelButtonHandler.js` handles `custom_id` prefix `glorycta_cancel:` on the same `isButton()` branch as `transferButtonHandler.js` (chained: `handleTransferButton` first, falls through to this handler on a falsy return). Re-checks `enforcePermissions(interaction, 'glory', 'cta')` -- the same gate as running the command itself, since a button click carries the same `interaction.member`/`interaction.channelId` shape a slash command does. Deletes the message, the `scheduled_jobs` row, and the `glorycta_polls` row.
 
 The tally handler (`handleGloryctaTally` in `utils/jobScheduler.js`, dispatched from `tick()` for `type='glorycta_tally'`) resolves each reactor's Discord ID against `members.discord_id` for an in-game name where linked (unlinked = Discord tag only), posts results as a new message, unpins the original post, strips its Cancel button (`message.edit({components:[]})` -- avoids a dead control lingering on a resolved poll), and deletes its own `glorycta_polls` row in a `finally` block so cleanup runs even if the Discord fetch/post steps throw. No lateness gate (unlike `text_job`/`script_job`) -- if the bot was down across a poll's close time, the tally still fires whenever `tick()` next runs, however late; this is intentional (reactions are durable server-side, so a late tally is still correct), matching the existing `remindme`/`recruitment_followup` one-shot job precedent.
+
+### askHandler.js / askCapabilities.js
+
+Not a slash command -- a `messageCreate` handler (wired in `index.js` alongside the other message handlers) that answers plain-language DM questions about what the bot can do. Fires only for DMs (`message.guild === null`) from non-bot users; requires `GatewayIntentBits.DirectMessages` (see above).
+
+Rate limited to 10 questions/hour/user via an in-memory `Map<userId, {timestamp, question, answer}[]>` (`rateLimitLog`). `isRateLimited()` both checks and records the attempt (pushes an entry with `question: null` before the Claude call runs) so a question that gets through the limiter but then errors still consumes a slot -- the limit is on attempts, not successful answers. `recordExchange()` fills in that same in-flight entry once an answer exists, rather than pushing a second entry.
+
+The last 3 *answered* exchanges (`getRecentHistory()`, filtered to `question !== null`) are sent as prior `user`/`assistant` turns in the Claude call, giving natural follow-up handling ("what about confirm?" after asking about `/glory cta`). History ages out on the exact same rolling hour window as the rate limit, since both live in the same `Map` -- no separate expiry timer.
+
+System prompt is assembled from three sources every call: `slash-commands/help.js`'s exported `COMMANDS` object (the same data `/help` renders from, formatted into a flat command/subcommand text block), `docs/bot-guide.md` (a short doc written specifically to be read by the model -- guild/warband structure and how permissions work in plain terms; deliberately not a command reference, since `help.js` already covers that, and deliberately not written by/for developers, unlike README.md/ARCHITECTURE.md which were tried first and produced documentation-styled answers -- see the design spec's amendment note), and a personalized capability summary from `askCapabilities.js`'s `buildCapabilitySummary()`.
+
+`buildCapabilitySummary()` resolves the asker's real guild roles (`guild.members.fetch(userId)` via `process.env.GUILD_ID`, same DM-context pattern as `transferButtonHandler.js`) and, for every command in `COMMANDS`, reads the matching `command_permissions` rows directly -- role rows and channel rows, resolved through `permissions.js`'s exported `pickRows()` (the same specific-overrides-general-per-type precedence `enforcePermissions()` uses). This is read-only: the handler never calls `enforcePermissions()` itself, since that function is for gating command execution, not describing capability. The result is one line per command ("you CAN/CANNOT use this", plus allowed channel IDs if restricted) appended to the system prompt as ground truth about *this specific asker*.
+
+The system prompt also carries explicit negative formatting instructions (no markdown headers, no bold section titles, no emoji, bullets only for literal list requests) -- a first version relied on a vague "keep it conversational" instruction alone and the model still defaulted to documentation-style output once handed markdown-heavy reference material, which is what motivated writing `docs/bot-guide.md` in the first place rather than continuing to feed it README.md/ARCHITECTURE.md.
+
+Token usage is logged per call via `db.insertAskUsage()` (writes into the shared `claude_usage` table, `feature='ask'`, `ref_id` = the asking user's Discord id -- see Database Tables above). On any failure (Claude API error, etc.) the catch block replies with a static fallback pointing to `/help` rather than leaving the DM unanswered.
 
 ### note.js / afk.js
 

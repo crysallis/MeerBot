@@ -107,6 +107,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/remindme cancel id:` | Cancel a pending reminder by ID |
 | `/ping` | Latency check with a tiered fun comment |
 | `/help` | Show all commands (filtered by your permissions) |
+| *(DM the bot directly)* | Ask MeerBot a plain-language question -- "how do I vote on Clash of Glory times", "can I run /season here" -- and it answers using its own command list, a short guide, and your real permissions. Not a slash command; just DM it. Rate limited to 10 questions/hour. |
 | `/anniversary list count:` | Next N upcoming guild anniversaries (default 5, ephemeral) |
 | `/anniversary upcoming days:` | All anniversaries in the next N days (default 30, ephemeral) |
 | `/anniversary set member: date:` | Override a member's join date (first_seen) in the DB |
