@@ -180,6 +180,7 @@ function permTag(permName) {
 }
 
 module.exports = {
+    COMMANDS,
     async autocomplete(interaction) {
         const focused = interaction.options.getFocused().toLowerCase();
         const visible = visibleCommands(interaction);

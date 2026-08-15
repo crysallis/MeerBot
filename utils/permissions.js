@@ -103,4 +103,4 @@ async function enforcePermissions(interaction, command, subcommand = null) {
     return true;
 }
 
-module.exports = { PERMS, getPerm, enforce, enforcePermissions };
+module.exports = { PERMS, getPerm, enforce, enforcePermissions, pickRows };
