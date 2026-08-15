@@ -37,8 +37,11 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.MessageContent,
+    // DMs are a separate intent from GuildMessages -- required for askHandler.js
+    // to receive messageCreate events for DMs to the bot at all.
+    GatewayIntentBits.DirectMessages,
   ],
-  partials: [Partials.Message, Partials.Reaction],
+  partials: [Partials.Message, Partials.Reaction, Partials.Channel],
 });
 
 client.slashCommands = new Map();
