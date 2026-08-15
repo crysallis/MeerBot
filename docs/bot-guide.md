@@ -19,8 +19,10 @@ If someone asks whether the bot "does X automatically" and it's not in this list
 
 ## Websites (not slash commands or Discord features)
 
-- **riffraff.meerbot.dev** -- a public stats website with guild leaderboards, member stats, and charts. Open to anyone, no login needed.
-- **admin.meerbot.dev** -- the admin panel, used by guild leadership to configure the bot (channels, permissions, scheduled posts, etc). Requires logging in with Discord and holding a Riff, Raff, or RiffRaffian role -- not something a regular member would use.
+Both require logging in with Discord, but the bar is different for each:
+
+- **riffraff.meerbot.dev** -- a stats website with guild leaderboards, member stats, and charts. Any member of RKF RiffRaff or RKF Frop can log in and view it.
+- **admin.meerbot.dev** -- the admin panel, used by guild leadership to configure the bot (channels, permissions, scheduled posts, etc). Requires holding a Riff, Raff, or RiffRaffian role specifically -- not something a regular member would have access to.
 
 ## Guild structure
 
