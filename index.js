@@ -61,7 +61,7 @@ for (const file of fs.readdirSync(slashPath).filter(f => f.endsWith('.js'))) {
 
 client.once('clientReady', () => {
   console.log(`Ready. Logged in as ${client.user?.tag}`);
-  client.user.setActivity('github.com/crysallis/MeerBot · /help', { type: ActivityType.Playing });
+  client.user.setActivity('DM me for help or use the /help command', { type: ActivityType.Playing });
   initJobScheduler(client);
 });
 
