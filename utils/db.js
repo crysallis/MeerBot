@@ -356,22 +356,21 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_trm_group_msg ON translation_relay_messages(relay_group_message_id);
   CREATE INDEX IF NOT EXISTS idx_trm_message ON translation_relay_messages(message_id);
 
-  CREATE TABLE IF NOT EXISTS translation_usage (
+  -- One row per successful Claude API call, across every feature that makes
+  -- one -- translation relay (feature='translation') and Ask MeerBot DM
+  -- answers (feature='ask') today. ref_id is feature-specific: the source
+  -- message id for translation, the asking user's Discord id for ask. Not
+  -- logged on failure. One shared table so total/breakdown-by-feature cost
+  -- is a single query instead of unioning per-feature tables by hand.
+  -- target_count is translation-only (how many languages that batch
+  -- translated to) -- NULL for every other feature.
+  CREATE TABLE IF NOT EXISTS claude_usage (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    message_id    TEXT NOT NULL,
+    feature       TEXT NOT NULL,
+    ref_id        TEXT NOT NULL,
     input_tokens  INTEGER NOT NULL,
     output_tokens INTEGER NOT NULL,
-    target_count  INTEGER NOT NULL,
-    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  -- One row per successful Ask MeerBot DM answer (utils/handlers/askHandler.js).
-  -- Not logged on failure, same convention as translation_usage above.
-  CREATE TABLE IF NOT EXISTS ask_usage (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id       TEXT NOT NULL,
-    input_tokens  INTEGER NOT NULL,
-    output_tokens INTEGER NOT NULL,
+    target_count  INTEGER,
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -484,6 +483,32 @@ function runRelayMessageMigration() {
     }
 }
 runRelayMessageMigration();
+
+// One-time consolidation: translation_usage (and the short-lived ask_usage,
+// added and dropped in the same feature wave) merge into claude_usage so
+// cost across every Claude-calling feature is one table, one query, instead
+// of unioning per-feature usage tables by hand. Guarded on translation_usage
+// still existing -- a no-op after the first run, never touches a fresh
+// install (which never creates translation_usage at all).
+const usageTables = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('translation_usage', 'ask_usage')"
+).all().map(r => r.name);
+if (usageTables.includes('translation_usage')) {
+    db.exec(`
+        INSERT INTO claude_usage (feature, ref_id, input_tokens, output_tokens, target_count, created_at)
+            SELECT 'translation', message_id, input_tokens, output_tokens, target_count, created_at FROM translation_usage;
+        DROP TABLE translation_usage;
+    `);
+    console.log('[DB] Migrated translation_usage rows into claude_usage.');
+}
+if (usageTables.includes('ask_usage')) {
+    db.exec(`
+        INSERT INTO claude_usage (feature, ref_id, input_tokens, output_tokens, created_at)
+            SELECT 'ask', user_id, input_tokens, output_tokens, created_at FROM ask_usage;
+        DROP TABLE ask_usage;
+    `);
+    console.log('[DB] Migrated ask_usage rows into claude_usage.');
+}
 
 /**
  * Merge duplicate members: repoint all of dropId's data onto keepId, alias the
@@ -710,14 +735,17 @@ function getRelayMessagesByGroupId(relayGroupMessageId) {
         .all(relayGroupMessageId);
 }
 
+function insertClaudeUsage({ feature, refId, inputTokens, outputTokens, targetCount = null }) {
+    db.prepare(`INSERT INTO claude_usage (feature, ref_id, input_tokens, output_tokens, target_count)
+        VALUES (?, ?, ?, ?, ?)`).run(feature, refId, inputTokens, outputTokens, targetCount);
+}
+
 function insertTranslationUsage({ messageId, inputTokens, outputTokens, targetCount }) {
-    db.prepare(`INSERT INTO translation_usage (message_id, input_tokens, output_tokens, target_count)
-        VALUES (?, ?, ?, ?)`).run(messageId, inputTokens, outputTokens, targetCount);
+    insertClaudeUsage({ feature: 'translation', refId: messageId, inputTokens, outputTokens, targetCount });
 }
 
 function insertAskUsage({ userId, inputTokens, outputTokens }) {
-    db.prepare(`INSERT INTO ask_usage (user_id, input_tokens, output_tokens)
-        VALUES (?, ?, ?)`).run(userId, inputTokens, outputTokens);
+    insertClaudeUsage({ feature: 'ask', refId: userId, inputTokens, outputTokens });
 }
 
 function setRelayMessageGroupId(id, relayGroupMessageId) {
@@ -776,6 +804,7 @@ module.exports.setRelayChannelWebhook = setRelayChannelWebhook;
 module.exports.insertRelayMessage = insertRelayMessage;
 module.exports.getRelayMessageByMessageId = getRelayMessageByMessageId;
 module.exports.getRelayMessagesByGroupId = getRelayMessagesByGroupId;
+module.exports.insertClaudeUsage = insertClaudeUsage;
 module.exports.insertTranslationUsage = insertTranslationUsage;
 module.exports.insertAskUsage = insertAskUsage;
 module.exports.setRelayMessageGroupId = setRelayMessageGroupId;

@@ -123,14 +123,14 @@ test('getRelayMessageByMessageId finds a row by a middle batch_message_ids entry
     db.prepare('DELETE FROM translation_relay_messages WHERE message_id IN (?, ?, ?)').run('msg-x', 'msg-y', 'msg-z');
 });
 
-test('insertTranslationUsage stores a usage row', () => {
-    db.prepare('DELETE FROM translation_usage WHERE message_id = ?').run('msg-usage-1');
+test('insertTranslationUsage stores a usage row in the shared claude_usage table', () => {
+    db.prepare("DELETE FROM claude_usage WHERE feature = 'translation' AND ref_id = ?").run('msg-usage-1');
     db.insertTranslationUsage({ messageId: 'msg-usage-1', inputTokens: 42, outputTokens: 17, targetCount: 2 });
-    const row = db.prepare('SELECT * FROM translation_usage WHERE message_id = ?').get('msg-usage-1');
+    const row = db.prepare("SELECT * FROM claude_usage WHERE feature = 'translation' AND ref_id = ?").get('msg-usage-1');
     assert.equal(row.input_tokens, 42);
     assert.equal(row.output_tokens, 17);
     assert.equal(row.target_count, 2);
-    db.prepare('DELETE FROM translation_usage WHERE message_id = ?').run('msg-usage-1');
+    db.prepare("DELETE FROM claude_usage WHERE feature = 'translation' AND ref_id = ?").run('msg-usage-1');
 });
 
 test('updateRelayMessageText updates text, batch_message_ids, and last_line_text in place', () => {

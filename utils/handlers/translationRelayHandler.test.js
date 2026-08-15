@@ -294,7 +294,7 @@ test('processTranslationRelay includes files in the webhook send payload when at
             db.removeRelayChannel(sourceId);
             db.removeRelayChannel(targetId);
             db.prepare('DELETE FROM translation_relay_messages WHERE message_id LIKE ?').run(`%${uniqueId}%`);
-            db.prepare('DELETE FROM translation_usage WHERE message_id LIKE ?').run(`%${uniqueId}%`);
+            db.prepare("DELETE FROM claude_usage WHERE feature = 'translation' AND ref_id LIKE ?").run(`%${uniqueId}%`);
         }
     } finally {
         WebhookClient.prototype.send = originalSend;
@@ -371,7 +371,7 @@ test('processTranslationRelay stores batch_message_ids as {messageId,text}[] on 
             db.removeRelayChannel(sourceId);
             db.removeRelayChannel(targetId);
             db.prepare('DELETE FROM translation_relay_messages WHERE message_id LIKE ? OR channel_id = ?').run(`%${uniqueId}%`, tgtChanId);
-            db.prepare('DELETE FROM translation_usage WHERE message_id LIKE ?').run(`%${uniqueId}%`);
+            db.prepare("DELETE FROM claude_usage WHERE feature = 'translation' AND ref_id LIKE ?").run(`%${uniqueId}%`);
         }
     } finally {
         WebhookClient.prototype.send = originalSend;

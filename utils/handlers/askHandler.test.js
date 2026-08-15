@@ -67,12 +67,13 @@ test('recordExchange fills in the in-flight entry rather than double-counting ag
     assert.equal(isRateLimited(userId), true, '10 answered questions should still hit the 10/hour cap');
 });
 
-test('db.insertAskUsage writes a row with token counts for the asking user', () => {
+test('db.insertAskUsage writes a row into the shared claude_usage table', () => {
     const userId = `test-user-usage-${Date.now()}`;
     db.insertAskUsage({ userId, inputTokens: 1234, outputTokens: 56 });
-    const row = db.prepare('SELECT * FROM ask_usage WHERE user_id = ?').get(userId);
+    const row = db.prepare("SELECT * FROM claude_usage WHERE feature = 'ask' AND ref_id = ?").get(userId);
     assert.ok(row, 'expected a row to be inserted');
     assert.equal(row.input_tokens, 1234);
     assert.equal(row.output_tokens, 56);
-    db.prepare('DELETE FROM ask_usage WHERE user_id = ?').run(userId);
+    assert.equal(row.target_count, null, 'ask rows have no target_count');
+    db.prepare("DELETE FROM claude_usage WHERE feature = 'ask' AND ref_id = ?").run(userId);
 });
