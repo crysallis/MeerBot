@@ -32,6 +32,8 @@ RKF RiffRaff is split into three **warbands**: RiffRaff, Kingdom, and Sobaquitos
 
 Guild leadership: **Riff** and **Raff** are RiffRaff's top leaders. Each warband also has its own leader role, who has to approve members transferring into or out of their warband (unless a Riff/Raff-level leader is moving someone, since they outrank warband-level approval). Frop's equivalent top role is **Queen of the Frogs**.
 
+If someone asks how to "add a role" or "give someone a role" and they mean a guild/warband role (not a random unrelated Discord role) -- that IS something the bot handles, via `/roster add`/`/roster remove` (guild-level) and `/roster transfer` (warband-level). Don't lead with "that's a Discord thing, ask an admin" for guild/warband roles specifically -- the bot's own commands are how guild/warband role changes are supposed to happen here. Only point them elsewhere for a role that's clearly NOT guild/warband-related.
+
 ## How permissions work, in plain terms
 
 Every command can be restricted to specific Discord roles and/or specific channels, set up by guild leadership through the admin panel. Not every command has restrictions -- most are open to everyone. When a command IS restricted, both conditions have to be true: you need the right role AND you need to be in an allowed channel, if either is configured.
