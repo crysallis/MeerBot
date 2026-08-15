@@ -17,6 +17,7 @@ const CONFIG_META = {
     HOMESTEAD_CHANNEL_ID:               { label: 'Homestead Channel',               description: 'Channel for /invasion alerts',                  category: 'channels',    default: '1403623893444329564' },
     CLASHFRONTS_REMINDER_CHANNEL_ID:    { label: 'Clashfronts Reminder Channel',    description: 'Channel for /clashfronts remind posts',         category: 'channels',    default: '' },
     TRANSFER_APPROVAL_CHANNEL_ID:       { label: 'Transfer Approval Channel',       description: 'Channel for /roster transfer approval requests', category: 'channels',    default: '1434387291538718760' },
+    ASK_REPORT_CHANNEL_ID:              { label: 'Ask MeerBot Report Channel',      description: 'Channel for member-reported DM answers (reaction on the bot\'s reply)', category: 'channels', default: '' },
     // --- Thresholds ---
     INACTIVITY_DAYS:             { label: 'Inactivity Days',           description: 'Days before flagging a member inactive',  category: 'thresholds',  default: '3' },
     LATE_WARNING_MINUTES:        { label: 'Late Warning Minutes',      description: 'Minutes late before adding a late footer',category: 'thresholds',  default: '30' },

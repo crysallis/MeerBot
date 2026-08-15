@@ -19,7 +19,7 @@ test('permissions.js exports pickRows', () => {
     assert.deepEqual(pickRows(rows, 'top'), [{ subcommand: null, value_id: 'b' }]);
 });
 
-const { isRateLimited, getRecentHistory, recordExchange } = require('./askHandler');
+const { isRateLimited, getRecentHistory, recordExchange, handleAskReport, rememberReply } = require('./askHandler');
 
 test('isRateLimited allows the first 10 questions in an hour then blocks the 11th', () => {
     const userId = `test-user-${Date.now()}`;
@@ -76,4 +76,59 @@ test('db.insertAskUsage writes a row into the shared claude_usage table', () => 
     assert.equal(row.output_tokens, 56);
     assert.equal(row.target_count, null, 'ask rows have no target_count');
     db.prepare("DELETE FROM claude_usage WHERE feature = 'ask' AND ref_id = ?").run(userId);
+});
+
+test('db.insertAskFlag writes a row with the given source', () => {
+    const userId = `test-user-flag-${Date.now()}`;
+    db.insertAskFlag({ userId, question: 'q', answer: 'a', source: 'auto' });
+    const row = db.prepare('SELECT * FROM ask_flags WHERE user_id = ?').get(userId);
+    assert.ok(row, 'expected a row to be inserted');
+    assert.equal(row.question, 'q');
+    assert.equal(row.answer, 'a');
+    assert.equal(row.source, 'auto');
+    db.prepare('DELETE FROM ask_flags WHERE user_id = ?').run(userId);
+});
+
+test('db.insertAskFlag rejects a source outside the allowed set', () => {
+    assert.throws(() => db.insertAskFlag({ userId: 'x', question: 'q', answer: 'a', source: 'bogus' }));
+});
+
+function fakeReaction(messageId) {
+    return { message: { id: messageId } };
+}
+function fakeReactingUser(bot = false) {
+    return { bot, username: 'reporter' };
+}
+function fakeClientNoReportChannel() {
+    return { channels: { fetch: async () => null }, users: { fetch: async () => null } };
+}
+
+test('handleAskReport does nothing for a reaction on a message the ask handler never sent', async () => {
+    const userId = `test-user-untracked-${Date.now()}`;
+    const before = db.prepare('SELECT COUNT(*) AS n FROM ask_flags WHERE user_id = ?').get(userId).n;
+    await handleAskReport(fakeReaction(`untracked-${Date.now()}`), fakeReactingUser(), fakeClientNoReportChannel());
+    const after = db.prepare('SELECT COUNT(*) AS n FROM ask_flags WHERE user_id = ?').get(userId).n;
+    assert.equal(after, before);
+});
+
+test('handleAskReport ignores reactions from the bot itself', async () => {
+    const messageId = `msg-bot-reaction-${Date.now()}`;
+    const userId = `test-user-botreact-${Date.now()}`;
+    rememberReply(messageId, { userId, question: 'q', answer: 'a' });
+    await handleAskReport(fakeReaction(messageId), fakeReactingUser(true), fakeClientNoReportChannel());
+    const row = db.prepare('SELECT * FROM ask_flags WHERE user_id = ?').get(userId);
+    assert.equal(row, undefined);
+});
+
+test('handleAskReport writes a reported-source ask_flags row for a tracked reply', async () => {
+    const messageId = `msg-tracked-${Date.now()}`;
+    const userId = `test-user-tracked-${Date.now()}`;
+    rememberReply(messageId, { userId, question: 'tracked question', answer: 'tracked answer' });
+    await handleAskReport(fakeReaction(messageId), fakeReactingUser(), fakeClientNoReportChannel());
+    const row = db.prepare('SELECT * FROM ask_flags WHERE user_id = ?').get(userId);
+    assert.ok(row, 'expected a row to be inserted');
+    assert.equal(row.source, 'reported');
+    assert.equal(row.question, 'tracked question');
+    assert.equal(row.answer, 'tracked answer');
+    db.prepare('DELETE FROM ask_flags WHERE user_id = ?').run(userId);
 });

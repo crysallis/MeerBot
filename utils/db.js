@@ -374,6 +374,22 @@ db.exec(`
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- One row per Ask MeerBot DM exchange worth a leader's attention -- either
+  -- the model itself declined to answer (source='auto', it self-reports via
+  -- the flagged field in its own JSON response) or a member reacted on the
+  -- bot's reply to flag it (source='reported'). Deliberately NOT a full
+  -- transcript of every DM -- normal answered exchanges are never written
+  -- here, only ones with a specific reason to look at them. See
+  -- utils/handlers/askHandler.js and docs/superpowers/specs/2026-08-16-ask-moderation-design.md.
+  CREATE TABLE IF NOT EXISTS ask_flags (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    TEXT NOT NULL,
+    question   TEXT NOT NULL,
+    answer     TEXT NOT NULL,
+    source     TEXT NOT NULL CHECK(source IN ('auto', 'reported')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   -- One row per open /glory cta or /glory confirm post, looked up by message_id
   -- from the messageReactionAdd guard on every reaction add (so this needs to stay
   -- a fast, indexed lookup -- UNIQUE gives that for free). kind distinguishes the
@@ -748,6 +764,11 @@ function insertAskUsage({ userId, inputTokens, outputTokens }) {
     insertClaudeUsage({ feature: 'ask', refId: userId, inputTokens, outputTokens });
 }
 
+function insertAskFlag({ userId, question, answer, source }) {
+    db.prepare(`INSERT INTO ask_flags (user_id, question, answer, source)
+        VALUES (?, ?, ?, ?)`).run(userId, question, answer, source);
+}
+
 function setRelayMessageGroupId(id, relayGroupMessageId) {
     db.prepare('UPDATE translation_relay_messages SET relay_group_message_id = ? WHERE id = ?')
         .run(relayGroupMessageId, id);
@@ -807,6 +828,7 @@ module.exports.getRelayMessagesByGroupId = getRelayMessagesByGroupId;
 module.exports.insertClaudeUsage = insertClaudeUsage;
 module.exports.insertTranslationUsage = insertTranslationUsage;
 module.exports.insertAskUsage = insertAskUsage;
+module.exports.insertAskFlag = insertAskFlag;
 module.exports.setRelayMessageGroupId = setRelayMessageGroupId;
 module.exports.updateRelayMessageText = updateRelayMessageText;
 module.exports.deleteRelayMessagesByGroupId = deleteRelayMessagesByGroupId;

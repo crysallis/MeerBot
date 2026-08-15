@@ -11,7 +11,7 @@ const { handleTranslationRelay, handleTranslationReactionSync, handleTranslation
 const { handleTransferButton } = require('./utils/handlers/transferButtonHandler');
 const { handleGloryctaReactionGuard } = require('./utils/handlers/gloryctaReactionGuard');
 const { handleGloryctaCancelButton } = require('./utils/handlers/gloryctaCancelButtonHandler');
-const { handleAsk } = require('./utils/handlers/askHandler');
+const { handleAsk, handleAskReport } = require('./utils/handlers/askHandler');
 const { rateLimit } = require('./config');
 
 require('./utils/db');
@@ -40,6 +40,9 @@ const client = new Client({
     // DMs are a separate intent from GuildMessages -- required for askHandler.js
     // to receive messageCreate events for DMs to the bot at all.
     GatewayIntentBits.DirectMessages,
+    // Separately from GuildMessageReactions -- required for handleAskReport to
+    // receive messageReactionAdd events on reactions to the bot's own DM replies.
+    GatewayIntentBits.DirectMessageReactions,
   ],
   partials: [Partials.Message, Partials.Reaction, Partials.Channel],
 });
@@ -74,6 +77,7 @@ client.on('messageCreate', message => {
 client.on('messageReactionAdd', (reaction, user) => {
   handleTranslationReactionSync(reaction, user, client, true).catch(err => console.error('[TranslationRelay] Reaction sync (add) unhandled error:', err));
   handleGloryctaReactionGuard(reaction, user, client).catch(err => console.error('[Glorycta] Reaction guard unhandled error:', err));
+  handleAskReport(reaction, user, client).catch(err => console.error('[AskHandler] Report handler unhandled error:', err));
 });
 client.on('messageReactionRemove', (reaction, user) => {
   handleTranslationReactionSync(reaction, user, client, false).catch(err => console.error('[TranslationRelay] Reaction sync (remove) unhandled error:', err));
