@@ -3,6 +3,7 @@ const path = require('path');
 const Anthropic = require('@anthropic-ai/sdk');
 const { COMMANDS } = require('../../slash-commands/help.js');
 const { buildCapabilitySummary } = require('./askCapabilities');
+const db = require('../db');
 
 const anthropic = new Anthropic();
 
@@ -69,6 +70,12 @@ async function handleAsk(message, client) {
             max_tokens: 1024,
             system,
             messages: [{ role: 'user', content: message.content }],
+        });
+
+        db.insertAskUsage({
+            userId: message.author.id,
+            inputTokens: response.usage.input_tokens,
+            outputTokens: response.usage.output_tokens,
         });
 
         const text = response.content?.[0]?.text?.trim();

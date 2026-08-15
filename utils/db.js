@@ -365,6 +365,16 @@ db.exec(`
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- One row per successful Ask MeerBot DM answer (utils/handlers/askHandler.js).
+  -- Not logged on failure, same convention as translation_usage above.
+  CREATE TABLE IF NOT EXISTS ask_usage (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id       TEXT NOT NULL,
+    input_tokens  INTEGER NOT NULL,
+    output_tokens INTEGER NOT NULL,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   -- One row per open /glory cta or /glory confirm post, looked up by message_id
   -- from the messageReactionAdd guard on every reaction add (so this needs to stay
   -- a fast, indexed lookup -- UNIQUE gives that for free). kind distinguishes the
@@ -705,6 +715,11 @@ function insertTranslationUsage({ messageId, inputTokens, outputTokens, targetCo
         VALUES (?, ?, ?, ?)`).run(messageId, inputTokens, outputTokens, targetCount);
 }
 
+function insertAskUsage({ userId, inputTokens, outputTokens }) {
+    db.prepare(`INSERT INTO ask_usage (user_id, input_tokens, output_tokens)
+        VALUES (?, ?, ?)`).run(userId, inputTokens, outputTokens);
+}
+
 function setRelayMessageGroupId(id, relayGroupMessageId) {
     db.prepare('UPDATE translation_relay_messages SET relay_group_message_id = ? WHERE id = ?')
         .run(relayGroupMessageId, id);
@@ -762,6 +777,7 @@ module.exports.insertRelayMessage = insertRelayMessage;
 module.exports.getRelayMessageByMessageId = getRelayMessageByMessageId;
 module.exports.getRelayMessagesByGroupId = getRelayMessagesByGroupId;
 module.exports.insertTranslationUsage = insertTranslationUsage;
+module.exports.insertAskUsage = insertAskUsage;
 module.exports.setRelayMessageGroupId = setRelayMessageGroupId;
 module.exports.updateRelayMessageText = updateRelayMessageText;
 module.exports.deleteRelayMessagesByGroupId = deleteRelayMessagesByGroupId;

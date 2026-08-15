@@ -1,6 +1,7 @@
 require('dotenv').config();
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const db = require('../db');
 
 test('help.js exports COMMANDS with expected shape', () => {
     const { COMMANDS } = require('../../slash-commands/help.js');
@@ -34,4 +35,14 @@ test('isRateLimited tracks separate users independently', () => {
     for (let i = 0; i < 10; i++) isRateLimited(userA);
     assert.equal(isRateLimited(userA), true, 'userA should now be blocked');
     assert.equal(isRateLimited(userB), false, 'userB should be unaffected by userA\'s usage');
+});
+
+test('db.insertAskUsage writes a row with token counts for the asking user', () => {
+    const userId = `test-user-usage-${Date.now()}`;
+    db.insertAskUsage({ userId, inputTokens: 1234, outputTokens: 56 });
+    const row = db.prepare('SELECT * FROM ask_usage WHERE user_id = ?').get(userId);
+    assert.ok(row, 'expected a row to be inserted');
+    assert.equal(row.input_tokens, 1234);
+    assert.equal(row.output_tokens, 56);
+    db.prepare('DELETE FROM ask_usage WHERE user_id = ?').run(userId);
 });
