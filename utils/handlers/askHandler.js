@@ -14,6 +14,13 @@ const anthropic = new Anthropic();
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const HISTORY_TURNS = 3;
+// Appended to every sent reply so the report mechanism (react on the bot's
+// reply, see handleAskReport) is actually discoverable -- otherwise nothing
+// tells a member that reacting does anything. A fixed string, not something
+// the model generates, so wording can't drift or get dropped -- kept out of
+// `text` itself (only added at send time) so conversation history and
+// ask_flags/claude_usage records reflect the model's real answer, not UI chrome.
+const REPORT_HINT = '\n\n(React to this message if something\'s wrong with this answer.)';
 // userId -> { timestamp, question, answer }[] -- doubles as the rate-limit log
 // and the conversation history, both aged out on the same rolling hour window.
 const rateLimitLog = new Map();
@@ -152,7 +159,7 @@ async function handleAsk(message, client) {
             flagged = false;
         }
 
-        const sent = await message.reply(text);
+        const sent = await message.reply(text + REPORT_HINT);
         recordExchange(message.author.id, message.content, text);
         rememberReply(sent.id, { userId: message.author.id, question: message.content, answer: text });
 
