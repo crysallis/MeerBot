@@ -1,6 +1,21 @@
 # Ask MeerBot (DM Q&A) — Design
 
-**Status:** Approved design, not yet planned/built.
+**Status:** Built and shipped. See amendment below — the knowledge-source
+decision changed after real-world testing showed the original approach
+producing developer-documentation-style answers to member questions.
+
+**Amendment (2026-08-15, post-ship):** The original "Knowledge sources"
+section below (README.md + ARCHITECTURE.md in full) was replaced with a
+new purpose-written `docs/bot-guide.md`. In practice, feeding the model a
+developer-facing README (setup instructions, .env variable tables, project
+file structure) produced answers that read like documentation pages —
+bold section banners, "Usage"/"How it works" headers — because the model
+was pattern-matching the style of what it was given, and most of that
+README content was never relevant to a member's question anyway. See
+`gotcha-` and `project_ask-meerbot-dm-design` memory for the full
+before/after. The rest of this document is left as originally approved
+for historical accuracy; treat "Knowledge sources" and "Out of scope" as
+superseded by this note.
 
 ## Problem
 

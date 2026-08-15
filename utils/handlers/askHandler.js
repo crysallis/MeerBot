@@ -14,8 +14,7 @@ const HISTORY_TURNS = 3;
 // and the conversation history, both aged out on the same rolling hour window.
 const rateLimitLog = new Map();
 
-const README = fs.readFileSync(path.join(__dirname, '..', '..', 'README.md'), 'utf8');
-const ARCHITECTURE = fs.readFileSync(path.join(__dirname, '..', '..', 'ARCHITECTURE.md'), 'utf8');
+const BOT_GUIDE = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'bot-guide.md'), 'utf8');
 
 const COMMANDS_TEXT = Object.entries(COMMANDS).map(([name, info]) => {
     const subs = info.subcommands.map(s => `  - ${s.name} — ${s.desc}`).join('\n');
@@ -83,7 +82,7 @@ async function handleAsk(message, client) {
 
         const system = [
             'You are MeerBot, a Discord bot for an AFK Journey guild called RiffRaff. A guild member has DMed you asking what you can do or how to do something.',
-            'Answer ONLY using the command list, README, and capability summary below. Do not invent commands, features, or behavior not described in this context.',
+            'Answer ONLY using the command list, guide, and capability summary below. Do not invent commands, features, or behavior not described in this context.',
             'Give the exact slash command syntax when relevant (e.g. `/glory cta time1: time2: duration:`).',
             'The capability summary below reflects THIS SPECIFIC user\'s real permissions — use it to give a direct yes/no answer when they ask if they can do something, including which channel if restricted.',
             'Reply like a person texting back a quick answer in Discord DMs, not like a doc page. Write in plain sentences and short paragraphs.',
@@ -93,10 +92,8 @@ async function handleAsk(message, client) {
             'If asked something unrelated to the bot or the guild, politely say you can only help with MeerBot questions.',
             '--- COMMAND LIST ---',
             COMMANDS_TEXT,
-            '--- README ---',
-            README,
-            '--- ARCHITECTURE (internal detail — only surface what\'s relevant to the question) ---',
-            ARCHITECTURE,
+            '--- GUIDE ---',
+            BOT_GUIDE,
             '--- THIS USER\'S CAPABILITIES ---',
             capabilitySummary,
         ].join('\n\n');
