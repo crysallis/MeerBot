@@ -9,7 +9,10 @@ const anthropic = new Anthropic();
 
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const rateLimitLog = new Map(); // userId -> timestamp[]
+const HISTORY_TURNS = 3;
+// userId -> { timestamp, question, answer }[] -- doubles as the rate-limit log
+// and the conversation history, both aged out on the same rolling hour window.
+const rateLimitLog = new Map();
 
 const README = fs.readFileSync(path.join(__dirname, '..', '..', 'README.md'), 'utf8');
 const ARCHITECTURE = fs.readFileSync(path.join(__dirname, '..', '..', 'ARCHITECTURE.md'), 'utf8');
@@ -19,16 +22,46 @@ const COMMANDS_TEXT = Object.entries(COMMANDS).map(([name, info]) => {
     return `/${name} — ${info.description}\n${subs}`;
 }).join('\n\n');
 
-function isRateLimited(userId) {
+function currentEntries(userId) {
     const now = Date.now();
-    const timestamps = (rateLimitLog.get(userId) || []).filter(t => t > now - RATE_LIMIT_WINDOW_MS);
-    if (timestamps.length >= RATE_LIMIT_MAX) {
-        rateLimitLog.set(userId, timestamps);
+    return (rateLimitLog.get(userId) || []).filter(e => e.timestamp > now - RATE_LIMIT_WINDOW_MS);
+}
+
+// Counts as an attempt regardless of what happens after -- a question that
+// gets through the limiter but then fails in the Claude call still consumes
+// a slot, same as the original rate-limit-only behavior. Each call pushes one
+// entry (question/answer filled in later by recordExchange once answered).
+function isRateLimited(userId) {
+    const entries = currentEntries(userId);
+    if (entries.length >= RATE_LIMIT_MAX) {
+        rateLimitLog.set(userId, entries);
         return true;
     }
-    timestamps.push(now);
-    rateLimitLog.set(userId, timestamps);
+    entries.push({ timestamp: Date.now(), question: null, answer: null });
+    rateLimitLog.set(userId, entries);
     return false;
+}
+
+// Last HISTORY_TURNS ANSWERED exchanges still inside the rate-limit window,
+// oldest first -- same aging as isRateLimited, so history and quota expire
+// together. Excludes the in-flight entry isRateLimited just pushed for the
+// current question (question is still null at that point).
+function getRecentHistory(userId) {
+    return currentEntries(userId).filter(e => e.question !== null).slice(-HISTORY_TURNS);
+}
+
+// Fills in the question/answer on the most recent (in-flight) entry that
+// isRateLimited pushed for this question, rather than adding a new slot.
+function recordExchange(userId, question, answer) {
+    const entries = currentEntries(userId);
+    const last = entries[entries.length - 1];
+    if (last && last.question === null) {
+        last.question = question;
+        last.answer = answer;
+    } else {
+        entries.push({ timestamp: Date.now(), question, answer });
+    }
+    rateLimitLog.set(userId, entries);
 }
 
 async function handleAsk(message, client) {
@@ -65,11 +98,16 @@ async function handleAsk(message, client) {
             capabilitySummary,
         ].join('\n\n');
 
+        const history = getRecentHistory(message.author.id).flatMap(e => ([
+            { role: 'user', content: e.question },
+            { role: 'assistant', content: e.answer },
+        ]));
+
         const response = await anthropic.messages.create({
             model: 'claude-haiku-4-5',
             max_tokens: 1024,
             system,
-            messages: [{ role: 'user', content: message.content }],
+            messages: [...history, { role: 'user', content: message.content }],
         });
 
         db.insertAskUsage({
@@ -78,12 +116,14 @@ async function handleAsk(message, client) {
             outputTokens: response.usage.output_tokens,
         });
 
-        const text = response.content?.[0]?.text?.trim();
-        await message.reply(text || "I couldn't come up with an answer to that — try `/help` for the full command list.");
+        const text = response.content?.[0]?.text?.trim()
+            || "I couldn't come up with an answer to that — try `/help` for the full command list.";
+        await message.reply(text);
+        recordExchange(message.author.id, message.content, text);
     } catch (err) {
         console.error('[AskHandler] Failed to answer DM question:', err);
         await message.reply("Something went wrong answering that — try `/help` for the full command list.").catch(() => {});
     }
 }
 
-module.exports = { handleAsk, isRateLimited };
+module.exports = { handleAsk, isRateLimited, getRecentHistory, recordExchange };
