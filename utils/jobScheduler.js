@@ -336,4 +336,4 @@ function initJobScheduler(client) {
     console.log('[JobScheduler] Initialized · polling every 30s');
 }
 
-module.exports = { initJobScheduler, computeMonthlyNext, MONTHLY_LAST_DAY, findPollReaction };
+module.exports = { initJobScheduler, computeMonthlyNext, MONTHLY_LAST_DAY, findPollReaction, nextFire, nextDailyAt, nextWeeklyAt };

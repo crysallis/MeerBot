@@ -173,7 +173,8 @@ Two paths exist:
 Both paths share the same lateness model: `MAX_LATE_MINUTES` = 120 (skip sending entirely if the bot was down longer than this), and a global `LATE_WARNING_MINUTES` threshold in `bot_config` (default 30 min, editable via admin panel) that adds a "late" flag/footer without skipping the send.
 
 ## Environment Notes
-- Node.js v21.7.1 · technically outside better-sqlite3's supported range (20/22/24+) but works fine · don't suggest a Node upgrade just because of the EBADENGINE warning
+- Node.js 24.19.0 LTS · upgraded 2026-08-08 from Node 21.7.1 (EOL) · within better-sqlite3's supported range (20/22/24+)
+- No nvm/version-manager rollback path currently exists on this machine · nvm-windows was attempted during the upgrade but caused an incident (it removed the existing Node install, and the reinstall step went unapproved due to a hidden installer window), so Node 24 was installed directly via the official nodejs.org .msi installer instead and nvm-windows was abandoned · a future clean nvm-windows install would need to start from a state where Node is NOT already installed via a separate MSI, to avoid it trying to migrate/remove an existing install
 - `ADMIN_PORT` env var · port for admin panel server (default `3001`)
 - Admin panel remote access (optional · only when exposed past localhost): `ADMIN_PUBLIC_HOST`, `ADMIN_OAUTH_REDIRECT`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `SESSION_SECRET` · full setup in `admin/REMOTE_ACCESS.md`. Local browser to 127.0.0.1 is always the `local` tier (no login); remote requires Discord OAuth2 and a Riff/Raff/RiffRaffian role.
 - Channel IDs and timing values are now DB-backed via `bot_config` · env vars still work as fallbacks but prefer editing via admin panel
