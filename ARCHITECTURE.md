@@ -234,7 +234,9 @@ The scraper resolves each OCR read *into* this roster (alias → exact → fuzzy
 still need collapsing, `mergeMembers(keepId, dropId)` (exported from `utils/db.js`) repoints all
 of the dropped member's rows (`member_snapshots`, `member_notes`, `member_afk`,
 `member_name_history`) onto the keeper, aliases the dropped name into `name_corrections`, carries
-over a Discord link if the keeper lacks one, and deletes the dropped row — all in one transaction.
+over a Discord link if the keeper lacks one, reactivates the keeper (`active = 1`, even if they'd
+been marked inactive by a prior scan — matching into an existing name means they're a current
+member), and deletes the dropped row — all in one transaction.
 
 `mergeMembers` is the shared primitive behind `/rename` (merge-on-collision), `/review merge`,
 the admin panel **Members** tab, and the one-shot `scripts/merge-dupes.js`.

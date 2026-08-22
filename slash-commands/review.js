@@ -24,6 +24,11 @@ function rosterNames() {
         .all().map(r => r.ingame_name);
 }
 
+function mergeTargetNames() {
+    return db.prepare('SELECT ingame_name FROM members WHERE pending = 0 ORDER BY ingame_name COLLATE NOCASE')
+        .all().map(r => r.ingame_name);
+}
+
 function inactiveNames() {
     return db.prepare('SELECT ingame_name FROM members WHERE active = 0 ORDER BY ingame_name COLLATE NOCASE')
         .all().map(r => r.ingame_name);
@@ -64,7 +69,7 @@ module.exports = {
         const focused = focusedOpt.value.toLowerCase();
         const sub = interaction.options.getSubcommand();
         let source;
-        if (focusedOpt.name === 'into_name') source = rosterNames();
+        if (focusedOpt.name === 'into_name') source = mergeTargetNames();
         else if (sub === 'remove') source = rosterNames();
         else if (sub === 'return') source = inactiveNames();
         else source = pendingNames();  // list/approve/merge pending_name

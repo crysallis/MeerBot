@@ -65,7 +65,7 @@ from there.
 |---|---|
 | `index.js` | Entry point, command loader, rate limiter |
 | `config.js` | Rate limit + ping tier constants (static code config only) |
-| `utils/db.js` | DB connection + bot-only table CREATEs (shared scan/identity tables are owned by the miner's `db.py`) · exports `mergeMembers`, `getWarbands`, `renameWarband`, `setMemberWarband` |
+| `utils/db.js` | DB connection + bot-only table CREATEs (shared scan/identity tables are owned by the miner's `db.py`) · exports `mergeMembers` (also reactivates the kept row — `active = 1` unconditionally, since matching an existing member means they're current), `getWarbands`, `renameWarband`, `setMemberWarband` |
 | `utils/botConfig.js` | DB-backed config store · `get(key)` reads DB → ENV → default · `set(key,val)` writes DB · `getAll()` for admin UI |
 | `utils/scheduledMessages.js` | Timed auto-posts · add new messages to MESSAGES array here (legacy path · a new recurring post that needs no code-computed content is usually better as a panel-authored `text_job` instead, see below) |
 | `utils/jobScheduler.js` | Unified job queue · `tick()` polls `scheduled_jobs` every 30s, dispatches by `type` (`script_job`, `text_job`, `remindme`, `recruitment_followup`, `glorycta_tally`) · `handleGloryctaTally` resolves reactors to in-game names, posts results, unpins, strips the poll's Cancel Vote button, deletes its own `glorycta_polls` row in a `finally` (cleanup runs even if the Discord fetch/post throws) · no lateness gate on this or any one-shot job type — a late fire is still correct, unlike recurring `text_job`/`script_job` |

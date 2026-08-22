@@ -561,11 +561,56 @@ function mergeMembers(keepId, dropId) {
         db.prepare('UPDATE member_notes       SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
         db.prepare('UPDATE member_name_history SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
 
+        // This hand-maintained table list will drift as the miner adds new ranking tables
+        // (each one FK-referencing members(id) will break the DELETE below if missed here).
+        // To regenerate the full list: SELECT sql FROM sqlite_master WHERE type='table'
+        // AND sql LIKE '%REFERENCES members%'
+
+        // Single-row-per-member ranking tables (member_id is PRIMARY KEY) — both rows are
+        // scan-derived, so unlike member_afk (human-set) the freshest scanned_at wins,
+        // not "keeper wins": a merge target is often stale/inactive while the dropped
+        // row is the fresh scan read that surfaced this duplicate in the first place.
+        for (const table of ['arena_rankings', 'honor_duel_rankings', 'clashfronts_signups']) {
+            const keepRow = db.prepare(`SELECT scanned_at FROM ${table} WHERE member_id = ?`).get(keepId);
+            const dropRow = db.prepare(`SELECT scanned_at FROM ${table} WHERE member_id = ?`).get(dropId);
+            if (keepRow && dropRow) {
+                if (dropRow.scanned_at > keepRow.scanned_at) {
+                    db.prepare(`DELETE FROM ${table} WHERE member_id = ?`).run(keepId);
+                    db.prepare(`UPDATE ${table} SET member_id = ? WHERE member_id = ?`).run(keepId, dropId);
+                } else {
+                    db.prepare(`DELETE FROM ${table} WHERE member_id = ?`).run(dropId);
+                }
+            } else if (dropRow) {
+                db.prepare(`UPDATE ${table} SET member_id = ? WHERE member_id = ?`).run(keepId, dropId);
+            }
+        }
+
+        // Multi-row ranking tables keyed by (member_id, period) — same collapse
+        // pattern as member_snapshots: drop overlapping periods, repoint the rest.
+        for (const { table, periodCol } of [
+            { table: 'afk_stage_rankings', periodCol: 'season, phase' },
+            { table: 'supreme_arena_rankings', periodCol: 'period_start' },
+            { table: 'guild_duel_rankings', periodCol: 'period_start' },
+        ]) {
+            db.prepare(`DELETE FROM ${table}
+                        WHERE member_id = ?
+                          AND (${periodCol}) IN (SELECT ${periodCol} FROM ${table} WHERE member_id = ?)`)
+                .run(dropId, keepId);
+            db.prepare(`UPDATE ${table} SET member_id = ? WHERE member_id = ?`).run(keepId, dropId);
+        }
+
+        // transfer_approvals: historical log, just repoint, no collision possible (transfer_id is unique per row).
+        db.prepare('UPDATE transfer_approvals SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
+
         // If the kept row has no Discord link but the dropped one did, carry it over
         if (!keep.discord_id && drop.discord_id) {
             db.prepare('UPDATE members SET discord_id = ?, discord_name = ? WHERE id = ?')
                 .run(drop.discord_id, drop.discord_name, keepId);
         }
+
+        // Merging into a member means they're a real, current identity — reactivate
+        // even if they'd been marked inactive (missed) by a prior scan.
+        db.prepare('UPDATE members SET active = 1 WHERE id = ?').run(keepId);
 
         // Alias the dropped OCR name to the kept canonical name for future scans
         db.prepare(`INSERT OR REPLACE INTO name_corrections (ocr_name, correct_name, source)
