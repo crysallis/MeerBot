@@ -115,7 +115,10 @@ module.exports = {
 		execFile(PYTHON, [SCRAPER, "--guild", ...modeFlags], { cwd: require("path").dirname(SCRAPER) }, async (error, stdout) => {
 			if (error) {
 				console.error("Scan error:", error);
-				return interaction.channel.send(`❌ Scan failed:\n\`\`\`${error.message.slice(0, 500)}\`\`\``);
+				const lines = stdout ? stdout.split("\n").filter(Boolean) : [];
+				const tail = lines.slice(-15).join("\n");
+				const tailBlock = tail ? `\n\nLast output before failure:\n\`\`\`${tail.slice(-1500)}\`\`\`` : "";
+				return interaction.channel.send(`❌ Scan failed:\n\`\`\`${error.message.slice(0, 500)}\`\`\`${tailBlock}`);
 			}
 
 			const lines = stdout.split("\n");
@@ -128,7 +131,7 @@ module.exports = {
 					.filter(Boolean),
 			)].join(", ");
 			const modeResults = lines.filter((l) =>
-				/^(DREAM_REALM|AFK_STAGES|ARENA|SUPREME_ARENA|HONOR_DUEL|ARCANE_LAB|CLASHFRONTS|MODE_FAILED):/.test(l));
+				/^(DREAM_REALM|AFK_STAGES|ARENA|SUPREME_ARENA|HONOR_DUEL|ARCANE_LAB|CLASHFRONTS|GUILD_DUEL|MODE_FAILED):/.test(l));
 
 			let reply = `✅ Scan complete!\n${done || saved || "Snapshot saved."}`;
 			if (modeResults.length) {
