@@ -72,6 +72,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `BIRTHDAY_CHANNEL_ID` | Channel for birthday messages | — |
 | `ANNIVERSARY_CHANNEL_ID` | Channel for guild anniversary messages | — |
 | `INACTIVITY_ALERT_CHANNEL_ID` | Channel for post-scan inactivity alerts | — |
+| `CHECKIN_RELAY_CHANNEL_ID` | Channel for day-4 check-in DM responses (reply/reaction relayed here) | — |
 | `GENERAL_CHANNEL_ID` | Channel for scheduled auto-posts | — |
 | `COMMAND_LOG_CHANNEL_ID` | Channel for slash command audit log | — |
 | `NEWSLETTER_CHANNEL_ID` | Channel to seed past newsletters from | `1303788137876684931` |
@@ -212,7 +213,9 @@ MeerBot/
         member.js               /member lookup with autocomplete.
         invasion.js             /invasion Homestead invasion alert (role ping).
         link.js                 /link with autocomplete.
-        scan.js                 /scan + post-scan inactivity alert. Always passes --guild.
+        scan.js                 /scan + post-scan inactivity alert + day-4 check-in DMs
+                                (one day past the alert threshold, once per absence streak).
+                                Always passes --guild.
         roster.js               /roster add/remove/transfer · Discord role management for
                                 RiffRaff and Frop guilds. transfer moves between warbands,
                                 requesting Approve/Deny from the other side's leader unless
