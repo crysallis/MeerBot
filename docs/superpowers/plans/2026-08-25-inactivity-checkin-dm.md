@@ -887,26 +887,28 @@ client.on('messageReactionAdd', (reaction, user) => {
 });
 ```
 
-- [ ] **Step 4: Verify index.js still loads cleanly**
+- [ ] **Step 4: Verify index.js's syntax and new require line, WITHOUT executing it**
+
+CORRECTION (found during execution): `require('./index.js')` is unsafe in
+this checkout · `index.js` calls `client.login(token)` unconditionally at
+module scope when `DISCORD_TOKEN` is set (`if (token) { ... client.login(token)
+... }`), and this checkout's `.env` has the REAL bot's token · a bare
+`require()` attempts a real Discord login as the real bot, which can
+collide with whatever's running under PM2. Use `node --check` (parses
+without executing) plus a standalone import of just the new require line
+instead:
 
 ```bash
+node --check index.js
 node -e "
 require('dotenv').config();
-process.env.DISCORD_TOKEN = process.env.DISCORD_TOKEN || 'placeholder-for-syntax-check';
-try {
-  require('./index.js');
-} catch (err) {
-  if (err.message.includes('token') || err.message.includes('login')) {
-    console.log('loaded OK (login failure expected without a real client connection)');
-  } else {
-    throw err;
-  }
-}
-" 2>&1 | tail -5
+const { handleCheckinReaction, resolveCheckinReply, postCheckinRelayAndConfirm } = require('./utils/handlers/checkinResponseHandler');
+console.log('resolves:', typeof handleCheckinReaction, typeof resolveCheckinReply, typeof postCheckinRelayAndConfirm);
+"
 ```
-Expected: no `SyntaxError`/`ReferenceError`/module-not-found error · a
-login-related failure (this doesn't actually connect to Discord) is fine
-and expected.
+
+Expected: `node --check` produces no output (clean syntax) · the second
+command prints `resolves: function function function`.
 
 - [ ] **Step 5: Deploy to the real bot (test-mode gated) and verify live**
 
