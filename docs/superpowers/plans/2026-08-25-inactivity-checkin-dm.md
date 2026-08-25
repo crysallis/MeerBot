@@ -31,9 +31,12 @@ DB-backed channel config pattern.
   `utils/db.js`'s existing schema block · no migration trail.
 - `CLAUDE.md` (project) updated as part of "done."
 - This repo has no test framework for Discord-interaction code · verified
-  live on `meerbot-test` (see project convention: anything touching
-  multiple channels/DM flows uses the test bot, not the real bot's
-  bot-chatter channel).
+  live on the REAL bot (Daniel's explicit call for this feature · normally
+  multi-channel/DM flows use `meerbot-test`, but this feature has no
+  private-preview equivalent regardless of which bot runs it, since it DMs
+  real inactive members). Gated by `CHECKIN_TEST_MODE_DISCORD_ID` (see Task
+  2) until verified, so the first live runs only ever reach one Discord
+  account.
 
 ---
 
@@ -299,7 +302,9 @@ EOF
 **Files:**
 - Create: `utils/checkinContent.js`
 - Modify: `utils/botConfig.js:11` (insert `CHECKIN_RELAY_CHANNEL_ID` right
-  after `INACTIVITY_ALERT_CHANNEL_ID`)
+  after `INACTIVITY_ALERT_CHANNEL_ID`) and `utils/botConfig.js:25` (insert
+  `CHECKIN_TEST_MODE_DISCORD_ID` right after `SCAN_AUTHORIZED_USER`, same
+  category)
 
 **Interfaces:**
 - Produces: `CHECKIN_MESSAGE` (string, the full DM template).
@@ -344,7 +349,7 @@ for (const e of emoji) {
 ```
 Expected: `emoji count: 4`, all four print `in message`.
 
-- [ ] **Step 3: Add the admin-panel config entry**
+- [ ] **Step 3: Add the admin-panel config entries**
 
 In `utils/botConfig.js`, right after the `INACTIVITY_ALERT_CHANNEL_ID` line:
 
@@ -352,24 +357,37 @@ In `utils/botConfig.js`, right after the `INACTIVITY_ALERT_CHANNEL_ID` line:
     CHECKIN_RELAY_CHANNEL_ID:    { label: 'Check-in Relay Channel',    description: 'Channel for day-4 check-in DM responses', category: 'channels',    default: '' },
 ```
 
-- [ ] **Step 4: Verify it's picked up by the config system**
+And right after the `SCAN_AUTHORIZED_USER` line (same `permissions`
+category, same shape as that existing single-user gate):
+
+```javascript
+    CHECKIN_TEST_MODE_DISCORD_ID: { label: 'Check-in Test Mode (Discord ID)', description: 'ROLLOUT SAFETY GATE: when set, check-in DMs go ONLY to this Discord ID, ignoring real eligibility. Clear once verified.', category: 'permissions', default: '' },
+```
+
+- [ ] **Step 4: Verify both are picked up by the config system**
 
 ```bash
 node -e "
 require('dotenv').config();
 const botConfig = require('./utils/botConfig');
-console.log(botConfig.get('CHECKIN_RELAY_CHANNEL_ID', '<empty>'));
+console.log('relay:', botConfig.get('CHECKIN_RELAY_CHANNEL_ID', '<empty>'));
+console.log('test mode:', botConfig.get('CHECKIN_TEST_MODE_DISCORD_ID', '<empty>'));
 "
 ```
-Expected: prints `<empty>` (the default, since it's unconfigured) with no
-error.
+Expected: both print `<empty>` (the default, since neither is configured
+yet) with no error.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add utils/checkinContent.js utils/botConfig.js
 git commit -m "$(cat <<'EOF'
-Add check-in DM content + CHECKIN_RELAY_CHANNEL_ID config
+Add check-in DM content + relay/test-mode config
+
+CHECKIN_TEST_MODE_DISCORD_ID is a rollout safety gate: this feature DMs
+real inactive members directly, with no private-preview equivalent (unlike
+a channel post that can be checked in bot-chatter first) -- setting it
+restricts every check-in to one Discord account until cleared.
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 EOF
@@ -405,7 +423,20 @@ async function sendInactivityCheckins(client) {
 	const RELAY_CHANNEL = botConfig.get('CHECKIN_RELAY_CHANNEL_ID');
 	const CHECKIN_DAYS = Number(botConfig.get('INACTIVITY_DAYS', '3')) + 1;
 
-	const eligible = db.getMembersEligibleForCheckin(CHECKIN_DAYS);
+	let eligible = db.getMembersEligibleForCheckin(CHECKIN_DAYS);
+
+	// Rollout safety gate: while this feature is being verified live, set
+	// CHECKIN_TEST_MODE_DISCORD_ID (admin panel) to restrict every check-in
+	// to ONLY that one Discord account, regardless of who's actually
+	// eligible -- this is unsolicited DMs to real members with no private
+	// preview equivalent (unlike a channel post you can check in bot-chatter
+	// first), so real eligibility stays disabled until this is cleared.
+	const testModeId = botConfig.get('CHECKIN_TEST_MODE_DISCORD_ID');
+	if (testModeId) {
+		eligible = eligible.filter(m => m.discord_id === testModeId);
+		console.log(`[Checkin] TEST MODE active -- only DMing discord_id ${testModeId} (${eligible.length} match(es) in eligible list).`);
+	}
+
 	if (eligible.length === 0) return;
 
 	const relayChannel = RELAY_CHANNEL
@@ -877,30 +908,34 @@ Expected: no `SyntaxError`/`ReferenceError`/module-not-found error · a
 login-related failure (this doesn't actually connect to Discord) is fine
 and expected.
 
-- [ ] **Step 5: Deploy to meerbot-test and verify live**
+- [ ] **Step 5: Deploy to the real bot (test-mode gated) and verify live**
 
-This step is manual, on the test bot (`DiscordBotAfkJ-test` worktree, per
-project convention · multi-channel/DM flows use the test bot, not
-bot-chatter on the real bot):
+This feature is verified on the REAL bot, not `meerbot-test` (Daniel's
+explicit call · this feature has no private-preview equivalent regardless
+of which bot runs it). Do NOT restart PM2 yourself · hand the restart
+command to Daniel:
 
 ```bash
-cd C:\vscode\DiscordBotAfkJ-test
-git fetch origin
-git merge origin/main   # or cherry-pick this branch's commits
-pm2 restart meerbot-test
-pm2 logs meerbot-test --lines 20 --nostream
+pm2 restart meerbot --update-env
+pm2 logs meerbot --lines 20 --nostream
 ```
 
-Manually seed a test member's `member_snapshots.last_active` to `"4d ago"`
-in `guild.test.db` (a throwaway snapshot row, not touching real data), set
-`CHECKIN_RELAY_CHANNEL_ID` via the test bot's admin panel to a real test
-channel, then run `/scan` (or manually invoke `sendInactivityCheckins` via
-a `node -e` against the test DB if `/scan` itself is impractical to
-trigger repeatedly).
+Before that restart: confirm `CHECKIN_TEST_MODE_DISCORD_ID` is set (admin
+panel, Config tab) to Daniel's own Discord ID · this is the safety gate
+from Task 3, and it must be active before the first `/scan` run touches
+this code path. Do not proceed to `/scan` until this is confirmed set.
 
-Verify, in order:
-1. The check-in DM arrives with the 4 pre-reacted emoji already on it.
-2. Reacting with 👍 → relay posts with the right meaning text, a
+With the gate active, `/scan` (run by Daniel, same as any normal scan) will
+only ever DM the one gated account, regardless of how many real members are
+actually 4+ days inactive.
+
+Verify, in order (all against the ONE gated account):
+
+1. The check-in DM arrives with the 4 pre-reacted emoji already on it, and
+   the message text/tone reads right (this is the main thing the gate
+   exists to let Daniel confirm before it's real).
+2. Reacting with 👍 → relay posts (in whatever channel
+   `CHECKIN_RELAY_CHANNEL_ID` is set to) with the right meaning text, a
    confirmation DM arrives, the row moves to `responded_reaction`.
 3. On that SAME message (still from step 2, row now `responded_reaction`),
    send a text reply → the reply must NOT relay again, must NOT get its own
@@ -908,19 +943,24 @@ Verify, in order:
    row lookup finds nothing `pending`, so `resolveCheckinReply` returns
    `null` and the guard in `handleAsk` doesn't fire) · confirms "whichever
    comes first wins."
-4. Reset (new `pending` row via `createCheckinDm` against the test
-   account), reply with text instead → relay posts with the quoted text, a
-   confirmation DM arrives, the row moves to `responded_text`.
+4. Reset (new `pending` row via `db.createCheckinDm` run directly, matching
+   the gated account's real `discord_id`/`member_id`), reply with text
+   instead → relay posts with the quoted text, a confirmation DM arrives,
+   the row moves to `responded_text`.
 5. Send a SECOND message right after the text reply → `askHandler.js`
    answers normally this time (not swallowed by the guard), and if the
    message continues the same topic, the model's answer gently mentions
    the "only first message" rule (soft check, not a hard assertion · model
    output varies).
-6. Run the eligibility query again (same simulated 4+ day state, no new
-   activity) → confirm NO second DM is sent (de-dup working).
-7. Manually flip the test member's latest snapshot to `"Online"`, then a
-   later one back to `"5d ago"` → confirm a FRESH check-in DM sends (new-
-   absence rule working).
+6. Run `/scan` again (same simulated 4+ day state, no new activity) →
+   confirm NO second DM is sent to the gated account (de-dup working).
+7. Manually flip the gated account's latest snapshot to `"Online"`, then a
+   later one back to `"5d ago"`, run `/scan` again → confirm a FRESH
+   check-in DM sends (new-absence rule working).
+
+Only after all seven are confirmed correct should `CHECKIN_TEST_MODE_DISCORD_ID`
+be cleared (admin panel) to open real eligibility · that clearing step is
+Daniel's call, not something to do automatically as part of this task.
 
 - [ ] **Step 6: Commit**
 
@@ -931,9 +971,9 @@ Wire check-in response handling into index.js's event listeners
 
 resolveCheckinReply runs synchronously first in messageCreate, before
 handleAsk starts -- see checkinResponseHandler.js's Interfaces note for
-why. Verified live on meerbot-test: DM send, reaction capture, reply
-capture, askHandler.js guard, de-dup, and fresh-absence re-trigger all
-confirmed working.
+why. Verified live on the real bot (CHECKIN_TEST_MODE_DISCORD_ID gated to
+one account): DM send, reaction capture, reply capture, askHandler.js
+guard, de-dup, and fresh-absence re-trigger all confirmed working.
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 EOF
