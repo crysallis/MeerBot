@@ -4,6 +4,7 @@ const db = require("../utils/db");
 const { pickColor } = require("../utils/colors");
 const { enforce, enforcePermissions } = require("../utils/permissions");
 const botConfig = require("../utils/botConfig");
+const { CHECKIN_MESSAGE, CHECKIN_REACTIONS } = require("../utils/checkinContent");
 
 const PYTHON = process.env.SCRAPER_PYTHON || "python";
 const SCRAPER = process.env.SCRAPER_SCRIPT;
@@ -86,6 +87,72 @@ async function postInactivityAlert(client) {
 	});
 }
 
+async function sendInactivityCheckins(client) {
+	const RELAY_CHANNEL = botConfig.get('CHECKIN_RELAY_CHANNEL_ID');
+	const CHECKIN_DAYS = Number(botConfig.get('INACTIVITY_DAYS', '3')) + 1;
+
+	let eligible = db.getMembersEligibleForCheckin(CHECKIN_DAYS);
+
+	// Rollout safety gate: while this feature is being verified live, set
+	// CHECKIN_TEST_MODE_DISCORD_ID (admin panel) to restrict every check-in
+	// to ONLY that one Discord account, regardless of who's actually
+	// eligible -- this is unsolicited DMs to real members with no private
+	// preview equivalent (unlike a channel post you can check in bot-chatter
+	// first), so real eligibility stays disabled until this is cleared.
+	const testModeId = botConfig.get('CHECKIN_TEST_MODE_DISCORD_ID');
+	if (testModeId) {
+		eligible = eligible.filter(m => m.discord_id === testModeId);
+		console.log(`[Checkin] TEST MODE active -- only DMing discord_id ${testModeId} (${eligible.length} match(es) in eligible list).`);
+	}
+
+	if (eligible.length === 0) return;
+
+	const relayChannel = RELAY_CHANNEL
+		? await client.channels.fetch(RELAY_CHANNEL).catch(() => null)
+		: null;
+
+	for (const member of eligible) {
+		if (!member.discord_id) continue; // no way to DM an unlinked member
+
+		try {
+			const user = await client.users.fetch(member.discord_id);
+			const dmMessage = await user.send(CHECKIN_MESSAGE);
+			for (const emoji of Object.keys(CHECKIN_REACTIONS)) {
+				await dmMessage.react(emoji).catch(() => {});
+			}
+			db.createCheckinDm({
+				memberId: member.id,
+				discordId: member.discord_id,
+				dmMessageId: dmMessage.id,
+				sentAt: new Date().toISOString(),
+				daysInactiveAtSend: member.days_inactive,
+				status: 'pending',
+			});
+		} catch (err) {
+			console.error(`Check-in DM failed for ${member.ingame_name}:`, err.message);
+			db.createCheckinDm({
+				memberId: member.id,
+				discordId: member.discord_id,
+				dmMessageId: null,
+				sentAt: new Date().toISOString(),
+				daysInactiveAtSend: member.days_inactive,
+				status: 'dm_failed',
+			});
+			if (relayChannel) {
+				await relayChannel.send({
+					embeds: [
+						new EmbedBuilder()
+							.setTitle(`⚠️ Couldn't reach ${member.ingame_name} for a check-in`)
+							.setDescription("DMs may be closed... consider reaching out another way.")
+							.setColor(pickColor())
+							.setFooter({ text: `Inactive ${member.days_inactive}+ days` }),
+					],
+				}).catch(() => {});
+			}
+		}
+	}
+}
+
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName("scan")
@@ -156,6 +223,7 @@ module.exports = {
 			}
 
 			await postInactivityAlert(interaction.client);
+			await sendInactivityCheckins(interaction.client);
 		});
 	},
 };
