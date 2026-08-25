@@ -416,6 +416,22 @@ db.exec(`
     fire_at_b  TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS member_checkin_dms (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id             INTEGER NOT NULL REFERENCES members(id),
+    discord_id            TEXT NOT NULL,
+    dm_message_id         TEXT,
+    sent_at               TEXT NOT NULL,
+    days_inactive_at_send INTEGER NOT NULL,
+    status                TEXT NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending', 'responded_text', 'responded_reaction', 'dm_failed')),
+    response_text         TEXT,
+    response_emoji        TEXT,
+    responded_at          TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_checkin_message ON member_checkin_dms(dm_message_id);
+  CREATE INDEX IF NOT EXISTS idx_checkin_member_status ON member_checkin_dms(member_id, status);
 `);
 
 // translation_relay_messages may already exist (shipped pre-batching) without the
@@ -560,6 +576,7 @@ function mergeMembers(keepId, dropId) {
         db.prepare('UPDATE member_snapshots   SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
         db.prepare('UPDATE member_notes       SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
         db.prepare('UPDATE member_name_history SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
+        db.prepare('UPDATE member_checkin_dms SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
 
         // This hand-maintained table list will drift as the miner adds new ranking tables
         // (each one FK-referencing members(id) will break the DELETE below if missed here).
@@ -844,6 +861,103 @@ function deleteGloryctaPoll(id) {
     db.prepare('DELETE FROM glorycta_polls WHERE id = ?').run(id);
 }
 
+function createCheckinDm({ memberId, discordId, dmMessageId, sentAt, daysInactiveAtSend, status }) {
+    const result = db.prepare(
+        `INSERT INTO member_checkin_dms
+         (member_id, discord_id, dm_message_id, sent_at, days_inactive_at_send, status)
+         VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(memberId, discordId, dmMessageId, sentAt, daysInactiveAtSend, status);
+    return result.lastInsertRowid;
+}
+
+function getPendingCheckinByMessageId(messageId) {
+    return db.prepare(
+        "SELECT * FROM member_checkin_dms WHERE dm_message_id = ? AND status = 'pending'"
+    ).get(messageId);
+}
+
+function getPendingCheckinByDiscordId(discordId) {
+    return db.prepare(
+        "SELECT * FROM member_checkin_dms WHERE discord_id = ? AND status = 'pending'"
+    ).get(discordId);
+}
+
+function resolveCheckinResponse(id, { status, responseText, responseEmoji, respondedAt }) {
+    db.prepare(
+        `UPDATE member_checkin_dms
+         SET status = ?, response_text = ?, response_emoji = ?, responded_at = ?
+         WHERE id = ?`
+    ).run(status, responseText || null, responseEmoji || null, respondedAt, id);
+}
+
+// Eligible: 4+ days inactive per the latest snapshot, no active AFK record,
+// and either never checked in before, or their most recent check-in row's
+// sent_at predates a LATER snapshot showing them active again (a fresh
+// absence). member_snapshots' last_active text format ("Nd ago" / "Online" /
+// "Xm ago" / "Xh ago") is the same field postInactivityAlert already parses
+// in scan.js -- this mirrors that regex rather than introducing a new one.
+function getMembersEligibleForCheckin(inactivityDays) {
+    const snapshot = db.prepare('SELECT id FROM snapshots ORDER BY id DESC LIMIT 1').get();
+    if (!snapshot) return [];
+
+    const rows = db.prepare(`
+        SELECT ms.name, ms.last_active, m.id as member_id, m.discord_id
+        FROM member_snapshots ms
+        LEFT JOIN members m ON m.id = ms.member_id
+        LEFT JOIN member_afk afk ON afk.member_id = ms.member_id
+        WHERE ms.snapshot_id = ?
+          AND m.active = 1
+          AND afk.member_id IS NULL
+    `).all(snapshot.id);
+
+    const inactive = rows.filter(r => {
+        const match = r.last_active && r.last_active.match(/^(\d+)d\s*ago$/i);
+        return match && parseInt(match[1], 10) >= inactivityDays;
+    });
+
+    const eligible = [];
+    for (const r of inactive) {
+        const lastCheckin = db.prepare(
+            'SELECT sent_at FROM member_checkin_dms WHERE member_id = ? ORDER BY id DESC LIMIT 1'
+        ).get(r.member_id);
+
+        if (!lastCheckin) {
+            eligible.push(r);
+            continue;
+        }
+
+        const activeSince = db.prepare(`
+            SELECT 1
+            FROM member_snapshots ms2
+            JOIN snapshots s2 ON s2.id = ms2.snapshot_id
+            WHERE ms2.member_id = ?
+              AND s2.scraped_at > ?
+              AND ms2.last_active NOT LIKE '%d ago'
+            LIMIT 1
+        `).get(r.member_id, lastCheckin.sent_at);
+
+        if (activeSince) eligible.push(r);
+    }
+
+    return eligible.map(r => ({
+        id: r.member_id,
+        ingame_name: r.name,
+        discord_id: r.discord_id,
+        days_inactive: parseInt(r.last_active.match(/^(\d+)/)[1], 10),
+    }));
+}
+
+function getRecentlyResolvedCheckin(discordId, withinMs = 5 * 60 * 1000) {
+    const row = db.prepare(
+        `SELECT * FROM member_checkin_dms
+         WHERE discord_id = ? AND status IN ('responded_text', 'responded_reaction')
+         ORDER BY id DESC LIMIT 1`
+    ).get(discordId);
+    if (!row || !row.responded_at) return null;
+    const age = Date.now() - new Date(row.responded_at).getTime();
+    return age <= withinMs ? row : null;
+}
+
 module.exports = db;
 module.exports.mergeMembers = mergeMembers;
 module.exports.getWarbands = getWarbands;
@@ -880,5 +994,11 @@ module.exports.deleteRelayMessagesByGroupId = deleteRelayMessagesByGroupId;
 module.exports.createGloryctaPoll = createGloryctaPoll;
 module.exports.getGloryctaPollByMessageId = getGloryctaPollByMessageId;
 module.exports.deleteGloryctaPoll = deleteGloryctaPoll;
+module.exports.createCheckinDm = createCheckinDm;
+module.exports.getPendingCheckinByMessageId = getPendingCheckinByMessageId;
+module.exports.getPendingCheckinByDiscordId = getPendingCheckinByDiscordId;
+module.exports.resolveCheckinResponse = resolveCheckinResponse;
+module.exports.getMembersEligibleForCheckin = getMembersEligibleForCheckin;
+module.exports.getRecentlyResolvedCheckin = getRecentlyResolvedCheckin;
 module.exports.__runRelayMessageMigration = runRelayMessageMigration;
 module.exports.__testRawDb = db;
