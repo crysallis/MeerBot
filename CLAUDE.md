@@ -15,7 +15,9 @@ See global context at `C:\Users\crysa\.claude\CLAUDE.md`.
 
 Project knowledge: `afkdatamining` wing (rooms: status, src, decisions, gotchas, pending) · `discordbotafkj` wing (rooms: data, general, admin, scripts, slash_commands, gotchas, pending). Search `src` for mode-scan parser internals, `pending` for blocked/deferred work.
 
-discord.js v14 · better-sqlite3 · PM2 · Node.js
+Non-trivial features are designed via `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` (brainstormed design doc) then `docs/superpowers/plans/YYYY-MM-DD-<topic>.md` (task-by-task implementation plan) before code changes · check both directories for prior/related work before starting a new feature, since a spec or plan may already exist.
+
+discord.js v14 · better-sqlite3 · PM2 · Node.js · test suite: `npm test` (`node --test`, 138 tests covering permissions, translation relay, ask handler, job scheduling, glory reaction guard, and more)
 
 Companion to `C:\vscode\AFKDataMining`. Reads the shared guild DB.
 See global context at `C:\Users\crysa\.claude\CLAUDE.md`.
@@ -103,7 +105,7 @@ from there.
 | `shared/themes.js` | Theme registry -- `THEMES` array (value/label/mode) + `themeMode(value)` helper · imported by both sites for dropdown and mode lookup |
 | `stats/src/style.css` | Tailwind v4 + DaisyUI v5 entry · `@import "tailwindcss"; @plugin "daisyui" { themes: false; }` · layout + component overrides |
 | `stats/src/index.html` | Public stats UI · DaisyUI component classes (`btn`, `badge`, `table`, `stat`, `card`) · Theme Preview tab shows all vars/components in active theme |
-| `ecosystem.config.js` | PM2 multi-process config · defines `meerbot` + `meerbot-admin` |
+| `ecosystem.config.js` | PM2 multi-process config · defines `meerbot` (bot, `index.js`), `meerbot-admin` (`admin/server.js`), `meerbot-stats` (`stats/server.js`), `meerbot-test` (bot only, from the separate `DiscordBotAfkJ-test` checkout · not started by default, see Test Bot) |
 
 ## Slash Commands
 | Command | Notes |
