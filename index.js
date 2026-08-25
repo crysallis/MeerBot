@@ -12,6 +12,7 @@ const { handleTransferButton } = require('./utils/handlers/transferButtonHandler
 const { handleGloryctaReactionGuard } = require('./utils/handlers/gloryctaReactionGuard');
 const { handleGloryctaCancelButton } = require('./utils/handlers/gloryctaCancelButtonHandler');
 const { handleAsk, handleAskReport } = require('./utils/handlers/askHandler');
+const { handleCheckinReaction, resolveCheckinReply, postCheckinRelayAndConfirm } = require('./utils/handlers/checkinResponseHandler');
 const { rateLimit } = require('./config');
 
 require('./utils/db');
@@ -69,15 +70,26 @@ client.once('clientReady', () => {
 });
 
 client.on('messageCreate', message => {
+  const resolvedCheckin = resolveCheckinReply(message); // synchronous, must run before handleAsk
   handleMessage(message, client);
   handlePromoCode(message);
   handleTranslationRelay(message, client).catch(err => console.error('[TranslationRelay] Unhandled error:', err));
   handleAsk(message, client).catch(err => console.error('[AskHandler] Unhandled error:', err));
+  if (resolvedCheckin) {
+    client.users.fetch(message.author.id)
+      .then(user => postCheckinRelayAndConfirm(resolvedCheckin, {
+        user,
+        embedTitle: `💬 A member responded to a check-in`,
+        embedDescription: resolvedCheckin.response_text,
+      }))
+      .catch(err => console.error('[Checkin] Failed to post relay/confirm for reply:', err.message));
+  }
 });
 client.on('messageReactionAdd', (reaction, user) => {
   handleTranslationReactionSync(reaction, user, client, true).catch(err => console.error('[TranslationRelay] Reaction sync (add) unhandled error:', err));
   handleGloryctaReactionGuard(reaction, user, client).catch(err => console.error('[Glorycta] Reaction guard unhandled error:', err));
   handleAskReport(reaction, user, client).catch(err => console.error('[AskHandler] Report handler unhandled error:', err));
+  handleCheckinReaction(reaction, user, client).catch(err => console.error('[Checkin] Reaction handler unhandled error:', err));
 });
 client.on('messageReactionRemove', (reaction, user) => {
   handleTranslationReactionSync(reaction, user, client, false).catch(err => console.error('[TranslationRelay] Reaction sync (remove) unhandled error:', err));
