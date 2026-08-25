@@ -958,6 +958,11 @@ function getRecentlyResolvedCheckin(discordId, withinMs = 5 * 60 * 1000) {
     return age <= withinMs ? row : null;
 }
 
+function getMemberIngameName(memberId) {
+    const row = db.prepare('SELECT ingame_name FROM members WHERE id = ?').get(memberId);
+    return row ? row.ingame_name : null;
+}
+
 module.exports = db;
 module.exports.mergeMembers = mergeMembers;
 module.exports.getWarbands = getWarbands;
@@ -1000,5 +1005,6 @@ module.exports.getPendingCheckinByDiscordId = getPendingCheckinByDiscordId;
 module.exports.resolveCheckinResponse = resolveCheckinResponse;
 module.exports.getMembersEligibleForCheckin = getMembersEligibleForCheckin;
 module.exports.getRecentlyResolvedCheckin = getRecentlyResolvedCheckin;
+module.exports.getMemberIngameName = getMemberIngameName;
 module.exports.__runRelayMessageMigration = runRelayMessageMigration;
 module.exports.__testRawDb = db;

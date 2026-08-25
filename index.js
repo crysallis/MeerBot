@@ -79,8 +79,7 @@ client.on('messageCreate', message => {
     client.users.fetch(message.author.id)
       .then(user => postCheckinRelayAndConfirm(resolvedCheckin, {
         user,
-        embedTitle: `💬 A member responded to a check-in`,
-        embedDescription: resolvedCheckin.response_text,
+        responseLine: resolvedCheckin.response_text,
       }))
       .catch(err => console.error('[Checkin] Failed to post relay/confirm for reply:', err.message));
   }

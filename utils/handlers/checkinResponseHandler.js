@@ -7,7 +7,23 @@ const { stripVariationSelectors } = require('./gloryctaReactionGuard');
 
 const CONFIRMATION_TEXT = "Thanks, got it! Passed that along to the team.";
 
-async function postCheckinRelayAndConfirm(row, { user, embedTitle, embedDescription }) {
+// A Discord mention alone doesn't tell leadership which in-game character
+// this is (a leader may not recognize a Discord username at a glance), and
+// the in-game name alone isn't clickable/pingable -- both together cover
+// "who is this" and "let me reach them" in one line.
+function checkinDisplayName(row) {
+    const ingameName = db.getMemberIngameName(row.member_id);
+    return ingameName ? `${ingameName} (<@${row.discord_id}>)` : `<@${row.discord_id}>`;
+}
+
+// responseLine is just the response content (quoted reply text, or
+// "emoji meaning") -- the member mention/name is assembled HERE, not by
+// the caller, and always goes in the embed DESCRIPTION, never the title.
+// Discord does not render mentions or markdown inside embed titles (only
+// description/field values), so a mention placed in setTitle() shows as
+// literal raw text like "<@123>" instead of a clickable ping -- confirmed
+// live 2026-08-25.
+async function postCheckinRelayAndConfirm(row, { user, responseLine }) {
     const RELAY_CHANNEL = botConfig.get('CHECKIN_RELAY_CHANNEL_ID');
     if (RELAY_CHANNEL) {
         const channel = await user.client.channels.fetch(RELAY_CHANNEL).catch(() => null);
@@ -15,8 +31,8 @@ async function postCheckinRelayAndConfirm(row, { user, embedTitle, embedDescript
             await channel.send({
                 embeds: [
                     new EmbedBuilder()
-                        .setTitle(embedTitle)
-                        .setDescription(embedDescription)
+                        .setTitle('💬 Check-in response')
+                        .setDescription(`${checkinDisplayName(row)} responded:\n\n${responseLine}`)
                         .setColor(pickColor())
                         .setFooter({ text: `Inactive ${row.days_inactive_at_send}+ days when checked in` }),
                 ],
@@ -66,8 +82,7 @@ async function handleCheckinReaction(reaction, user, client) {
 
     await postCheckinRelayAndConfirm(row, {
         user: fetchedUser,
-        embedTitle: `💬 A member responded to a check-in`,
-        embedDescription: `${originalEmoji} ${CHECKIN_REACTIONS[originalEmoji]}`,
+        responseLine: `${originalEmoji} ${CHECKIN_REACTIONS[originalEmoji]}`,
     });
 }
 
