@@ -5,7 +5,9 @@ const CHECKIN_REACTIONS = {
     '👋': 'Done playing for now',
 };
 
-const CHECKIN_MESSAGE = `Hey! Just checking in... haven't seen you active in AFK Journey in a few days and wanted to make sure everything's okay. No pressure at all, just curious how you're doing and if there's anything the guild can help with.
+const CHECKIN_MESSAGE = `Hey! Just checking in... haven't seen you active in AFK Journey in a few days and wanted to make sure everything's okay.
+
+RiffRaff is a competitive guild and we do need regular activity to keep up, but we also know people have lives and other interests outside the game, and that's completely fine. Just curious how you're doing and if there's anything the guild can help with.
 
 You can reply here with anything, or just react to this message:
 👍 still playing, just been busy... I'll be back
