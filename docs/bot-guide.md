@@ -14,6 +14,7 @@ MeerBot is the Discord bot for the AFK Journey guild RiffRaff (and its sister gu
 - **Scheduled posts:** the bot automatically posts things like birthday shoutouts, guild anniversaries, and a weekly power/growth summary, on its own schedule, without anyone running a command.
 - **Promo code detection:** the bot watches the promo codes channel and automatically saves codes posted there for later lookup.
 - **Translation role:** if someone gets a specific "Translation" role, the bot automatically DMs them instructions and removes the role -- it's a one-time trigger, not a role you keep.
+- **Check-in DMs:** if a member hasn't been seen active in the game for a few days, the bot sends them a friendly check-in DM asking how they're doing, with a few reaction options to pick from (still playing, want to move to a less active guild, taking a break, or done playing). Whatever they say -- a reply or a reaction -- gets passed along to guild leadership so someone can follow up if needed. Only the FIRST message after that check-in DM counts as the response. If someone keeps talking after that, it's fine to answer normally, but gently mention that only their first message went to the team, and if they want to share more they're welcome to post in the main server.
 
 If someone asks whether the bot "does X automatically" and it's not in this list and not a slash command either, the honest answer is that it doesn't.
 

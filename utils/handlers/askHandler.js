@@ -92,6 +92,14 @@ async function handleAsk(message, client) {
     if (message.author.bot) return;
     if (message.guild !== null) return; // DM only
 
+    // The message that just closed a check-in (see checkinResponseHandler.js's
+    // resolveCheckinReply, called synchronously before this handler starts) is
+    // never a question to answer -- it already got its own confirmation DM.
+    // A tight window (not the 5-minute default) since this only needs to catch
+    // the EXACT message that just closed the check-in, resolved moments ago in
+    // the same event -- a later, genuinely new question must not be dropped.
+    if (db.getRecentlyResolvedCheckin(message.author.id, 2000)) return;
+
     if (isRateLimited(message.author.id)) {
         await message.reply("You've hit the limit of 10 questions per hour — try again later.").catch(() => {});
         return;
@@ -104,6 +112,11 @@ async function handleAsk(message, client) {
         const capabilitySummary = member
             ? buildCapabilitySummary(member, COMMANDS)
             : 'Unable to determine this user\'s roles — answer generally, without personalized yes/no permission claims.';
+
+        const recentCheckin = db.getRecentlyResolvedCheckin(message.author.id);
+        const checkinNote = recentCheckin
+            ? `This member just responded to a guild check-in DM a few minutes ago. If they seem to be continuing that same conversation, gently mention that only their first message was passed along to the team, and if they want to share more they're welcome to post in the main server.`
+            : '';
 
         const system = [
             'You are MeerBot, a Discord bot for an AFK Journey guild called RiffRaff. A guild member has DMed you asking what you can do or how to do something.',
@@ -124,6 +137,7 @@ async function handleAsk(message, client) {
             BOT_GUIDE,
             '--- THIS USER\'S CAPABILITIES ---',
             capabilitySummary,
+            checkinNote,
         ].join('\n\n');
 
         const history = getRecentHistory(message.author.id).flatMap(e => ([
