@@ -9,6 +9,7 @@ const CONFIG_META = {
     GENERAL_CHANNEL_ID:          { label: 'General Channel',           description: 'Channel for daily reset messages',        category: 'channels',    default: '' },
     COMMAND_LOG_CHANNEL_ID:      { label: 'Command Log Channel',       description: 'Channel for command audit log',           category: 'channels',    default: '' },
     INACTIVITY_ALERT_CHANNEL_ID: { label: 'Inactivity Alert Channel',  description: 'Channel for inactivity alerts post-scan', category: 'channels',    default: '' },
+    CHECKIN_RELAY_CHANNEL_ID:    { label: 'Check-in Relay Channel',    description: 'Channel for day-4 check-in DM responses', category: 'channels',    default: '' },
     SCAN_REMINDER_CHANNEL_ID:    { label: 'Scan Reminder Channel',     description: 'Channel for daily scan reminder',         category: 'channels',    default: '' },
     WEEKLY_SUMMARY_CHANNEL_ID:          { label: 'Weekly Summary Channel',          description: 'Channel for Monday power summary',               category: 'channels',    default: '' },
     RECRUITMENT_REMINDER_CHANNEL_ID:    { label: 'Recruitment Reminder Channel',    description: 'Channel for 2-day recruit follow-up pings',     category: 'channels',    default: '' },
@@ -23,6 +24,7 @@ const CONFIG_META = {
     LATE_WARNING_MINUTES:        { label: 'Late Warning Minutes',      description: 'Minutes late before adding a late footer',category: 'thresholds',  default: '30' },
     // --- Permissions ---
     SCAN_AUTHORIZED_USER:        { label: 'Scan Authorized User',      description: 'Discord user ID allowed to run /scan',    category: 'permissions', default: '' },
+    CHECKIN_TEST_MODE_DISCORD_ID: { label: 'Check-in Test Mode (Discord ID)', description: 'ROLLOUT SAFETY GATE: when set, check-in DMs go ONLY to this Discord ID, ignoring real eligibility. Clear once verified.', category: 'permissions', default: '' },
     // --- Scan Modes ---
     SCAN_DREAM_REALM:            { label: 'Dream Realm Scan',          description: 'Include Dream Realm rankings in /scan',   category: 'scan_modes',  default: 'false' },
     SCAN_AFK_STAGES:             { label: 'AFK Stages Scan',           description: 'Include AFK Stage rankings in /scan',     category: 'scan_modes',  default: 'false' },
