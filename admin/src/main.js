@@ -261,7 +261,7 @@ function applyTheme(theme) {
 // ── Config tab constants ──────────────────────────────────────────────────────
 
 const CATEGORY_LABELS = {
-  channels:    'Commands',
+  channels:    'Channels',
   timing:      'Job Timing',
   thresholds:  'Thresholds',
   permissions: 'Permissions',
@@ -337,6 +337,7 @@ function renderTabs() {
   }
 
   const extras = [
+    { id: 'settings',      label: 'Settings',        local: false },
     { id: 'reactions',     label: 'Reactions',       local: false },
     { id: 'scheduledjobs', label: 'Scheduled Jobs',  local: false },
     { id: 'jobs',          label: 'Job Runs',         local: false },
@@ -361,14 +362,14 @@ function switchTab(cat) {
   activeTab = cat;
   closeNav();
   document.querySelectorAll('.tab').forEach((t, i) => {
-    const cats = [...new Set(state.allConfig.map(c => c.category)), 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'dreambosses', 'seasons', 'translationrelay', 'serverstructure', 'access'];
+    const cats = [...new Set(state.allConfig.map(c => c.category)), 'settings', 'reactions', 'scheduledjobs', 'jobs', 'members', 'warbands', 'dreambosses', 'seasons', 'translationrelay', 'serverstructure', 'access'];
     t.classList.toggle('active', cats[i] === cat);
   });
   if (cat === 'access') loadAccess();
   if (cat === 'serverstructure') loadServerStructure();
   if (cat === 'translationrelay') loadTranslationRelay();
   document.querySelectorAll('.section').forEach(s => {
-    s.classList.toggle('visible', s.id === 'section-' + cat);
+    s.classList.toggle('visible', s.id === 'section-' + cat || s.id === 'section-config-' + cat);
   });
 }
 
@@ -383,7 +384,12 @@ function renderAllSections() {
     const entries = state.allConfig.filter(c => c.category === cat && !JOB_CHANNEL_KEYS.has(c.key));
     const section = document.createElement('div');
     section.className = 'section' + (cat === activeTab ? ' visible' : '');
-    section.id = 'section-' + cat;
+    // config-prefixed so this never collides with a hand-written section id sharing
+    // the same category name -- e.g. "permissions" is both a bot_config category
+    // (Scan Authorized User, Check-in Test Mode) AND a static section in index.html
+    // (Command Permissions, Auto-Delete's old home). Two elements with the same
+    // literal id both toggled visible together by accident for a long time.
+    section.id = 'section-config-' + cat;
     section.innerHTML = `<div class="section-title">${CATEGORY_LABELS[cat] ?? cat}</div>`;
 
     const card = document.createElement('div');
