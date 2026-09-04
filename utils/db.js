@@ -265,6 +265,18 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_cp_lookup ON command_permissions(command, subcommand, type);
 
+  CREATE TABLE IF NOT EXISTS auto_delete_rules (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope            TEXT NOT NULL CHECK(scope IN ('command', 'reaction_rule')),
+    command          TEXT,
+    subcommand       TEXT,
+    reaction_rule_id INTEGER,
+    enabled          INTEGER NOT NULL DEFAULT 1,
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(scope, command, subcommand, reaction_rule_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_adr_lookup ON auto_delete_rules(scope, command, subcommand);
+
   CREATE TABLE IF NOT EXISTS panel_roles (
     role_id TEXT PRIMARY KEY,
     tier    TEXT NOT NULL CHECK(tier IN ('read', 'manage', 'local'))

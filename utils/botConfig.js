@@ -22,6 +22,7 @@ const CONFIG_META = {
     // --- Thresholds ---
     INACTIVITY_DAYS:             { label: 'Inactivity Days',           description: 'Days before flagging a member inactive',  category: 'thresholds',  default: '3' },
     LATE_WARNING_MINUTES:        { label: 'Late Warning Minutes',      description: 'Minutes late before adding a late footer',category: 'thresholds',  default: '30' },
+    AUTO_DELETE_SECONDS:         { label: 'Auto-Delete Delay (seconds)', description: 'How long after posting an auto-delete-enabled reply is removed', category: 'thresholds', default: '30' },
     // --- Permissions ---
     SCAN_AUTHORIZED_USER:        { label: 'Scan Authorized User',      description: 'Discord user ID allowed to run /scan',    category: 'permissions', default: '' },
     CHECKIN_TEST_MODE_DISCORD_ID: { label: 'Check-in Test Mode (Discord ID)', description: 'ROLLOUT SAFETY GATE: when set, check-in DMs go ONLY to this Discord ID, ignoring real eligibility. Clear once verified.', category: 'permissions', default: '' },
