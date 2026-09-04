@@ -1,7 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { pickColor } = require('../utils/colors');
-const { autoDelete } = require('../utils/autoDelete');
 const { enforcePermissions } = require('../utils/permissions');
 
 function fmtPower(val) {
@@ -129,7 +128,6 @@ module.exports = {
         if (!(await enforcePermissions(interaction, 'guild', sub))) return;
         if (sub === 'unlinked') {
             await handleUnlinked(interaction);
-            autoDelete(interaction);
             return;
         }
 
@@ -150,7 +148,6 @@ module.exports = {
             case 'chart':      await handleChart(interaction, snapshot); break;
             case 'warbands':   await handleWarbands(interaction, snapshot); break;
         }
-        autoDelete(interaction);
     },
 };
 

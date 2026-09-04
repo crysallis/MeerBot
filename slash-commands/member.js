@@ -1,7 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/db');
 const { pickColor, toRgba } = require('../utils/colors');
-const { autoDelete } = require('../utils/autoDelete');
 const { enforcePermissions } = require('../utils/permissions');
 
 function fmtPower(val) {
@@ -226,11 +225,9 @@ module.exports = {
             console.log('[member chart] QuickChart response:', json);
             embed.setImage(json.url);
             await interaction.editReply({ embeds: [embed] });
-            autoDelete(interaction);
             return;
         }
 
         await interaction.reply({ embeds: [embed] });
-        autoDelete(interaction);
     },
 };

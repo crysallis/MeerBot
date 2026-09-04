@@ -4,6 +4,7 @@ const path = require('path');
 const { Client, GatewayIntentBits, Partials, MessageFlags, ActivityType } = require('discord.js');
 const { initJobScheduler } = require('./utils/jobScheduler');
 const { logCommand } = require('./utils/commandLogger');
+const { scheduleCommandAutoDelete } = require('./utils/autoDelete');
 const { handleMessage } = require('./utils/messageReactions');
 const { handleTranslationRole } = require('./utils/handlers/translationRoleHandler');
 const { handlePromoCode } = require('./utils/handlers/promoCodeHandler');
@@ -159,6 +160,7 @@ client.on('interactionCreate', async interaction => {
 
   try {
     await cmd.execute(interaction);
+    scheduleCommandAutoDelete(interaction, interaction.commandName, interaction.options.getSubcommand(false));
   } catch (err) {
     console.error('Slash command error:', err);
     const msg = 'There was an error while executing that command.';
