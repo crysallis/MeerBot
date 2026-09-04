@@ -200,6 +200,15 @@ db.exec(`
     late      INTEGER NOT NULL DEFAULT 0
   );
 
+  CREATE TABLE IF NOT EXISTS scan_timings (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    mode            TEXT NOT NULL,
+    status          TEXT NOT NULL,
+    duration_ms     INTEGER NOT NULL,
+    run_started_at  TEXT NOT NULL,
+    scanned_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS bot_config (
     key        TEXT PRIMARY KEY,
     value      TEXT NOT NULL,
