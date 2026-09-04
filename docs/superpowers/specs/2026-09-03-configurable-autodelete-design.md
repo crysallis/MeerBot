@@ -64,9 +64,10 @@ Precedence for `scope='command'` lookups: a `(command, subcommand)` exact-match 
 otherwise fall back to a `(command, subcommand=NULL)` whole-command row; otherwise OFF. This
 mirrors `enforcePermissions`' existing subcommand-vs-whole-command precedence.
 
-New `bot_config` key: `auto_delete_seconds` (default `30`). Read via the existing
-`botConfig.get()` DB > ENV > default precedence. No new env var needed; editable from the
-existing generic Config tab like other numeric settings.
+New `bot_config` key: `AUTO_DELETE_SECONDS` (default `30`, category `thresholds`), added as a
+`CONFIG_META` entry in `utils/botConfig.js` so it shows on the existing generic Config tab
+automatically, same as `INACTIVITY_DAYS`/`LATE_WARNING_MINUTES`. Read via the existing
+`botConfig.get()` DB > ENV > default precedence.
 
 ## Mechanism — slash commands
 
@@ -84,10 +85,18 @@ await maybeAutoDelete(interaction, cmd.name, interaction.options.getSubcommand(f
 ```
 
 `maybeAutoDelete`:
-1. Skip immediately if the interaction has no reply, or the reply was ephemeral
-   (`interaction.replied || interaction.deferred` check + inspect the fetched reply's flags).
+
+1. Skip immediately if the interaction never replied at all (`!interaction.replied && !interaction.deferred`) — e.g. an autocomplete-only path or a thrown error before any reply.
 2. Look up the enabled rule via the precedence above.
 3. If enabled, `setTimeout(() => interaction.deleteReply().catch(() => {}), autoDeleteSeconds * 1000)`.
+
+No ephemeral check is needed before scheduling: `deleteReply()` on an ephemeral reply is a
+harmless no-op/throw absorbed by the same `.catch(() => {})` every other failure path already
+uses (Discord does not expose a reliable way to introspect an already-sent reply's ephemeral
+flag via `fetchReply()` after the fact — it can return null/throw for ephemeral messages — so
+detecting it defensively isn't worth the complexity). Ephemeral messages are visible only to
+the invoking user and are unaffected either way, so scheduling a no-op delete against one
+changes nothing observable.
 
 This requires zero changes to any command file's internals beyond the two removals above —
 every command already funnels through this one call site, so the 183 individual reply call
