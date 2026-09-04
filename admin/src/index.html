@@ -438,7 +438,7 @@
     </div>
 
     <div class="section-title" style="margin-top:24px">Auto-Delete</div>
-    <p style="color:var(--color-neutral-content);font-size:12px;margin-bottom:12px">
+    <p class="muted-note" style="margin-bottom:12px">
       Delete a command's reply automatically after posting. Off by default. Delay is shared
       across everything below and set via the Auto-Delete Delay (seconds) threshold in Config.
       Leave Subcommand blank to apply to the whole command.
@@ -446,13 +446,13 @@
     <div class="panel-card" style="padding:16px 20px;margin-bottom:16px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
         <div>
-          <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Command *</label>
+          <label class="muted-note" style="text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Command *</label>
           <select id="autodelete-command">
             <option value="">-- select command --</option>
           </select>
         </div>
         <div>
-          <label style="font-size:11px;color:var(--color-neutral-content);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Subcommand</label>
+          <label class="muted-note" style="text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Subcommand</label>
           <select id="autodelete-subcommand">
             <option value="">— whole command —</option>
           </select>
@@ -470,7 +470,7 @@
         <thead><tr class="jobs-header-row">
           <th>Command</th><th>Status</th><th></th>
         </tr></thead>
-        <tbody id="autoDeleteTableBody"><tr><td colspan="3" style="color:var(--color-neutral-content)">Loading...</td></tr></tbody>
+        <tbody id="autoDeleteTableBody"><tr><td colspan="3" class="muted-note">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>

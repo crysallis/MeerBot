@@ -227,7 +227,7 @@ export async function loadAutoDeleteRules() {
   if (!tbody) return;
   tbody.replaceChildren();
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--color-neutral-content)">No auto-delete rules configured.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="3" class="muted-note">No auto-delete rules configured.</td></tr>';
     return;
   }
   for (const r of rows) {
