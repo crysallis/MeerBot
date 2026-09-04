@@ -3,10 +3,24 @@ import { escHtml } from './utils.js';
 
 let allReactions = [];
 let editingRxId  = null;
+let autoDeleteByRuleId = new Map();
 
 export async function loadReactions() {
-  allReactions = await fetch('/api/message-reactions').then(r => r.json());
+  const [reactions, autoDeleteRules] = await Promise.all([
+    fetch('/api/message-reactions').then(r => r.json()),
+    fetch('/api/auto-delete?scope=reaction_rule').then(r => r.json()),
+  ]);
+  allReactions = reactions;
+  autoDeleteByRuleId = new Map(autoDeleteRules.map(r => [r.reaction_rule_id, r]));
   renderReactionsTable();
+}
+
+async function toggleReactionAutoDelete(ruleId, enabled) {
+  await fetch('/api/auto-delete', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scope: 'reaction_rule', reaction_rule_id: ruleId, enabled }),
+  });
+  await loadReactions();
 }
 
 export function renderReactionsTable() {
@@ -55,6 +69,17 @@ export function renderReactionsTable() {
     delBtn.textContent = 'Delete';
     delBtn.addEventListener('click', () => deleteReactionRule(r.id));
     tr.lastElementChild.append(editBtn, delBtn);
+    if (r.response_type === 'reply' || r.response_type === 'message') {
+      const adLabel = document.createElement('label');
+      adLabel.className = 'muted-note';
+      adLabel.style.cssText = 'display:inline-flex;align-items:center;gap:4px;margin-left:8px';
+      const adCheckbox = document.createElement('input');
+      adCheckbox.type = 'checkbox';
+      adCheckbox.checked = !!autoDeleteByRuleId.get(r.id)?.enabled;
+      adCheckbox.addEventListener('change', () => toggleReactionAutoDelete(r.id, adCheckbox.checked));
+      adLabel.append(adCheckbox, 'Auto-delete');
+      tr.lastElementChild.append(adLabel);
+    }
     tbody.appendChild(tr);
   }
 }
