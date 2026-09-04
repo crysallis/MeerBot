@@ -210,6 +210,45 @@ app.delete('/api/permissions/:id', (req, res) => {
     res.json({ ok: true });
 });
 
+// GET /api/auto-delete — all rules, optionally filtered by scope
+app.get('/api/auto-delete', (req, res) => {
+    const { scope } = req.query;
+    const rows = scope
+        ? db.prepare('SELECT * FROM auto_delete_rules WHERE scope = ? ORDER BY command, subcommand, reaction_rule_id').all(scope)
+        : db.prepare('SELECT * FROM auto_delete_rules ORDER BY scope, command, subcommand, reaction_rule_id').all();
+    res.json(rows);
+});
+
+// POST /api/auto-delete — upsert a rule
+app.post('/api/auto-delete', (req, res) => {
+    const { scope, command, subcommand, reaction_rule_id, enabled } = req.body;
+    if (!['command', 'reaction_rule'].includes(scope)) return res.status(400).json({ error: 'scope must be command or reaction_rule' });
+    if (scope === 'command' && !command?.trim()) return res.status(400).json({ error: 'command is required for scope=command' });
+    if (scope === 'reaction_rule' && !reaction_rule_id) return res.status(400).json({ error: 'reaction_rule_id is required for scope=reaction_rule' });
+    try {
+        const existing = db.prepare(
+            `SELECT id FROM auto_delete_rules WHERE scope = ? AND command IS ? AND subcommand IS ? AND reaction_rule_id IS ?`
+        ).get(scope, command?.trim() || null, subcommand?.trim() || null, reaction_rule_id || null);
+        if (existing) {
+            db.prepare('UPDATE auto_delete_rules SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, existing.id);
+            return res.json({ ok: true, id: existing.id });
+        }
+        const r = db.prepare(
+            `INSERT INTO auto_delete_rules (scope, command, subcommand, reaction_rule_id, enabled) VALUES (?, ?, ?, ?, ?)`
+        ).run(scope, command?.trim() || null, subcommand?.trim() || null, reaction_rule_id || null, enabled ? 1 : 0);
+        res.json({ ok: true, id: r.lastInsertRowid });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/auto-delete/:id — remove a rule
+app.delete('/api/auto-delete/:id', (req, res) => {
+    const r = db.prepare('DELETE FROM auto_delete_rules WHERE id = ?').run(parseInt(req.params.id, 10));
+    if (r.changes === 0) return res.status(404).json({ error: 'Rule not found' });
+    res.json({ ok: true });
+});
+
 // POST /api/refresh-discord-data — re-run list-channels + list-roles scripts
 app.post('/api/refresh-discord-data', (req, res) => {
     const root = path.join(__dirname, '..');

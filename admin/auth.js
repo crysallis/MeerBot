@@ -61,6 +61,7 @@ const OPERATIONS = [
     { key: 'config.channels', group: 'Channels',       label: 'Edit channels',            defaultTier: 'manage', match: r => cfgCategory(r) === 'channels' },
     { key: 'config.thresholds',group:'Thresholds',     label: 'Edit thresholds',          defaultTier: 'manage', match: r => cfgCategory(r) === 'thresholds' },
     { key: 'permissions',     group: 'Permissions',    label: 'Edit command permissions', defaultTier: 'manage', match: r => /^\/api\/permissions/.test(r.path) },
+    { key: 'auto-delete',     group: 'Permissions',    label: 'Edit auto-delete rules',   defaultTier: 'manage', match: r => /^\/api\/auto-delete/.test(r.path) },
     { key: 'scheduled_jobs',  group: 'Scheduled Jobs', label: 'Edit scheduled jobs',      defaultTier: 'manage', match: r => /^\/api\/scheduled-jobs/.test(r.path) },
     { key: 'reactions',       group: 'Reactions',      label: 'Edit message reactions',   defaultTier: 'manage', match: r => /^\/api\/message-reactions/.test(r.path) },
     { key: 'members',         group: 'Members',        label: 'Edit members',             defaultTier: 'manage', match: r => /^\/api\/members/.test(r.path) },
