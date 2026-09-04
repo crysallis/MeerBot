@@ -193,3 +193,71 @@ export function cancelPermEdit() {
   document.getElementById('perm-cancel-btn').style.display = 'none';
   document.getElementById('perm-error').textContent        = '';
 }
+
+// ── Auto-Delete ──────────────────────────────────────────────────────────────
+
+export function populateAutoDeleteCommands() {
+  const sel = document.getElementById('autodelete-command');
+  if (!sel) return;
+  Object.keys(state.COMMAND_SUBS).sort().forEach(cmd => {
+    const opt = document.createElement('option');
+    opt.value = cmd;
+    opt.textContent = '/' + cmd;
+    sel.appendChild(opt);
+  });
+}
+
+export function autoDeleteCommandChanged() {
+  const cmd    = document.getElementById('autodelete-command').value;
+  const subSel = document.getElementById('autodelete-subcommand');
+  subSel.innerHTML = '<option value="">— whole command —</option>';
+  const subs = state.COMMAND_SUBS[cmd] || [];
+  subs.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s;
+    opt.textContent = s;
+    subSel.appendChild(opt);
+  });
+  subSel.disabled = subs.length === 0;
+}
+
+export async function loadAutoDeleteRules() {
+  const rows  = await fetch('/api/auto-delete?scope=command').then(r => r.json());
+  const tbody = document.getElementById('autoDeleteTableBody');
+  if (!tbody) return;
+  tbody.replaceChildren();
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--color-neutral-content)">No auto-delete rules configured.</td></tr>';
+    return;
+  }
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    const tdCmd = document.createElement('td');
+    tdCmd.innerHTML = `<code>/${escHtml(r.command)}${r.subcommand ? ' ' + escHtml(r.subcommand) : ''}</code>`;
+    const tdStatus = document.createElement('td');
+    tdStatus.textContent = r.enabled ? 'ON' : 'OFF';
+    const tdAct = document.createElement('td');
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'reset-btn';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', async () => {
+      await fetch('/api/auto-delete/' + r.id, { method: 'DELETE' });
+      await loadAutoDeleteRules();
+    });
+    tdAct.appendChild(removeBtn);
+    tr.append(tdCmd, tdStatus, tdAct);
+    tbody.appendChild(tr);
+  }
+}
+
+export async function saveAutoDeleteRule() {
+  const command    = document.getElementById('autodelete-command').value;
+  const subcommand = document.getElementById('autodelete-subcommand').value || null;
+  const enabled    = document.getElementById('autodelete-enabled').checked;
+  if (!command) return;
+  await fetch('/api/auto-delete', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scope: 'command', command, subcommand, enabled }),
+  });
+  await loadAutoDeleteRules();
+}

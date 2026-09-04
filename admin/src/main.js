@@ -10,7 +10,7 @@ import { loadReactions, openReactionForm, cancelReactionForm, saveReactionRule, 
 import { loadMembers, renderMembers, approveMember, renameMember, linkMember, mergeMemberPrompt, setWarband, setIngameId, addWarband, renameWarbandUI, archiveWarband } from './members.js';
 import { loadSeasons, addSeason, toggleSeason, deleteSeason, toggleServerPanel, bulkAddServers, removeServer, loadDreamBosses, addDreamBoss, updateDreamBoss, deleteDreamBoss } from './seasons.js';
 import { loadTranslationRelay, initTranslationRelay } from './translationRelay.js';
-import { loadPermissions, populatePermCommands, permCommandChanged, populatePermCheckboxes, addPermRule, deletePermRule, removePermGroup, editPermGroup, cancelPermEdit } from './permissions.js';
+import { loadPermissions, populatePermCommands, permCommandChanged, populatePermCheckboxes, addPermRule, deletePermRule, removePermGroup, editPermGroup, cancelPermEdit, populateAutoDeleteCommands, autoDeleteCommandChanged, loadAutoDeleteRules, saveAutoDeleteRule } from './permissions.js';
 import { loadAccess, setOpTier, setRoleTierUI } from './access.js';
 import { loadServerStructure, refreshServerStructure } from './serverStructure.js';
 
@@ -315,6 +315,8 @@ async function init() {
   await loadPermissions();
   populatePermCommands();
   populatePermCheckboxes();
+  await loadAutoDeleteRules();
+  populateAutoDeleteCommands();
   await loadDreamBosses().catch(e => console.warn('DR Bosses load failed:', e));
   loadBotStatus();
 }
@@ -691,6 +693,9 @@ async function loadBotStatus() {
   document.getElementById('perm-command')?.addEventListener('change', permCommandChanged);
   document.getElementById('perm-add-btn')?.addEventListener('click', addPermRule);
   document.getElementById('perm-cancel-btn')?.addEventListener('click', cancelPermEdit);
+
+  document.getElementById('autodelete-command')?.addEventListener('change', autoDeleteCommandChanged);
+  document.getElementById('autodelete-save-btn')?.addEventListener('click', saveAutoDeleteRule);
 
   init();
 })();
