@@ -177,6 +177,20 @@ test('command with no subcommands uses subcommand=null lookup', () => {
     insertRule({ subcommand: null, enabled: 1 });
     assert.equal(isCommandAutoDeleteEnabled(CMD, null), true);
 });
+
+test('scheduleCommandAutoDelete swallows a DB read failure instead of throwing', async () => {
+    // Simulates SQLITE_BUSY from a concurrent /scan write -- must not propagate into
+    // index.js's dispatch try/catch, which would editReply() over a successful command.
+    const { scheduleCommandAutoDelete } = require('./autoDelete');
+    const originalPrepare = db.prepare;
+    db.prepare = () => { throw new Error('SQLITE_BUSY: database is locked'); };
+    const fakeInteraction = { replied: true, deferred: false, deleteReply: async () => {} };
+    try {
+        assert.doesNotThrow(() => scheduleCommandAutoDelete(fakeInteraction, CMD, 'status'));
+    } finally {
+        db.prepare = originalPrepare;
+    }
+});
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -214,14 +228,33 @@ function isReactionAutoDeleteEnabled(ruleId) {
 
 function scheduleCommandAutoDelete(interaction, command, subcommand) {
     if (!interaction.replied && !interaction.deferred) return;
-    if (!isCommandAutoDeleteEnabled(command, subcommand)) return;
+    let enabled;
+    try {
+        enabled = isCommandAutoDeleteEnabled(command, subcommand);
+    } catch (err) {
+        // A DB read failure here must never bubble into index.js's command dispatch
+        // try/catch -- that catch calls interaction.editReply() on any thrown error,
+        // which would silently overwrite this command's already-successful reply
+        // with a generic error message. Swallow and skip auto-delete instead.
+        console.error(`[autoDelete] lookup failed for ${command}/${subcommand ?? 'null'}: ${err.message}`);
+        return;
+    }
+    if (!enabled) return;
     setTimeout(() => {
         interaction.deleteReply().catch(() => {});
     }, getDelayMs());
 }
 
 function scheduleReactionAutoDelete(message, ruleId) {
-    if (!message || !isReactionAutoDeleteEnabled(ruleId)) return;
+    if (!message) return;
+    let enabled;
+    try {
+        enabled = isReactionAutoDeleteEnabled(ruleId);
+    } catch (err) {
+        console.error(`[autoDelete] reaction rule lookup failed for rule ${ruleId}: ${err.message}`);
+        return;
+    }
+    if (!enabled) return;
     setTimeout(() => {
         message.delete().catch(() => {});
     }, getDelayMs());
@@ -633,10 +666,22 @@ git commit -m "feat: admin panel UI for per-reaction-rule auto-delete"
 
 **Files:** none (manual verification only)
 
-- [ ] **Step 1: Restart the bot and admin panel to pick up all changes**
+**This task must run from the real checkout (`C:\vscode\DiscordBotAfkJ`) after this branch is
+merged to `main`, not from this worktree.** PM2's `meerbot` and `meerbot-admin` processes both
+have `pm_cwd` set to the main checkout — `pm2 restart` reads whatever code sits there, not this
+worktree's branch, so running these steps beforehand would silently "verify" the OLD code and
+produce a false pass. This is the same gotcha already documented for the admin panel
+(`meerbot-admin runs from main repo, not worktrees`) and applies equally to the bot process. Do
+not attempt an early admin-only check via `ADMIN_PORT=3099 node admin/server.js` from the
+worktree either — the Discord-side half (Tasks Step 2/4/5/6) still needs the bot process, so a
+split verification adds a step without removing the need for the real one after merge.
 
-Hand these commands to Daniel to run (PM2 restarts need elevation, per project convention):
+- [ ] **Step 1: Merge this branch to main, then restart the bot and admin panel to pick up all changes**
+
+Once this branch is merged (via `finishing-a-development-branch`), from `C:\vscode\DiscordBotAfkJ`,
+hand these commands to Daniel to run (PM2 restarts need elevation, per project convention):
 ```
+git pull
 pm2 restart meerbot --update-env
 pm2 restart meerbot-admin
 ```
