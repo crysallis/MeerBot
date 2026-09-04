@@ -1,6 +1,7 @@
 'use strict';
 const db = require('./db');
 const { EmbedBuilder } = require('discord.js');
+const { scheduleReactionAutoDelete } = require('./autoDelete');
 
 // In-memory cache of enabled rules
 let cache = [];
@@ -127,7 +128,8 @@ async function handleMessage(message, client) {
             const payload = buildPayload(resolved);
 
             if (rule.response_type === 'reply') {
-                await message.reply(payload);
+                const sent = await message.reply(payload);
+                scheduleReactionAutoDelete(sent, rule.id);
 
             } else if (rule.response_type === 'emoji') {
                 await message.react(rule.response_content);
@@ -139,7 +141,8 @@ async function handleMessage(message, client) {
                         ?? await client.channels.fetch(rule.response_channel).catch(() => null);
                     if (fetched) channel = fetched;
                 }
-                await channel.send(payload);
+                const sent = await channel.send(payload);
+                scheduleReactionAutoDelete(sent, rule.id);
 
             } else if (rule.response_type === 'dm') {
                 await message.author.send(payload).catch(() => {});
