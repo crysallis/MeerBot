@@ -12,3 +12,8 @@ test('AUTO_DELETE_SECONDS config default is 30', () => {
     const botConfig = require('./botConfig');
     assert.equal(botConfig.get('AUTO_DELETE_SECONDS'), '30');
 });
+
+test('pearl_bazaar_prices table exists with expected columns', () => {
+    const cols = db.prepare("PRAGMA table_info(pearl_bazaar_prices)").all().map(c => c.name);
+    assert.deepEqual(cols.sort(), ['id', 'rank', 'ingame_id', 'price', 'selling_cap_remaining', 'scanned_at'].sort());
+});

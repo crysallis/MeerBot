@@ -209,6 +209,15 @@ db.exec(`
     scanned_at      TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS pearl_bazaar_prices (
+    id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+    rank                   INTEGER NOT NULL,
+    ingame_id              INTEGER NOT NULL,
+    price                  INTEGER NOT NULL,
+    selling_cap_remaining  INTEGER NOT NULL,
+    scanned_at             TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS bot_config (
     key        TEXT PRIMARY KEY,
     value      TEXT NOT NULL,
