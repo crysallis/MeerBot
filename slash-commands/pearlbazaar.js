@@ -3,7 +3,7 @@ const { execFile, exec } = require("child_process");
 const path = require("path");
 const db = require("../utils/db");
 const { pickColor } = require("../utils/colors");
-const { enforcePermissions } = require("../utils/permissions");
+const { enforce, enforcePermissions } = require("../utils/permissions");
 const { buildPearlBazaarRows } = require("../utils/pearlBazaar");
 
 const PYTHON = process.env.SCRAPER_PYTHON || "python";
@@ -54,6 +54,7 @@ module.exports = {
 
 	async execute(interaction) {
 		if (!(await enforcePermissions(interaction, "pearlbazaar", null))) return;
+		if (!(await enforce(interaction, "scanUser"))) return;
 		if (!SCRAPER) {
 			return interaction.reply({
 				content: "❌ `SCRAPER_SCRIPT` not set in `.env`.",
