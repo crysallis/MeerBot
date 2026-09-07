@@ -9,25 +9,42 @@ const { buildPearlBazaarRows } = require("../utils/pearlBazaar");
 const PYTHON = process.env.SCRAPER_PYTHON || "python";
 const SCRAPER = process.env.SCRAPER_SCRIPT;
 
+const ROWS_PER_EMBED = 40;
+
 function nameLookupMap() {
-	const rows = db.prepare("SELECT ingame_id, ingame_name FROM members WHERE ingame_id IS NOT NULL").all();
+	const rows = db.prepare("SELECT ingame_id, ingame_name FROM members WHERE ingame_id IS NOT NULL AND ingame_id != ''").all();
 	return new Map(rows.map(r => [r.ingame_id, r.ingame_name]));
 }
 
-function buildResultsEmbed(rows) {
+function buildResultsEmbeds(rows) {
 	if (rows.length === 0) {
-		return new EmbedBuilder()
-			.setTitle("🦪 Today's Pearl Bazaar Prices")
-			.setDescription("No sellers with stock remaining were found this run.")
-			.setColor(pickColor());
+		return [
+			new EmbedBuilder()
+				.setTitle("🦪 Today's Pearl Bazaar Prices")
+				.setDescription("No sellers with stock remaining were found this run.")
+				.setColor(pickColor()),
+		];
 	}
 
 	const lines = rows.map(r => `\`#${r.rank}\` **${r.label}** · ${r.price} · ${r.sellingCapRemaining} left`);
-	return new EmbedBuilder()
-		.setTitle("🦪 Today's Pearl Bazaar Prices")
-		.setDescription(`SA Position | Name/ID | Price | Left to Sell\n${lines.join("\n")}`)
-		.setColor(pickColor())
-		.setFooter({ text: "Sold-out sellers are excluded · left-to-sell changes minute to minute" });
+	const chunks = [];
+	for (let i = 0; i < lines.length; i += ROWS_PER_EMBED) {
+		chunks.push(lines.slice(i, i + ROWS_PER_EMBED));
+	}
+
+	return chunks.map((chunk, i) => {
+		const embed = new EmbedBuilder().setColor(pickColor());
+		if (i === 0) {
+			embed.setTitle("🦪 Today's Pearl Bazaar Prices");
+			embed.setDescription(`SA Position | Name/ID | Price | Left to Sell\n${chunk.join("\n")}`);
+		} else {
+			embed.setDescription(chunk.join("\n"));
+		}
+		if (i === chunks.length - 1) {
+			embed.setFooter({ text: "Sold-out sellers are excluded · left-to-sell changes minute to minute" });
+		}
+		return embed;
+	});
 }
 
 module.exports = {
@@ -62,12 +79,16 @@ module.exports = {
 				return interaction.channel.send(`❌ Pearl Bazaar scan failed:\n\`\`\`${error.message.slice(0, 500)}\`\`\`${tailBlock}`);
 			}
 
-			const dbRows = db.prepare(
-				"SELECT rank, ingame_id, price, selling_cap_remaining FROM pearl_bazaar_prices"
-			).all();
-			const rows = buildPearlBazaarRows(dbRows, nameLookupMap());
+			try {
+				const dbRows = db.prepare(
+					"SELECT rank, ingame_id, price, selling_cap_remaining FROM pearl_bazaar_prices"
+				).all();
+				const rows = buildPearlBazaarRows(dbRows, nameLookupMap());
 
-			await interaction.channel.send({ embeds: [buildResultsEmbed(rows)] });
+				await interaction.channel.send({ embeds: buildResultsEmbeds(rows) });
+			} catch (sendError) {
+				console.error("Pearl Bazaar results post failed:", sendError);
+			}
 		});
 	},
 };
