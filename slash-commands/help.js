@@ -100,6 +100,12 @@ const COMMANDS = {
             { name: '/note delete id:',      desc: 'Delete a specific note by its ID.' },
         ],
     },
+    pearlbazaar: {
+        description: 'Drill-in scan of Pearl Bazaar prices across SA ranks 1-100.',
+        subcommands: [
+            { name: '/pearlbazaar', desc: 'Posts today\'s price + remaining cap for sellers who still have stock. No guild filter, run manually a few times a quarter.' },
+        ],
+    },
     review: {
         description: 'Review members the scanner flagged as new or unrecognized (pending).',
         perm: 'scanUser',
@@ -246,6 +252,7 @@ module.exports = {
             scan: 'Trigger a guild scan',
             rename: 'Rename a member in the database',
             note: 'Add · view · delete notes on members',
+            pearlbazaar: 'Pearl Bazaar price scan',
             review: 'list · approve · merge · remove · return',
             afk: 'Set · clear · list AFK status',
             season: 'add · activate · inactivate · allyadd · allyremove · allylist',
