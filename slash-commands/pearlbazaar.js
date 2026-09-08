@@ -10,18 +10,19 @@ const PYTHON = process.env.SCRAPER_PYTHON || "python";
 const SCRAPER = process.env.SCRAPER_SCRIPT;
 
 const ROWS_PER_EMBED = 40;
+const DEFAULT_PRICE_FLOOR = 800;
 
 function nameLookupMap() {
 	const rows = db.prepare("SELECT ingame_id, ingame_name FROM members WHERE ingame_id IS NOT NULL AND ingame_id != ''").all();
 	return new Map(rows.map(r => [r.ingame_id, r.ingame_name]));
 }
 
-function buildResultsEmbeds(rows) {
+function buildResultsEmbeds(rows, priceFloor) {
 	if (rows.length === 0) {
 		return [
 			new EmbedBuilder()
 				.setTitle("🦪 Today's Pearl Bazaar Prices")
-				.setDescription("No sellers with stock remaining were found this run.")
+				.setDescription(`No sellers at or above ${priceFloor} with stock remaining were found this run.`)
 				.setColor(pickColor()),
 		];
 	}
@@ -41,7 +42,7 @@ function buildResultsEmbeds(rows) {
 			embed.setDescription(chunk.join("\n"));
 		}
 		if (i === chunks.length - 1) {
-			embed.setFooter({ text: "Sold-out sellers are excluded · left-to-sell changes minute to minute" });
+			embed.setFooter({ text: `Showing ${priceFloor}+ only · sold-out sellers are excluded · left-to-sell changes minute to minute` });
 		}
 		return embed;
 	});
@@ -50,11 +51,17 @@ function buildResultsEmbeds(rows) {
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName("pearlbazaar")
-		.setDescription("Scan today's Pearl Bazaar prices across the top 100 Supreme Arena players"),
+		.setDescription("Scan today's Pearl Bazaar prices across the top 100 Supreme Arena players")
+		.addIntegerOption(o => o
+			.setName("floor")
+			.setDescription(`Only post prices at or above this value (default ${DEFAULT_PRICE_FLOOR})`)
+			.setMinValue(0)
+			.setRequired(false)),
 
 	async execute(interaction) {
 		if (!(await enforcePermissions(interaction, "pearlbazaar", null))) return;
 		if (!(await enforce(interaction, "scanUser"))) return;
+		const priceFloor = interaction.options.getInteger("floor") ?? DEFAULT_PRICE_FLOOR;
 		if (!SCRAPER) {
 			return interaction.reply({
 				content: "❌ `SCRAPER_SCRIPT` not set in `.env`.",
@@ -69,7 +76,7 @@ module.exports = {
 			});
 		});
 
-		await interaction.reply("⏳ Pearl Bazaar scan started · this walks all 100 ranks and takes a while · results will post here when done.");
+		await interaction.reply(`⏳ Pearl Bazaar scan started · this walks all 100 ranks and takes a while · posting prices ${priceFloor}+ when done.`);
 
 		execFile(PYTHON, [SCRAPER, "--pearl-bazaar"], { cwd: path.dirname(SCRAPER) }, async (error, stdout) => {
 			if (error) {
@@ -84,9 +91,9 @@ module.exports = {
 				const dbRows = db.prepare(
 					"SELECT rank, ingame_id, price, selling_cap_remaining FROM pearl_bazaar_prices"
 				).all();
-				const rows = buildPearlBazaarRows(dbRows, nameLookupMap());
+				const rows = buildPearlBazaarRows(dbRows, nameLookupMap(), priceFloor);
 
-				await interaction.channel.send({ embeds: buildResultsEmbeds(rows) });
+				await interaction.channel.send({ embeds: buildResultsEmbeds(rows, priceFloor) });
 			} catch (sendError) {
 				console.error("Pearl Bazaar results post failed:", sendError);
 			}

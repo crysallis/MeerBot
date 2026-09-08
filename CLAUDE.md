@@ -122,7 +122,7 @@ from there.
 | `/rename` | Corrects an in-game name · merges into the target via `mergeMembers` if that name already exists |
 | `/review` | list / approve / merge / remove / return · manage `pending` members + mark members left (`remove` → inactive) or reactivate (`return`) · scan user only |
 | `/note` | Adds/views notes on a member |
-| `/pearlbazaar` | Drill-in scan of Pearl Bazaar prices across SA ranks 1-100 · posts today's price + remaining cap for sellers who still have stock · no guild filter, run manually a few times a quarter |
+| `/pearlbazaar floor:` | Drill-in scan of Pearl Bazaar prices across SA ranks 1-100 · posts today's price + remaining cap for sellers at or above `floor` (default 800) who still have stock · no guild filter, run manually a few times a quarter |
 | `/birthday` | Birthday registration (register / list / remove) |
 | `/anniversary` | list / upcoming / set · upcoming guild anniversaries (ephemeral) · `set` overrides a member's first_seen date |
 | `/wishlist` | add / list / remove · guild feature wishlist · permissions managed via Discord |

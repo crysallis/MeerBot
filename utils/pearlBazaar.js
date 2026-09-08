@@ -1,6 +1,6 @@
-function buildPearlBazaarRows(dbRows, nameByIngameId) {
+function buildPearlBazaarRows(dbRows, nameByIngameId, priceFloor = 0) {
     return dbRows
-        .filter(row => row.selling_cap_remaining !== 0)
+        .filter(row => row.selling_cap_remaining !== 0 && row.price >= priceFloor)
         .map(row => ({
             rank: row.rank,
             label: nameByIngameId.get(row.ingame_id) || String(row.ingame_id),

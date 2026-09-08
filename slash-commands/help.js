@@ -103,7 +103,7 @@ const COMMANDS = {
     pearlbazaar: {
         description: 'Drill-in scan of Pearl Bazaar prices across SA ranks 1-100.',
         subcommands: [
-            { name: '/pearlbazaar', desc: 'Posts today\'s price + remaining cap for sellers who still have stock. No guild filter, run manually a few times a quarter.' },
+            { name: '/pearlbazaar floor:', desc: 'Posts today\'s price + remaining cap for sellers at or above floor (default 800) who still have stock. No guild filter, run manually a few times a quarter.' },
         ],
     },
     review: {
