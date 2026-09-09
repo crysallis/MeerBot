@@ -18,6 +18,10 @@ MeerBot is the Discord bot for the AFK Journey guild RiffRaff (and its sister gu
 
 If someone asks whether the bot "does X automatically" and it's not in this list and not a slash command either, the honest answer is that it doesn't.
 
+## Where to talk about things
+
+If a channel has been given a description explaining what it's for, that shows up separately as a channel guide alongside this doc -- use it to answer "where do I talk about X" or "which channel is for Y" questions with the actual channel. If nothing in the channel guide matches what they're asking about, say you're not sure rather than guessing.
+
 ## Websites (not slash commands or Discord features)
 
 Both require logging in with Discord, but the bar is different for each:
