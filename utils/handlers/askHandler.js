@@ -26,6 +26,28 @@ const REPORT_HINT = '\n\n(React to this message if something\'s wrong with this 
 // and the conversation history, both aged out on the same rolling hour window.
 const rateLimitLog = new Map();
 
+const NON_MEMBER_REPLY = "MeerBot only answers questions for RiffRaff/Frop guild members — sorry!";
+const NON_MEMBER_SILENCE_MS = 24 * 60 * 60 * 1000; // 24 hours
+const NON_MEMBER_SILENCE_MAX = 500; // same unbounded-growth guard as replyLookup
+// userId -> timestamp the silence window ends. A non-member gets the generic
+// reply once, then every DM from them is dropped with no reply at all until
+// this expires -- distinct from rateLimitLog, which is for real members'
+// conversation history/quota and shouldn't be spent by someone who was never
+// going to get a real answer.
+const nonMemberSilence = new Map();
+
+function isSilencedNonMember(userId) {
+    const until = nonMemberSilence.get(userId);
+    return typeof until === 'number' && until > Date.now();
+}
+
+function silenceNonMember(userId) {
+    if (nonMemberSilence.size >= NON_MEMBER_SILENCE_MAX) {
+        nonMemberSilence.delete(nonMemberSilence.keys().next().value);
+    }
+    nonMemberSilence.set(userId, Date.now() + NON_MEMBER_SILENCE_MS);
+}
+
 const BOT_GUIDE = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'bot-guide.md'), 'utf8');
 
 // Tracks the bot's own sent reply messages so a reaction on one can be traced
@@ -101,15 +123,34 @@ async function handleAsk(message, client) {
     // the same event -- a later, genuinely new question must not be dropped.
     if (db.getRecentlyResolvedCheckin(message.author.id, 2000)) return;
 
+    if (isSilencedNonMember(message.author.id)) return;
+
+    const guild = client.guilds.cache.get(process.env.GUILD_ID);
+    // force: true bypasses discord.js's member cache -- this fetch decides
+    // whether the sender is a real member at all, so it needs to be
+    // authoritative. Without it, someone who DMed once, left the server, and
+    // DMs again could keep hitting a stale cached GuildMember and never get
+    // gated (the cache is usually evicted on guildMemberRemove, but this
+    // check's entire job is "is this person actually here right now").
+    const member = guild ? await guild.members.fetch({ user: message.author.id, force: true }).catch(() => null) : null;
+
+    // Not a member of the guild's Discord server at all (not "no linked
+    // in-game character" -- a present-but-unlinked member still gets full
+    // help). One brief reply, then silence for NON_MEMBER_SILENCE_MS so a
+    // stranger poking the bot repeatedly doesn't burn Claude calls or a real
+    // member's rate-limit quota -- this check runs before both.
+    if (guild && !member) {
+        silenceNonMember(message.author.id);
+        await message.reply(NON_MEMBER_REPLY).catch(() => {});
+        return;
+    }
+
     if (isRateLimited(message.author.id)) {
         await message.reply("You've hit the limit of 10 questions per hour — try again later.").catch(() => {});
         return;
     }
 
     try {
-        const guild = client.guilds.cache.get(process.env.GUILD_ID);
-        const member = guild ? await guild.members.fetch(message.author.id).catch(() => null) : null;
-
         const capabilitySummary = member
             ? buildCapabilitySummary(member, COMMANDS)
             : 'Unable to determine this user\'s roles — answer generally, without personalized yes/no permission claims.';
@@ -234,4 +275,4 @@ async function handleAskReport(reaction, user, client) {
     }
 }
 
-module.exports = { handleAsk, handleAskReport, isRateLimited, getRecentHistory, recordExchange, rememberReply };
+module.exports = { handleAsk, handleAskReport, isRateLimited, getRecentHistory, recordExchange, rememberReply, isSilencedNonMember, silenceNonMember };

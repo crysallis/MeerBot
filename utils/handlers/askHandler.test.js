@@ -19,7 +19,7 @@ test('permissions.js exports pickRows', () => {
     assert.deepEqual(pickRows(rows, 'top'), [{ subcommand: null, value_id: 'b' }]);
 });
 
-const { isRateLimited, getRecentHistory, recordExchange, handleAskReport, rememberReply } = require('./askHandler');
+const { isRateLimited, getRecentHistory, recordExchange, handleAskReport, rememberReply, isSilencedNonMember, silenceNonMember } = require('./askHandler');
 
 test('isRateLimited allows the first 10 questions in an hour then blocks the 11th', () => {
     const userId = `test-user-${Date.now()}`;
@@ -65,6 +65,26 @@ test('recordExchange fills in the in-flight entry rather than double-counting ag
         recordExchange(userId, `q${i}`, `a${i}`);
     }
     assert.equal(isRateLimited(userId), true, '10 answered questions should still hit the 10/hour cap');
+});
+
+test('isSilencedNonMember is false for a user never silenced', () => {
+    const userId = `test-user-unsilenced-${Date.now()}`;
+    assert.equal(isSilencedNonMember(userId), false);
+});
+
+test('silenceNonMember makes isSilencedNonMember true immediately after', () => {
+    const userId = `test-user-silence-${Date.now()}`;
+    assert.equal(isSilencedNonMember(userId), false);
+    silenceNonMember(userId);
+    assert.equal(isSilencedNonMember(userId), true);
+});
+
+test('silenceNonMember does not affect a different user', () => {
+    const userA = `test-user-silence-a-${Date.now()}`;
+    const userB = `test-user-silence-b-${Date.now()}`;
+    silenceNonMember(userA);
+    assert.equal(isSilencedNonMember(userA), true);
+    assert.equal(isSilencedNonMember(userB), false);
 });
 
 test('db.insertAskUsage writes a row into the shared claude_usage table', () => {
