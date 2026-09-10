@@ -133,6 +133,16 @@ test('insertTranslationUsage stores a usage row in the shared claude_usage table
     db.prepare("DELETE FROM claude_usage WHERE feature = 'translation' AND ref_id = ?").run('msg-usage-1');
 });
 
+test('insertNewsletterUsage stores a usage row in the shared claude_usage table', () => {
+    db.prepare("DELETE FROM claude_usage WHERE feature = 'newsletter' AND ref_id = ?").run('99');
+    db.insertNewsletterUsage({ issueNumber: 99, inputTokens: 1200, outputTokens: 450 });
+    const row = db.prepare("SELECT * FROM claude_usage WHERE feature = 'newsletter' AND ref_id = ?").get('99');
+    assert.equal(row.input_tokens, 1200);
+    assert.equal(row.output_tokens, 450);
+    assert.equal(row.target_count, null);
+    db.prepare("DELETE FROM claude_usage WHERE feature = 'newsletter' AND ref_id = ?").run('99');
+});
+
 test('updateRelayMessageText updates text, batch_message_ids, and last_line_text in place', () => {
     db.prepare('DELETE FROM translation_relay_messages WHERE message_id = ?').run('msg-edit-1');
     const groupId = db.insertRelayMessage({

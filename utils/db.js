@@ -856,6 +856,10 @@ function insertAskUsage({ userId, inputTokens, outputTokens }) {
     insertClaudeUsage({ feature: 'ask', refId: userId, inputTokens, outputTokens });
 }
 
+function insertNewsletterUsage({ issueNumber, inputTokens, outputTokens }) {
+    insertClaudeUsage({ feature: 'newsletter', refId: String(issueNumber), inputTokens, outputTokens });
+}
+
 function insertAskFlag({ userId, question, answer, source }) {
     db.prepare(`INSERT INTO ask_flags (user_id, question, answer, source)
         VALUES (?, ?, ?, ?)`).run(userId, question, answer, source);
@@ -1022,6 +1026,7 @@ module.exports.getRelayMessagesByGroupId = getRelayMessagesByGroupId;
 module.exports.insertClaudeUsage = insertClaudeUsage;
 module.exports.insertTranslationUsage = insertTranslationUsage;
 module.exports.insertAskUsage = insertAskUsage;
+module.exports.insertNewsletterUsage = insertNewsletterUsage;
 module.exports.insertAskFlag = insertAskFlag;
 module.exports.setRelayMessageGroupId = setRelayMessageGroupId;
 module.exports.updateRelayMessageText = updateRelayMessageText;

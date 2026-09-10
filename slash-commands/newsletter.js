@@ -308,6 +308,11 @@ async function handleGenerate(interaction) {
             messages: [{ role: 'user', content: userMessage }],
         });
         draft = response.content[0].text.trim();
+        db.insertNewsletterUsage({
+            issueNumber: issueCount,
+            inputTokens: response.usage.input_tokens,
+            outputTokens: response.usage.output_tokens,
+        });
     } catch (err) {
         console.error('[Newsletter] Claude generation failed:', err.message);
         return interaction.editReply({ content: '❌ Claude generation failed. Check bot logs.' });
