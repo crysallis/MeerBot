@@ -2,72 +2,29 @@ const db = require('../db');
 
 const PROMO_CHANNEL_ID = '1229551249209430066';
 
-// English words that show up in reward descriptions but aren't codes
-const STOP_WORDS = new Set([
-    'DIAMONDS', 'UPDATE', 'LETTERS', 'INVITE', 'REWARDS', 'REDEMPTION',
-    'EVERYONE', 'THANKS', 'SEASON', 'BEGINS', 'ADVENTURE', 'CELEBRATE',
-    'CRYSTALS', 'BEFORE', 'LAUNCH', 'FESTIVAL', 'SPECIAL', 'PREPARE',
-    'DRAGON', 'WORKERS', 'INTERNATIONAL', 'ANNIVERSARY', 'COMMUNITY',
-    'GROWTH', 'CELEBRATING', 'ALMOST', 'FUTURE', 'BRIGHT', 'ORIGAMI',
-    'HAMSTER', 'LANTERN', 'TREATS', 'SURPRISE', 'CHEERS', 'SPRING',
-    'ARRIVAL', 'CREDIT', 'LETTER', 'BANNER', 'SUMMONS', 'TICKETS',
-    'SELECTOR', 'INVITATIONS', 'RECRUITMENT', 'MEMORY', 'RANDOM',
-    'THOUSAND', 'INCLUDES', 'GLORIOUS', 'COPIED', 'KEEPING', 'AVAILABLE',
-    'GOODNESS', 'CLAIMED', 'STOLEN', 'TOTALLY', 'STINGY', 'GENEROUS',
-    'THINKS', 'SHOULD', 'ANOTHER', 'LATELY', 'BETTER', 'LETTING',
-    'LITTLE', 'STARVE', 'UPDATED', 'MAINTAINED', 'LONGER', 'PLEASE',
-    'NOTIFY', 'MODERATOR', 'REMOVE', 'POSSIBLE', 'FROGGIE', 'STONKS',
-    'ABYSMAL', 'CELESTIAL', 'SINBAD', 'JOURNEY', 'INSANE', 'PUTTING',
-    'BEGIN', 'ABOVE', 'NOICE', 'COMES', 'REISSA', 'CONTESS',
-    'THROUGH', 'BECAUSE', 'BEFORE', 'INSIDE', 'OUTSIDE', 'TOGETHER',
-]);
+// A code is a whole line with no spaces, 7-20 alphanumeric chars (+ & for codes
+// like Alna&Patch154AFK), optionally wrapped in ** or `. One line = one code,
+// matching how every code has ever been posted (bold, labeled, or bare).
+const LINE_RE = /^[*`]{0,2}([A-Za-z0-9&]{7,20})[*`]{0,2}$/gm;
 
-// Codes: 5-20 chars, alphanumeric + & (for codes like Alna&Patch154AFK), no other punctuation
-const CODE_CHARS = /^[A-Za-z0-9][A-Za-z0-9&]{3,18}[A-Za-z0-9]$/;
+// Same shape, but sharing a line with a "code:" label (e.g. "Redeem Code: 6kMtRBeUa5nh").
+// Requires the literal label text so it can't catch an arbitrary line-ending word.
+const LABELED_RE = /\bcode:\s*[*`]{0,2}([A-Za-z0-9&]{7,20})[*`]{0,2}\s*$/gim;
 
-// Bold-formatted: **CODE**  (official AFK bot + member posts)
-const BOLD_RE    = /\*\*([A-Za-z0-9][A-Za-z0-9&]{3,18}[A-Za-z0-9])\*\*/g;
-// Code: XXXX — requires the colon so "Gift Code  Begin" doesn't match
-const CODE_LABEL = /\bcode[s]?:\s*([A-Za-z0-9][A-Za-z0-9&]{3,18}[A-Za-z0-9])/gi;
-// Whole message is a single token with no spaces
-const SOLO_RE    = /^[A-Za-z0-9][A-Za-z0-9&]{3,18}[A-Za-z0-9]$/;
-// AFKJ anywhere in text
-const AFKJ_RE    = /\b(AFKJ[A-Za-z0-9]{3,15}|AFKJourney[A-Za-z0-9]{2,10})\b/gi;
-
-// A token is a serial code if it contains both letters and digits (e.g. E8BESLBQZLZUD)
-function isSerialCode(str) {
-    return /[A-Za-z]/.test(str) && /[0-9]/.test(str) && CODE_CHARS.test(str);
-}
+// Discord UI chrome, not user content - "Forwarded" lands alone on its own
+// line in a forwarded message's content, same shape as a real bare code
+const NON_CODES = new Set(['FORWARDED']);
 
 function extractCodes(text) {
     const codes = new Set();
-
-    const add = raw => {
-        // Strip markdown formatting that might have wrapped the token
-        const stripped = raw.replace(/^\*+|\*+$/g, '').replace(/^`+|`+$/g, '').trim();
-        const c = stripped.toUpperCase().replace(/!$/, '');
-        if (!CODE_CHARS.test(c)) return;
-        if (STOP_WORDS.has(c)) return;
-        codes.add(c);
+    const collect = re => {
+        for (const m of text.matchAll(re)) {
+            const code = m[1].toUpperCase();
+            if (!NON_CODES.has(code)) codes.add(code);
+        }
     };
-
-    // Bold-formatted: **CODE**
-    for (const m of text.matchAll(BOLD_RE)) add(m[1]);
-
-    // "Code: XXXX" or "Redemption Code: XXXX"
-    for (const m of text.matchAll(CODE_LABEL)) add(m[1]);
-
-    // AFKJ... prefix anywhere in text
-    for (const m of text.matchAll(AFKJ_RE)) add(m[1]);
-
-    // Whole message is a single code token
-    const trimmed = text.trim();
-    if (SOLO_RE.test(trimmed)) add(trimmed);
-
-    // First word if it's a serial code (letters+digits mixed, like Rye60YMmfg7f)
-    const firstWord = trimmed.split(/\s+/)[0].replace(/^\*+|\*+$/g, '').replace(/^`+|`+$/g, '');
-    if (isSerialCode(firstWord)) add(firstWord);
-
+    collect(LINE_RE);
+    collect(LABELED_RE);
     return [...codes];
 }
 
