@@ -462,6 +462,17 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_checkin_message ON member_checkin_dms(dm_message_id);
   CREATE INDEX IF NOT EXISTS idx_checkin_member_status ON member_checkin_dms(member_id, status);
+
+  CREATE TABLE IF NOT EXISTS title_posts (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    title       TEXT NOT NULL,
+    message_id  TEXT NOT NULL UNIQUE,
+    thread_id   TEXT NOT NULL,
+    message_url TEXT NOT NULL,
+    posted_by   TEXT,
+    posted_at   TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_title_posts_title ON title_posts(title);
 `);
 
 // translation_relay_messages may already exist (shipped pre-batching) without the

@@ -106,6 +106,12 @@ const COMMANDS = {
             { name: '/pearlbazaar floor:', desc: 'Posts today\'s price + remaining cap for sellers at or above floor (default 800) who still have stock. No guild filter, run manually a few times a quarter.' },
         ],
     },
+    titles: {
+        description: 'Find the easter-eggs forum post(s) explaining how to get a title.',
+        subcommands: [
+            { name: '/titles titlename:', desc: 'Look up a title and get jump links to every post that explains how to earn it.' },
+        ],
+    },
     review: {
         description: 'Review members the scanner flagged as new or unrecognized (pending).',
         perm: 'scanUser',
@@ -253,6 +259,7 @@ module.exports = {
             rename: 'Rename a member in the database',
             note: 'Add · view · delete notes on members',
             pearlbazaar: 'Pearl Bazaar price scan',
+            titles: 'Look up a title, get links to the posts explaining it',
             review: 'list · approve · merge · remove · return',
             afk: 'Set · clear · list AFK status',
             season: 'add · activate · inactivate · allyadd · allyremove · allylist',
