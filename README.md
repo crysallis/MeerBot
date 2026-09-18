@@ -112,6 +112,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/anniversary list count:` | Next N upcoming guild anniversaries (default 5, ephemeral) |
 | `/anniversary upcoming days:` | All anniversaries in the next N days (default 30, ephemeral) |
 | `/anniversary set member: date:` | Override a member's join date (first_seen) in the DB |
+| `/titles titlename:` | Find the easter-eggs forum post(s) explaining how to earn a title (autocomplete) |
 
 ### Leader / admin commands
 
@@ -167,6 +168,13 @@ All tasks run through a single unified job scheduler (`utils/jobScheduler.js`) b
 ### Translation relay
 
 Unlike the scheduled tasks above, this is event-triggered, not timer-driven: posting in any admin-panel-configured channel relays a translated copy into every other channel in that relay group, via a per-channel webhook so the copy appears under the original author's real name/avatar. One Claude Haiku 4.5 call per batch of consecutive same-author messages (not per message), configurable batch window (default 10s, max 15s) so a quick multi-message burst becomes one combined, one-call translation instead of several. Reactions mirror bidirectionally across every copy of a message; editing or deleting the original message re-translates or removes the already-relayed copies to match. Attachments pass through unchanged. Configured entirely from the admin panel's Translation Relay tab -- no code change needed to add a language/channel to an existing relay group.
+
+### Passive channel scans
+
+Also event-triggered. Two lightweight handlers watch specific channels and index what gets posted, with no admin-panel configuration:
+
+- **Promo codes:** any message in the promo codes channel is scanned for a redemption code (a standalone line of 7-20 alphanumeric characters, bold/backtick-wrapped or plain, or one sharing a line with a `code:` label) and saved for later lookup. Reacts 💾 on a newly saved code, 🔁 if it was already known.
+- **Title posts:** any reply inside a thread under the easter-eggs forum channel that starts with `[TitleName]` is indexed for `/titles` to look up later. Editing the message updates or removes the indexed entry to match.
 
 ---
 

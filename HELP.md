@@ -103,6 +103,15 @@ Guild feature wishlist.
 
 ---
 
+### /titles
+Find the easter-eggs forum post(s) that explain how to earn a title. The bot watches the easter-eggs forum channel and automatically indexes any reply starting with `[TitleName]`.
+
+| Usage | Description |
+|---|---|
+| `/titles titlename:` | Look up a title (autocompletes) and get a jump link to every post explaining it |
+
+---
+
 ### /ping
 Health check. Replies with Pong and the measured latency in ms, with a tiered comment.
 
