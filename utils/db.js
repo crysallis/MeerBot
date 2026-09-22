@@ -660,8 +660,12 @@ function mergeMembers(keepId, dropId) {
         // transfer_approvals: historical log, just repoint, no collision possible (transfer_id is unique per row).
         db.prepare('UPDATE transfer_approvals SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
 
-        // If the kept row has no Discord link but the dropped one did, carry it over
+        // If the kept row has no Discord link but the dropped one did, carry it over.
+        // Clear the dropped row's discord_id first -- discord_id is UNIQUE, so writing
+        // it onto keepId while dropId still holds it would violate the constraint even
+        // though dropId is about to be deleted in this same transaction.
         if (!keep.discord_id && drop.discord_id) {
+            db.prepare('UPDATE members SET discord_id = NULL WHERE id = ?').run(dropId);
             db.prepare('UPDATE members SET discord_id = ?, discord_name = ? WHERE id = ?')
                 .run(drop.discord_id, drop.discord_name, keepId);
         }
