@@ -365,6 +365,31 @@ function getMemberSeasonGrowth(seasonId, toNow) {
     `).all(...params).filter(r => r.start_power != null && r.end_power != null);
 }
 
+// Discord embed descriptions cap at 4096 chars -- a full active-roster growth
+// list (title says "all active members, ranked") easily exceeds that as the
+// guild grows, so chunk lines into multiple embeds (Discord allows up to 10
+// per message) rather than truncating the list or paginating with buttons.
+const EMBED_DESCRIPTION_LIMIT = 4096;
+const MAX_EMBEDS_PER_MESSAGE = 10;
+
+function chunkLinesIntoDescriptions(lines) {
+    const chunks = [];
+    let current = [];
+    let currentLength = 0;
+    for (const line of lines) {
+        const addedLength = line.length + 1; // +1 for the joining newline
+        if (current.length && currentLength + addedLength > EMBED_DESCRIPTION_LIMIT) {
+            chunks.push(current.join('\n'));
+            current = [];
+            currentLength = 0;
+        }
+        current.push(line);
+        currentLength += addedLength;
+    }
+    if (current.length) chunks.push(current.join('\n'));
+    return chunks;
+}
+
 async function handleSeasonGrowth(interaction, toNow) {
     const seasonName = interaction.options.getString('season');
     const season = db.prepare('SELECT id, name FROM ally_seasons WHERE name = ?').get(seasonName);
@@ -389,12 +414,18 @@ async function handleSeasonGrowth(interaction, toNow) {
         ? `📈 ${season.name} · Growth (start → now)`
         : `📈 ${season.name} · Growth (start → end)`;
 
-    await interaction.reply({ embeds: [
-        new EmbedBuilder()
-            .setTitle(title)
-            .setDescription(lines.join('\n') || 'No active members found.')
-            .setColor(pickColor()),
-    ]});
+    const descriptions = chunkLinesIntoDescriptions(lines).slice(0, MAX_EMBEDS_PER_MESSAGE);
+    const embeds = descriptions.map((desc, i) => {
+        const embed = new EmbedBuilder().setDescription(desc).setColor(pickColor());
+        if (i === 0) {
+            embed.setTitle(title);
+        } else {
+            embed.setAuthor({ name: `Page ${i + 1}/${descriptions.length}` });
+        }
+        return embed;
+    });
+
+    await interaction.reply({ embeds });
 }
 
 async function handleStatus(interaction, snapshot) {
