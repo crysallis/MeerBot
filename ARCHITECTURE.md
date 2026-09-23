@@ -259,7 +259,7 @@ The loader in `index.js` checks for both `data` and `execute` before registering
 
 ### guild.js
 
-All eleven `/guild` subcommands in one file. Shared helpers:
+All thirteen `/guild` subcommands in one file. Shared helpers:
 
 - `getLatestSnapshot()` · fetches the most recent snapshot row
 - `getPrevSnapshotId(latestId)` · fetches the snapshot before the latest (for growth/nogrowth comparisons)
@@ -271,6 +271,10 @@ All eleven `/guild` subcommands in one file. Shared helpers:
 Every list command (`power`, `top`, `inactive`, `activeness`, `nogrowth`) calls both `newMemberIds` and `afkMemberIds` and appends the result of `badge()` to each member's line.
 
 **Growth comparison** and **NoGrowth** both use an `INNER JOIN` against the previous snapshot, so members with no prior record are excluded entirely. Growth display format: `prev → current (+delta)`.
+
+**seasongrowth/seasontonow** (`handleSeasonGrowth`, shared by both subcommands via a `toNow` boolean) intentionally do NOT use a single guild-wide start/end snapshot the way `growth`/`nogrowth` do. `getMemberSeasonGrowth(seasonId, toNow)` resolves start/end PER MEMBER via two correlated subqueries against `member_snapshots` joined to `snapshots` (for `scraped_at` ordering): start is always that member's own earliest snapshot tagged with the chosen `season_id`; end is either that member's own latest snapshot still tagged with that `season_id` (`seasongrowth`) or their single most recent snapshot overall with no season filter (`seasontonow`, `toNow=true`). This shape exists because `member_snapshots.season_id`'s backfill (added 2026-09-23) is flat — every historical row predating the column got `season_id = 1` — so a single guild-wide "start of season 1" snapshot resolves to the oldest scan in the whole database, not a meaningful date. An earlier version of this feature used one shared start/end snapshot pair (`getSeasonSnapshotRange`) and every member who'd joined after that ancient date showed as a spurious "NEW," sorted above real growth since `COALESCE(prev, 0)` treated their whole power as delta — caught live from a production screenshot, not by any prior test or review pass. Members with only one snapshot in the season show `+0`, not excluded and not flagged.
+
+Output is chunked into embeds of 50 members each (`chunkLinesIntoDescriptions`) rather than one large description string — Discord embed descriptions cap at 4096 chars and the combined char total across a message's embeds caps at 6000; a length-based chunk boundary that measured only the description string got close enough to 4096 (4072/4096 on live ~89-member data) that something still broke in production (a member's line rendered with no visible content). Flat member-count chunking removes that margin entirely.
 
 ### member.js
 

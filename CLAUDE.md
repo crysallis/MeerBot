@@ -119,6 +119,8 @@ from there.
 | `/invasion` | Alert the Homestead role that a homestead is being invaded · optional `name` (in-game, autocomplete) or `user` (linked Discord) · defaults to caller · posts an embed + role ping to `HOMESTEAD_CHANNEL_ID` |
 | `/guild chart` | Multi-line power growth for all members (QuickChart POST → short URL) |
 | `/guild unlinked` | Active members with no Discord account linked |
+| `/guild seasongrowth season:` | Every active member ranked by power growth descending, per-member start = their own first `member_snapshots` row tagged with that season, end = their own last row tagged with that season · a member with only one tagged snapshot shows `+0`, never excluded · output chunked 50 members per embed (Discord embed/message size limits) |
+| `/guild seasontonow season:` | Same start as `seasongrowth`, but end = that member's single most recent snapshot overall, any season tag · lets an in-progress season show growth-so-far past its own last tagged scan |
 | `/afk set/clear/list` | AFK management · set_by stores Discord user ID (not username) |
 | `/link` | Links a Discord user to an in-game name |
 | `/rename` | Corrects an in-game name · merges into the target via `mergeMembers` if that name already exists |
@@ -148,7 +150,7 @@ Schema ownership: the miner (`AFKDataMining/src/db.py`) owns the shared scan/ide
 - `guilds` · top-level guild (RKF RiffRaff, RKF Frop) · id, name UNIQUE, `override_role_ids` (JSON array of Discord role IDs that bypass transfer approval for this guild, e.g. Riff/Raff)
 - `warbands` · sub-unit within a guild (id, name UNIQUE, sort_order, archived, `guild_id` FK, `leader_role_id` · must approve transfers into/out of this warband, `member_role_id` · granted/removed on transfer) · rename here propagates everywhere
 - `snapshots` · one row per scan run
-- `member_snapshots` · power/activeness per member per snapshot
+- `member_snapshots` · power/activeness per member per snapshot · `season_id` (nullable FK → `ally_seasons.id`, added 2026-09-23) · stamped with whichever season is currently `active` at scan time (`_active_season_id()` in the miner's `db.py`), on every write path of `save_snapshot()` · every pre-existing row was backfilled flat to `season_id = 1` — NOT inferred per historical scan date, so "earliest snapshot tagged with season 1" is the oldest scan in the whole DB, not a meaningful season-1 start date · used by `/guild seasongrowth`/`seasontonow`
 - `member_afk` · active AFK records · return_date is YYYY-MM-DD
 - `scheduled_jobs` · unified job queue · id, type (`script_job`/`text_job`/`remindme`/`recruitment_followup`/`glorycta_tally`), fire_at, recurrence (`daily:N`/`weekly:N`), enabled, `last_day_offset` (nullable, meaningful only when `day_of_month=-1`: N = fire N days before the last day of the month; NULL/0 = on the last day)
 - `text_jobs` · sub-table for type='text_job', FK `job_id` → scheduled_jobs · name, channel_id, title, body, mentions (JSON array), days_of_week (comma-separated ISO 1-7, NULL = every day), log_name (UNIQUE) · fully panel-authored, no code file needed

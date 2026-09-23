@@ -96,6 +96,8 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/guild chart [number]` | Power growth line chart for current members over the last 10 scans |
 | `/guild warbands` | All warbands with member counts, total power, and average activeness |
 | `/guild unlinked` | Active members not yet linked to a Discord account |
+| `/guild seasongrowth <season>` | All active members ranked by power growth within a season, each member's own first scan of that season vs their own last scan of that season |
+| `/guild seasontonow <season>` | Same as `seasongrowth`, but growth runs from a season's start up to the most recent scan overall (useful for a season still in progress) |
 | `/member name:` | Stats and up to 8 weeks of history for a member |
 | `/member user:` | Same, but look up by @mention if the user is linked |
 | `/invasion` | Alert the Homestead role of an invasion (optional `name:`/`user:`, defaults to you) |

@@ -25,6 +25,8 @@ const COMMANDS = {
             { name: '/guild chart number:', desc: 'Power growth line chart for current members over the last 10 scans. Optional N to limit to top N by power.' },
             { name: '/guild warbands',     desc: 'All warbands with member counts, total power, and average activeness.' },
             { name: '/guild unlinked',     desc: 'Active members not yet linked to a Discord account.' },
+            { name: '/guild seasongrowth season:', desc: 'Every active member ranked by power growth within a season -- each member\'s own first scan of that season vs their own last scan of that season.' },
+            { name: '/guild seasontonow season:', desc: 'Same as seasongrowth, but growth runs from a season\'s start up to the most recent scan overall, even past that season\'s end -- use for an in-progress season.' },
         ],
     },
     ping: {
