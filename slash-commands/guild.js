@@ -403,8 +403,8 @@ async function handleSeasonGrowth(interaction, toNow) {
     });
 
     const title = toNow
-        ? `📈 ${season.name} · Growth (start → now)`
-        : `📈 ${season.name} · Growth (start → end)`;
+        ? `📈 ${season.name} · Growth (start → now) (time in guild only)`
+        : `📈 ${season.name} · Growth (start → end) (time in guild only)`;
 
     const descriptions = chunkLinesIntoDescriptions(lines).slice(0, MAX_EMBEDS_PER_MESSAGE);
     const embeds = descriptions.map((desc, i) => {
