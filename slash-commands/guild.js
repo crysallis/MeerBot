@@ -365,28 +365,20 @@ function getMemberSeasonGrowth(seasonId, toNow) {
     `).all(...params).filter(r => r.start_power != null && r.end_power != null);
 }
 
-// Discord embed descriptions cap at 4096 chars -- a full active-roster growth
-// list (title says "all active members, ranked") easily exceeds that as the
-// guild grows, so chunk lines into multiple embeds (Discord allows up to 10
-// per message) rather than truncating the list or paginating with buttons.
-const EMBED_DESCRIPTION_LIMIT = 4096;
+// Discord embed descriptions cap at 4096 chars, and the combined char count
+// across ALL embeds in one message caps at 6000 -- a full active-roster
+// growth list easily exceeds either as the guild grows. A length-based chunk
+// boundary got close enough to 4096 on its own that something (embed
+// overhead, or the 6000 combined-message cap) still broke live, so chunk by
+// a flat member count instead -- simpler and leaves comfortable headroom.
+const MEMBERS_PER_EMBED = 50;
 const MAX_EMBEDS_PER_MESSAGE = 10;
 
 function chunkLinesIntoDescriptions(lines) {
     const chunks = [];
-    let current = [];
-    let currentLength = 0;
-    for (const line of lines) {
-        const addedLength = line.length + 1; // +1 for the joining newline
-        if (current.length && currentLength + addedLength > EMBED_DESCRIPTION_LIMIT) {
-            chunks.push(current.join('\n'));
-            current = [];
-            currentLength = 0;
-        }
-        current.push(line);
-        currentLength += addedLength;
+    for (let i = 0; i < lines.length; i += MEMBERS_PER_EMBED) {
+        chunks.push(lines.slice(i, i + MEMBERS_PER_EMBED).join('\n'));
     }
-    if (current.length) chunks.push(current.join('\n'));
     return chunks;
 }
 
