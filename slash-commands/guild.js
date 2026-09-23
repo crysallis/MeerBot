@@ -119,7 +119,7 @@ module.exports = {
             .setDescription('Guild power growth from a season\'s start to its end')
             .addStringOption(o => o.setName('season').setDescription('Season name').setRequired(true).setAutocomplete(true)))
         .addSubcommand(s => s
-            .setName('seasongrowthplus')
+            .setName('seasontonow')
             .setDescription('Guild power growth from a season\'s start to right now')
             .addStringOption(o => o.setName('season').setDescription('Season name').setRequired(true).setAutocomplete(true))),
 
@@ -147,8 +147,8 @@ module.exports = {
             await handleUnlinked(interaction);
             return;
         }
-        if (sub === 'seasongrowth' || sub === 'seasongrowthplus') {
-            await handleSeasonGrowth(interaction, sub === 'seasongrowthplus');
+        if (sub === 'seasongrowth' || sub === 'seasontonow') {
+            await handleSeasonGrowth(interaction, sub === 'seasontonow');
             return;
         }
 
@@ -331,7 +331,7 @@ async function handleGrowth(interaction, snapshot) {
 // the season (whenever they personally were first scanned that season, not one
 // fixed guild-wide start) compared to their own last snapshot tagged with that
 // season (seasongrowth) or their most recent snapshot overall, any season
-// (seasongrowthplus — lets an in-progress season's growth-so-far include a scan
+// (seasontonow — lets an in-progress season's growth-so-far include a scan
 // that hasn't been explicitly re-tagged yet). A member with only one snapshot in
 // the season shows 0 growth (start === end), never a placeholder — there's
 // always a real comparison since both ends come from that member's own data.
