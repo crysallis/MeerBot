@@ -41,7 +41,8 @@ function renderErrorLog() {
   const header = document.createElement('div');
   header.style.cssText = 'font-weight:600;color:var(--color-error);margin-bottom:8px';
   const closeBtn = document.createElement('button');
-  closeBtn.style.cssText = 'float:right;background:none;border:none;color:var(--color-neutral-content);cursor:pointer;font-size:14px;line-height:1;padding:0';
+  closeBtn.className = 'muted-note';
+  closeBtn.style.cssText = 'float:right;background:none;border:none;cursor:pointer;font-size:14px;line-height:1;padding:0';
   closeBtn.textContent = '✕';
   closeBtn.addEventListener('click', () => panel.remove());
   header.appendChild(closeBtn);
@@ -52,7 +53,7 @@ function renderErrorLog() {
     row.style.cssText = 'border-bottom:1px solid var(--color-base-300);padding:4px 0;margin-bottom:4px';
     row.innerHTML = `<span style="color:var(--color-error);font-weight:600">[${escapeHtml(e.type)}]</span>
       <span style="color:var(--color-base-content);margin-left:6px">${escapeHtml(e.message)}</span>
-      <div style="color:var(--color-neutral-content);font-size:10px;margin-top:2px">${e.at.replace('T',' ').slice(0,19)}</div>`;
+      <div class="muted-note" style="font-size:10px;margin-top:2px">${e.at.replace('T',' ').slice(0,19)}</div>`;
     panel.appendChild(row);
   }
 }

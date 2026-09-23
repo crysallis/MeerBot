@@ -7,7 +7,7 @@ let channelPicker       = null;
 let editingPermRuleIds  = [];
 
 const CHIP_STYLE = 'background:var(--color-base-300);border-radius:3px;padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px';
-const X_STYLE   = 'background:none;border:none;color:var(--color-neutral-content);cursor:pointer;padding:0;font-size:14px;line-height:1';
+const X_STYLE   = 'background:none;border:none;cursor:pointer;padding:0;font-size:14px;line-height:1';
 
 export function populatePermCommands() {
   const sel = document.getElementById('perm-command');
@@ -57,7 +57,7 @@ export async function loadPermissions() {
   const rows  = await fetch('/api/permissions').then(r => r.json());
   const tbody = document.getElementById('permTableBody');
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--color-neutral-content)">No rules configured.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="muted-note">No rules configured.</td></tr>';
     return;
   }
   const groups = new Map();
@@ -71,6 +71,7 @@ export async function loadPermissions() {
     span.setAttribute('style', CHIP_STYLE);
     span.textContent = label;
     const xBtn = document.createElement('button');
+    xBtn.className = 'muted-note';
     xBtn.setAttribute('style', X_STYLE);
     xBtn.textContent = '×';
     xBtn.addEventListener('click', () => deletePermRule(ruleId));
@@ -86,19 +87,19 @@ export async function loadPermissions() {
     tdCmd.innerHTML = `<code>${escHtml(g.command)}</code>`;
 
     const tdSub = document.createElement('td');
-    tdSub.innerHTML = g.subcommand ?? '<span style="color:var(--color-neutral-content)">— whole command —</span>';
+    tdSub.innerHTML = g.subcommand ?? '<span class="muted-note">— whole command —</span>';
 
     const tdRoles = document.createElement('td');
     tdRoles.style.whiteSpace = 'normal';
     const roleChips = g.roles.map(r => makeTinyChip(state.roleList.find(x => x.id === r.value_id)?.name ?? r.value_id, r.id));
     if (roleChips.length) roleChips.forEach(c => tdRoles.appendChild(c));
-    else tdRoles.innerHTML = '<span style="color:var(--color-neutral-content)">—</span>';
+    else tdRoles.innerHTML = '<span class="muted-note">—</span>';
 
     const tdChs = document.createElement('td');
     tdChs.style.whiteSpace = 'normal';
     const chChips = g.channels.map(c => makeTinyChip('#' + (state.channelList.find(x => x.id === c.value_id)?.name ?? c.value_id), c.id));
     if (chChips.length) chChips.forEach(c => tdChs.appendChild(c));
-    else tdChs.innerHTML = '<span style="color:var(--color-neutral-content)">—</span>';
+    else tdChs.innerHTML = '<span class="muted-note">—</span>';
 
     const tdAct = document.createElement('td');
     tdAct.style.whiteSpace = 'nowrap';

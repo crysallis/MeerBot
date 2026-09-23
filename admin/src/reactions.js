@@ -27,7 +27,7 @@ export function renderReactionsTable() {
   const tbody = document.getElementById('rxTableBody');
   if (!tbody) return;
   if (!allReactions.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--color-neutral-content)">No rules yet. Click + Add Rule to create one.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="muted-note">No rules yet. Click + Add Rule to create one.</td></tr>';
     return;
   }
 
@@ -36,7 +36,7 @@ export function renderReactionsTable() {
 
   tbody.replaceChildren();
   for (const r of allReactions) {
-    const trigger = r.pattern_type === 'mention' ? '<em>@mention</em>' : `<code>${escHtml(r.pattern)}</code> <span style="color:var(--color-neutral-content);font-size:11px">(${PTYPES[r.pattern_type]??r.pattern_type})</span>`;
+    const trigger = r.pattern_type === 'mention' ? '<em>@mention</em>' : `<code>${escHtml(r.pattern)}</code> <span class="muted-note" style="font-size:11px">(${PTYPES[r.pattern_type]??r.pattern_type})</span>`;
     const response = `${RTYPES[r.response_type]??r.response_type}: <code>${escHtml(r.response_content||'')}</code>`;
     let scope = 'all channels';
     if (r.channel_filter) {
@@ -48,13 +48,13 @@ export function renderReactionsTable() {
     }
     const status = r.enabled
       ? '<span style="color:var(--color-success);font-weight:600">ON</span>'
-      : '<span style="color:var(--color-neutral-content);text-decoration:line-through">OFF</span>';
+      : '<span class="muted-note" style="text-decoration:line-through">OFF</span>';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="font-weight:600;color:var(--color-base-content)">${escHtml(r.name)}</td>
       <td>${trigger}</td>
       <td>${response}</td>
-      <td style="font-size:12px;color:var(--color-neutral-content)">${escHtml(scope)}</td>
+      <td class="muted-note" style="font-size:12px">${escHtml(scope)}</td>
       <td style="font-size:12px">${r.cooldown_seconds}s</td>
       <td>${status}</td>
       <td style="white-space:nowrap"></td>`;
@@ -85,7 +85,7 @@ export function renderReactionsTable() {
 }
 
 export function renderDiscordMarkdown(text) {
-  if (!text) return '<span style="color:var(--color-neutral-content);font-style:italic">Start typing to preview...</span>';
+  if (!text) return '<span class="muted-note" style="font-style:italic">Start typing to preview...</span>';
   let s = escHtml(text);
   s = s
     .replace(/\{user\}/gi,     '<span style="background:var(--discord-mention-bg);color:var(--discord-mention-fg);padding:1px 4px;border-radius:3px">@YourName</span>')
@@ -134,7 +134,7 @@ export function updatePreview() {
     html += '</div>';
   }
 
-  el.innerHTML = html || '<span style="color:var(--color-neutral-content);font-style:italic">Start typing to preview...</span>';
+  el.innerHTML = html || '<span class="muted-note" style="font-style:italic">Start typing to preview...</span>';
 }
 
 export function buildCheatSheet() {
@@ -216,7 +216,7 @@ export function rxInsert(text) {
 export async function refreshDiscordData() {
   const statusEl = document.getElementById('rx-refresh-status');
   statusEl.textContent = 'Refreshing...';
-  statusEl.style.color = 'var(--color-neutral-content)';
+  statusEl.style.color = 'var(--color-base-content)';
   try {
     const res  = await fetch('/api/refresh-discord-data', { method: 'POST' });
     const data = await res.json();

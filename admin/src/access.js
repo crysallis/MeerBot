@@ -13,7 +13,7 @@ export async function loadAccess() {
   for (const op of data.operations) {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${escapeHtml(op.group)}</td>` +
-      `<td>${escapeHtml(op.label)}${op.overridden ? ' <span style="color:var(--color-neutral-content)">(custom)</span>' : ''}</td>` +
+      `<td>${escapeHtml(op.label)}${op.overridden ? ' <span class="muted-note">(custom)</span>' : ''}</td>` +
       `<td></td>`;
     const sel = document.createElement('select');
     for (const t of ['read', 'manage', 'local']) {
@@ -51,7 +51,7 @@ export async function loadAccess() {
   const auditBody = document.getElementById('accessAuditBody');
   auditBody.innerHTML = '';
   if (!data.audit || !data.audit.length) {
-    auditBody.innerHTML = '<tr><td colspan="4" style="color:var(--color-neutral-content)">No changes recorded yet.</td></tr>';
+    auditBody.innerHTML = '<tr><td colspan="4" class="muted-note">No changes recorded yet.</td></tr>';
   } else {
     for (const a of data.audit) {
       const who = a.discord_id === 'local' ? 'Local PC' : escapeHtml(a.discord_id);

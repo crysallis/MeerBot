@@ -31,7 +31,7 @@ export function renderMembers() {
     `${memberList.length} members · ${pendingCount} pending review`;
 
   if (rows.length === 0) {
-    body.innerHTML = '<tr><td colspan="6" style="color:var(--color-neutral-content)">No members.</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" class="muted-note">No members.</td></tr>';
     return;
   }
 
@@ -88,7 +88,7 @@ export function renderMembers() {
       sp.textContent = m.discord_name || m.discord_id;
       tdDis.appendChild(sp);
     } else {
-      tdDis.innerHTML = '<span style="color:var(--color-neutral-content)">—</span>';
+      tdDis.innerHTML = '<span class="muted-note">—</span>';
     }
 
     // Status
@@ -96,7 +96,7 @@ export function renderMembers() {
     tdStat.dataset.label = 'Status';
     tdStat.innerHTML = m.pending
       ? '<span style="color:var(--color-warning);font-weight:600">PENDING</span>'
-      : (m.active ? '<span style="color:var(--color-success)">active</span>' : '<span style="color:var(--color-neutral-content)">inactive</span>');
+      : (m.active ? '<span style="color:var(--color-success)">active</span>' : '<span class="muted-note">inactive</span>');
 
     // Actions
     const tdAct = document.createElement('td');
@@ -150,7 +150,7 @@ export function renderWarbands() {
   const body = document.getElementById('warbandsBody');
   if (!body) return;
   if (!warbandsList.length) {
-    body.innerHTML = '<tr><td colspan="7" style="color:var(--color-neutral-content)">No warbands.</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" class="muted-note">No warbands.</td></tr>';
     return;
   }
   body.replaceChildren();
@@ -167,7 +167,7 @@ export function renderWarbands() {
     const tdCount = document.createElement('td');
     tdCount.textContent = w.members;
     const tdStat = document.createElement('td');
-    tdStat.innerHTML = w.archived ? '<span style="color:var(--color-neutral-content)">archived</span>' : '<span style="color:var(--color-success)">active</span>';
+    tdStat.innerHTML = w.archived ? '<span class="muted-note">archived</span>' : '<span style="color:var(--color-success)">active</span>';
     const tdAct = document.createElement('td');
     tdAct.style.whiteSpace = 'nowrap';
     const renBtn = document.createElement('button');
@@ -187,13 +187,14 @@ export function renderWarbands() {
 }
 
 const GUILD_CHIP_STYLE = 'background:var(--color-base-300);border-radius:3px;padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px';
-const GUILD_X_STYLE = 'background:none;border:none;color:var(--color-neutral-content);cursor:pointer;padding:0;font-size:14px;line-height:1';
+const GUILD_X_STYLE = 'background:none;border:none;cursor:pointer;padding:0;font-size:14px;line-height:1';
 
 function guildChip(label, onRemove) {
   const span = document.createElement('span');
   span.setAttribute('style', GUILD_CHIP_STYLE);
   span.appendChild(document.createTextNode(label));
   const btn = document.createElement('button');
+  btn.className = 'muted-note';
   btn.setAttribute('style', GUILD_X_STYLE);
   btn.textContent = '×';
   btn.addEventListener('click', onRemove);
@@ -205,7 +206,7 @@ export function renderGuilds() {
   const body = document.getElementById('guildsBody');
   if (!body) return;
   if (!guildsList.length) {
-    body.innerHTML = '<tr><td colspan="2" style="color:var(--color-neutral-content)">No guilds.</td></tr>';
+    body.innerHTML = '<tr><td colspan="2" class="muted-note">No guilds.</td></tr>';
     return;
   }
   body.replaceChildren();

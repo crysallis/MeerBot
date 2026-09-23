@@ -17,7 +17,7 @@ export function renderSeasons() {
   const tbody = document.getElementById('seasonsBody');
   if (!tbody) return;
   if (!seasonsData.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--color-neutral-content)">No seasons yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="muted-note">No seasons yet.</td></tr>';
     return;
   }
   tbody.innerHTML = '';
@@ -33,7 +33,7 @@ export function renderSeasons() {
     tr.innerHTML = `
       <td style="font-weight:600;color:var(--color-base-content)">${escHtml(s.name)}</td>
       <td>${statusBadge}</td>
-      <td style="color:var(--color-neutral-content);font-size:12px">${s.server_count} server${s.server_count !== 1 ? 's' : ''}</td>
+      <td class="muted-note" style="font-size:12px">${s.server_count} server${s.server_count !== 1 ? 's' : ''}</td>
       <td class="action-col"></td>`;
     const toggleBtn = document.createElement('button');
     toggleBtn.className = 'save-btn';
@@ -55,7 +55,7 @@ export function renderSeasons() {
     if (isExpanded) {
       const detailTr = document.createElement('tr');
       detailTr.innerHTML = `<td colspan="4" style="padding:12px 16px;background:rgba(255,255,255,.02)">
-        <div id="servers-content-${s.id}"><span style="color:var(--color-neutral-content);font-size:12px">Loading...</span></div>
+        <div id="servers-content-${s.id}"><span class="muted-note" style="font-size:12px">Loading...</span></div>
       </td>`;
       tbody.appendChild(detailTr);
       loadServersContent(s.id);
@@ -76,7 +76,8 @@ async function loadServersContent(seasonId) {
       span.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:var(--color-base-200);border:1px solid var(--color-info);border-radius:4px;padding:2px 8px;font-size:12px;margin:2px';
       span.textContent = n;
       const xBtn = document.createElement('button');
-      xBtn.style.cssText = 'background:none;border:none;color:var(--color-neutral-content);cursor:pointer;padding:0;font-size:11px;line-height:1';
+      xBtn.className = 'muted-note';
+      xBtn.style.cssText = 'background:none;border:none;cursor:pointer;padding:0;line-height:1';
       xBtn.title = 'Remove';
       xBtn.textContent = '✕';
       xBtn.addEventListener('click', () => removeServer(seasonId, n));
@@ -84,7 +85,7 @@ async function loadServersContent(seasonId) {
       chipsDiv.appendChild(span);
     }
   } else {
-    chipsDiv.innerHTML = '<span style="color:var(--color-neutral-content);font-size:12px">No servers yet</span>';
+    chipsDiv.innerHTML = '<span class="muted-note" style="font-size:12px">No servers yet</span>';
   }
 
   const addInput = document.createElement('input');
@@ -190,7 +191,7 @@ export async function loadDreamBosses() {
   const tbody    = document.getElementById('dreamBossesBody');
   const bossList = Array.isArray(bosses) ? bosses : [];
   if (!bossList.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--color-neutral-content)">No bosses yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="muted-note">No bosses yet.</td></tr>';
     return;
   }
   tbody.replaceChildren();

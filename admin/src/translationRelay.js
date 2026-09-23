@@ -32,7 +32,7 @@ export function renderTranslationRelay() {
     const tbody = document.getElementById('translationRelayBody');
     if (!tbody) return;
     if (!relayData.length) {
-        tbody.innerHTML = '<tr><td colspan="4" style="color:var(--color-neutral-content)">No relay channels configured.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="muted-note">No relay channels configured.</td></tr>';
     } else {
         tbody.innerHTML = '';
         for (const r of relayData) {

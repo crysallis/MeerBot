@@ -1,13 +1,14 @@
 import { escHtml } from './utils.js';
 
 const CHIP_STYLE = 'background:var(--color-base-300);border-radius:3px;padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px';
-const X_STYLE    = 'background:none;border:none;color:var(--color-neutral-content);cursor:pointer;padding:0;font-size:14px;line-height:1';
+const X_STYLE    = 'background:none;border:none;cursor:pointer;padding:0;font-size:14px;line-height:1';
 
 function makeChip(label, onRemove) {
   const span = document.createElement('span');
   span.setAttribute('style', CHIP_STYLE);
   span.appendChild(document.createTextNode(label));
   const btn = document.createElement('button');
+  btn.className = 'muted-note';
   btn.setAttribute('style', X_STYLE);
   btn.textContent = '×';
   btn.addEventListener('click', onRemove);
