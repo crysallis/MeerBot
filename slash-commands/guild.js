@@ -143,12 +143,29 @@ module.exports = {
             .setDescription('List all warbands with member counts and stats'))
         .addSubcommand(s => s
             .setName('unlinked')
-            .setDescription('Active members not yet linked to a Discord account')),
+            .setDescription('Active members not yet linked to a Discord account'))
+        .addSubcommand(s => s
+            .setName('seasongrowth')
+            .setDescription('Guild power growth from a season\'s start to its end')
+            .addStringOption(o => o.setName('season').setDescription('Season name').setRequired(true).setAutocomplete(true)))
+        .addSubcommand(s => s
+            .setName('seasongrowthplus')
+            .setDescription('Guild power growth from a season\'s start to right now')
+            .addStringOption(o => o.setName('season').setDescription('Season name').setRequired(true).setAutocomplete(true))),
 
     async autocomplete(interaction) {
-        const focused = interaction.options.getFocused().toLowerCase();
+        const focused = interaction.options.getFocused(true);
+        const query = focused.value.toLowerCase();
+        if (focused.name === 'season') {
+            const seasons = db.prepare('SELECT name FROM ally_seasons ORDER BY id DESC').all()
+                .map(r => r.name)
+                .filter(n => n.toLowerCase().includes(query))
+                .slice(0, 25);
+            await interaction.respond(seasons.map(n => ({ name: n, value: n })));
+            return;
+        }
         const filtered = db.getWarbands()
-            .filter(w => w.name.toLowerCase().includes(focused))
+            .filter(w => w.name.toLowerCase().includes(query))
             .slice(0, 25);
         await interaction.respond(filtered.map(w => ({ name: w.name, value: w.name })));
     },
@@ -158,6 +175,10 @@ module.exports = {
         if (!(await enforcePermissions(interaction, 'guild', sub))) return;
         if (sub === 'unlinked') {
             await handleUnlinked(interaction);
+            return;
+        }
+        if (sub === 'seasongrowth' || sub === 'seasongrowthplus') {
+            await handleSeasonGrowth(interaction, sub === 'seasongrowthplus');
             return;
         }
 
@@ -335,6 +356,51 @@ async function handleGrowth(interaction, snapshot) {
     });
 
     await interaction.reply({ embeds: [embed] });
+}
+
+async function handleSeasonGrowth(interaction, toNow) {
+    const seasonName = interaction.options.getString('season');
+    const season = db.prepare('SELECT id, name FROM ally_seasons WHERE name = ?').get(seasonName);
+    if (!season) {
+        return interaction.reply({ content: `No season named **${seasonName}**.`, flags: MessageFlags.Ephemeral });
+    }
+
+    const range = toNow ? getSeasonToNowRange(season.id) : getSeasonSnapshotRange(season.id);
+    if (!range) {
+        return interaction.reply({ content: `No scan data found for **${season.name}**.`, flags: MessageFlags.Ephemeral });
+    }
+
+    const rows = db.prepare(`
+        SELECT m.id AS member_id, m.ingame_name AS name,
+               ms2.combat_power_value AS current_power,
+               ms1.combat_power_value AS prev_power
+        FROM member_snapshots ms2
+        JOIN members m ON m.id = ms2.member_id AND m.active = 1
+        LEFT JOIN member_snapshots ms1 ON ms1.member_id = ms2.member_id AND ms1.snapshot_id = ?
+        WHERE ms2.snapshot_id = ?
+        ORDER BY (ms2.combat_power_value - COALESCE(ms1.combat_power_value, 0)) DESC
+    `).all(range.startId, range.endId);
+
+    const lines = rows.map((r, i) => {
+        const rank = `\`${String(i + 1).padStart(2)}.\` **${r.name}**`;
+        if (r.prev_power == null) {
+            return `${rank} · NEW · **${fmtPower(r.current_power)}**`;
+        }
+        const g = r.current_power - r.prev_power;
+        const growthStr = g > 0 ? `+${fmtPower(g)}` : g < 0 ? `-${fmtPower(Math.abs(g))}` : '+0';
+        return `${rank} · ${fmtPower(r.prev_power)} → **${fmtPower(r.current_power)}** (${growthStr})`;
+    });
+
+    const title = toNow
+        ? `📈 ${season.name} · Growth (start → now)`
+        : `📈 ${season.name} · Growth (start → end)`;
+
+    await interaction.reply({ embeds: [
+        new EmbedBuilder()
+            .setTitle(title)
+            .setDescription(lines.join('\n') || 'No active members found.')
+            .setColor(pickColor()),
+    ]});
 }
 
 async function handleStatus(interaction, snapshot) {
