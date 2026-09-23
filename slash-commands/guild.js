@@ -17,36 +17,6 @@ function getPrevSnapshotId(latestId) {
     return db.prepare('SELECT id FROM snapshots WHERE id < ? ORDER BY id DESC LIMIT 1').get(latestId)?.id ?? null;
 }
 
-function getSeasonSnapshotRange(seasonId) {
-    const start = db.prepare(`
-        SELECT s.id FROM snapshots s
-        JOIN member_snapshots ms ON ms.snapshot_id = s.id
-        WHERE ms.season_id = ?
-        ORDER BY s.scraped_at ASC LIMIT 1
-    `).get(seasonId);
-    const end = db.prepare(`
-        SELECT s.id FROM snapshots s
-        JOIN member_snapshots ms ON ms.snapshot_id = s.id
-        WHERE ms.season_id = ?
-        ORDER BY s.scraped_at DESC LIMIT 1
-    `).get(seasonId);
-    if (!start || !end) return null;
-    return { startId: start.id, endId: end.id };
-}
-
-function getSeasonToNowRange(seasonId) {
-    const start = db.prepare(`
-        SELECT s.id FROM snapshots s
-        JOIN member_snapshots ms ON ms.snapshot_id = s.id
-        WHERE ms.season_id = ?
-        ORDER BY s.scraped_at ASC LIMIT 1
-    `).get(seasonId);
-    if (!start) return null;
-    const end = db.prepare('SELECT id FROM snapshots ORDER BY scraped_at DESC LIMIT 1').get();
-    if (!end) return null;
-    return { startId: start.id, endId: end.id };
-}
-
 function snapshotDate(snapshot) {
     return snapshot.scraped_at.slice(0, 16).replace('T', ' ') + ' UTC';
 }
@@ -202,8 +172,7 @@ module.exports = {
     },
 };
 
-module.exports.getSeasonSnapshotRange = getSeasonSnapshotRange;
-module.exports.getSeasonToNowRange = getSeasonToNowRange;
+module.exports.getMemberSeasonGrowth = getMemberSeasonGrowth;
 
 async function handlePower(interaction, snapshot) {
     const warband = interaction.options.getString('warband') || null;
@@ -358,6 +327,44 @@ async function handleGrowth(interaction, snapshot) {
     await interaction.reply({ embeds: [embed] });
 }
 
+// Per-member season growth: each active member's OWN first snapshot tagged with
+// the season (whenever they personally were first scanned that season, not one
+// fixed guild-wide start) compared to their own last snapshot tagged with that
+// season (seasongrowth) or their most recent snapshot overall, any season
+// (seasongrowthplus — lets an in-progress season's growth-so-far include a scan
+// that hasn't been explicitly re-tagged yet). A member with only one snapshot in
+// the season shows 0 growth (start === end), never a placeholder — there's
+// always a real comparison since both ends come from that member's own data.
+function getMemberSeasonGrowth(seasonId, toNow) {
+    const endJoin = toNow
+        ? `(SELECT ms.combat_power_value
+             FROM member_snapshots ms
+             JOIN snapshots s ON s.id = ms.snapshot_id
+             WHERE ms.member_id = m.id
+             ORDER BY s.scraped_at DESC LIMIT 1)`
+        : `(SELECT ms.combat_power_value
+             FROM member_snapshots ms
+             JOIN snapshots s ON s.id = ms.snapshot_id
+             WHERE ms.member_id = m.id AND ms.season_id = ?
+             ORDER BY s.scraped_at DESC LIMIT 1)`;
+
+    const startSubquery = `(SELECT ms.combat_power_value
+             FROM member_snapshots ms
+             JOIN snapshots s ON s.id = ms.snapshot_id
+             WHERE ms.member_id = m.id AND ms.season_id = ?
+             ORDER BY s.scraped_at ASC LIMIT 1)`;
+
+    const params = toNow ? [seasonId] : [seasonId, seasonId];
+
+    return db.prepare(`
+        SELECT m.id AS member_id, m.ingame_name AS name,
+               ${startSubquery} AS start_power,
+               ${endJoin} AS end_power
+        FROM members m
+        WHERE m.active = 1
+    `).all(...params).filter(r => r.start_power != null && r.end_power != null);
+}
+
 async function handleSeasonGrowth(interaction, toNow) {
     const seasonName = interaction.options.getString('season');
     const season = db.prepare('SELECT id, name FROM ally_seasons WHERE name = ?').get(seasonName);
@@ -365,30 +372,17 @@ async function handleSeasonGrowth(interaction, toNow) {
         return interaction.reply({ content: `No season named **${seasonName}**.`, flags: MessageFlags.Ephemeral });
     }
 
-    const range = toNow ? getSeasonToNowRange(season.id) : getSeasonSnapshotRange(season.id);
-    if (!range) {
+    const rows = getMemberSeasonGrowth(season.id, toNow)
+        .sort((a, b) => (b.end_power - b.start_power) - (a.end_power - a.start_power));
+
+    if (!rows.length) {
         return interaction.reply({ content: `No scan data found for **${season.name}**.`, flags: MessageFlags.Ephemeral });
     }
 
-    const rows = db.prepare(`
-        SELECT m.id AS member_id, m.ingame_name AS name,
-               ms2.combat_power_value AS current_power,
-               ms1.combat_power_value AS prev_power
-        FROM member_snapshots ms2
-        JOIN members m ON m.id = ms2.member_id AND m.active = 1
-        LEFT JOIN member_snapshots ms1 ON ms1.member_id = ms2.member_id AND ms1.snapshot_id = ?
-        WHERE ms2.snapshot_id = ?
-        ORDER BY (ms2.combat_power_value - COALESCE(ms1.combat_power_value, 0)) DESC
-    `).all(range.startId, range.endId);
-
     const lines = rows.map((r, i) => {
-        const rank = `\`${String(i + 1).padStart(2)}.\` **${r.name}**`;
-        if (r.prev_power == null) {
-            return `${rank} · NEW · **${fmtPower(r.current_power)}**`;
-        }
-        const g = r.current_power - r.prev_power;
+        const g = r.end_power - r.start_power;
         const growthStr = g > 0 ? `+${fmtPower(g)}` : g < 0 ? `-${fmtPower(Math.abs(g))}` : '+0';
-        return `${rank} · ${fmtPower(r.prev_power)} → **${fmtPower(r.current_power)}** (${growthStr})`;
+        return `\`${String(i + 1).padStart(2)}.\` **${r.name}** · ${fmtPower(r.start_power)} → **${fmtPower(r.end_power)}** (${growthStr})`;
     });
 
     const title = toNow
