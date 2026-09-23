@@ -23,7 +23,7 @@ global.setInterval = function(...args) {
 
 test('every slash command file exports a valid {data, execute} shape', () => {
   const slashPath = path.join(__dirname, 'slash-commands');
-  const files = fs.readdirSync(slashPath).filter(f => f.endsWith('.js'));
+  const files = fs.readdirSync(slashPath).filter(f => f.endsWith('.js') && !f.endsWith('.test.js'));
   assert.ok(files.length > 0, 'expected at least one slash command file');
 
   for (const file of files) {

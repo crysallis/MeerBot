@@ -17,6 +17,36 @@ function getPrevSnapshotId(latestId) {
     return db.prepare('SELECT id FROM snapshots WHERE id < ? ORDER BY id DESC LIMIT 1').get(latestId)?.id ?? null;
 }
 
+function getSeasonSnapshotRange(seasonId) {
+    const start = db.prepare(`
+        SELECT s.id FROM snapshots s
+        JOIN member_snapshots ms ON ms.snapshot_id = s.id
+        WHERE ms.season_id = ?
+        ORDER BY s.scraped_at ASC LIMIT 1
+    `).get(seasonId);
+    const end = db.prepare(`
+        SELECT s.id FROM snapshots s
+        JOIN member_snapshots ms ON ms.snapshot_id = s.id
+        WHERE ms.season_id = ?
+        ORDER BY s.scraped_at DESC LIMIT 1
+    `).get(seasonId);
+    if (!start || !end) return null;
+    return { startId: start.id, endId: end.id };
+}
+
+function getSeasonToNowRange(seasonId) {
+    const start = db.prepare(`
+        SELECT s.id FROM snapshots s
+        JOIN member_snapshots ms ON ms.snapshot_id = s.id
+        WHERE ms.season_id = ?
+        ORDER BY s.scraped_at ASC LIMIT 1
+    `).get(seasonId);
+    if (!start) return null;
+    const end = db.prepare('SELECT id FROM snapshots ORDER BY scraped_at DESC LIMIT 1').get();
+    if (!end) return null;
+    return { startId: start.id, endId: end.id };
+}
+
 function snapshotDate(snapshot) {
     return snapshot.scraped_at.slice(0, 16).replace('T', ' ') + ' UTC';
 }
@@ -150,6 +180,9 @@ module.exports = {
         }
     },
 };
+
+module.exports.getSeasonSnapshotRange = getSeasonSnapshotRange;
+module.exports.getSeasonToNowRange = getSeasonToNowRange;
 
 async function handlePower(interaction, snapshot) {
     const warband = interaction.options.getString('warband') || null;
