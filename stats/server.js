@@ -93,7 +93,7 @@ app.get('/api/power-history', (req, res) => {
         const snapshots = db.prepare('SELECT id, scraped_at FROM snapshots ORDER BY scraped_at').all();
         const rows = db.prepare(`
             SELECT m.id as member_id, m.ingame_name, m.warband_id, w.name as warband_name,
-                   ms.snapshot_id, ms.combat_power_value
+                   ms.snapshot_id, ms.combat_power_value, ms.season_id
             FROM members m
             LEFT JOIN warbands w ON w.id = m.warband_id
             JOIN member_snapshots ms ON ms.member_id = m.id
@@ -103,6 +103,19 @@ app.get('/api/power-history', (req, res) => {
         res.json({ snapshots, rows });
     } catch (err) {
         console.error('[stats] /api/power-history error:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// GET /api/seasons — ally season list, shared by Power/Activeness/Dream Realm season filters.
+// "order" is chronological display order and is NOT the same as id (seasons were
+// added out of chronological order -- e.g. id 1 "Crown of Ashes" sorts near the end).
+app.get('/api/seasons', (req, res) => {
+    try {
+        const seasons = db.prepare('SELECT id, name, active FROM ally_seasons ORDER BY "order"').all();
+        res.json({ seasons });
+    } catch (err) {
+        console.error('[stats] /api/seasons error:', err);
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -119,7 +132,7 @@ app.get('/api/activeness-history', (req, res) => {
         ).all(ACTIVENESS_START_ID);
         const rows = db.prepare(`
             SELECT m.id as member_id, m.ingame_name, m.warband_id, w.name as warband_name,
-                   ms.snapshot_id, ms.activeness
+                   ms.snapshot_id, ms.activeness, ms.season_id
             FROM members m
             LEFT JOIN warbands w ON w.id = m.warband_id
             JOIN member_snapshots ms ON ms.member_id = m.id

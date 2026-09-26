@@ -6,6 +6,16 @@ export function getCSSVar(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+let seasonsCache = null;
+
+export async function fetchSeasons() {
+    if (seasonsCache) return seasonsCache;
+    const res = await fetch('/api/seasons');
+    const data = await res.json();
+    seasonsCache = data.seasons;
+    return seasonsCache;
+}
+
 export function cssVarRgba(name, alpha) {
     const val = getCSSVar(name);
     if (!val) return `rgba(0,0,0,${alpha})`;

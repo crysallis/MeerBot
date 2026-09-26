@@ -1,11 +1,12 @@
 import { Chart, registerables } from 'chart.js';
-import { getCSSVar, cssVarRgba, escHtml } from '../utils.js';
+import { getCSSVar, cssVarRgba, escHtml, fetchSeasons } from '../utils.js';
 Chart.register(...registerables);
 
-let chartsByTier = new Map();
-let allData      = null;
-let meRef        = null;
-let rowsRef      = [];
+let chartsByTier  = new Map();
+let allData       = null;
+let meRef         = null;
+let rowsRef       = [];
+let currentSeason = null;
 
 const TIER_ORDER = ['common', 'hard', 'epic', 'hell', 'endless'];
 
@@ -33,13 +34,51 @@ export async function initDreamRealm(me) {
     const res = await fetch('/api/dream-realm');
     allData   = await res.json();
 
-    const bossEl = document.getElementById('dr-boss');
-    const dateEl = document.getElementById('dr-date');
+    const seasonEl = document.getElementById('dr-season');
+    const bossEl   = document.getElementById('dr-boss');
+    const dateEl   = document.getElementById('dr-date');
 
-    for (const b of allData.bosses) {
+    // No "All seasons" entry here, by design -- same rule as the admin panel's
+    // Dream Realm Bosses tab. Defaults to whichever season is ally_seasons.active=1.
+    // Only offer seasons with at least one boss recorded -- ally_seasons has several
+    // prepped-but-not-started placeholders (2026-09-25: only seasons 1 and 8 have
+    // any dream_realm_bosses rows) that would otherwise always hit the empty state.
+    const seasonsWithBosses = new Set(allData.bosses.map(b => b.season));
+    const seasons = (await fetchSeasons()).filter(s => seasonsWithBosses.has(s.id));
+    let defaultSeasonId = null;
+    for (const s of seasons) {
         const opt = document.createElement('option');
-        opt.value = b.id; opt.textContent = b.name;
-        bossEl.appendChild(opt);
+        opt.value = s.id; opt.textContent = s.name;
+        seasonEl.appendChild(opt);
+        if (s.active) defaultSeasonId = s.id;
+    }
+    currentSeason = defaultSeasonId ?? seasons[0]?.id ?? null;
+    if (currentSeason != null) seasonEl.value = currentSeason;
+
+    function updateBosses() {
+        currentSeason = parseInt(seasonEl.value);
+        const bosses  = allData.bosses.filter(b => b.season === currentSeason);
+
+        bossEl.innerHTML = '';
+        for (const b of bosses) {
+            const opt = document.createElement('option');
+            opt.value = b.id; opt.textContent = b.name;
+            bossEl.appendChild(opt);
+        }
+
+        if (bosses.length) {
+            updateDates();
+        } else {
+            // Prepped-but-empty season -- no bosses added yet via the admin panel.
+            // Destroy any leftover Chart.js instances from the previous season/boss
+            // before clearing their container, or they'd leak (same cleanup renderDR
+            // does per-tier when a tier disappears between renders).
+            for (const c of chartsByTier.values()) c.destroy();
+            chartsByTier.clear();
+            dateEl.innerHTML = '';
+            document.getElementById('chart-dr-container').innerHTML = '';
+            document.getElementById('dr-table').innerHTML = '<p class="scan-note">No bosses recorded for this season yet.</p>';
+        }
     }
 
     function updateDates() {
@@ -57,10 +96,11 @@ export async function initDreamRealm(me) {
         renderDR(me);
     }
 
+    seasonEl.addEventListener('change', updateBosses);
     bossEl.addEventListener('change', updateDates);
     dateEl.addEventListener('change', () => renderDR(me));
 
-    if (allData.bosses.length) updateDates();
+    if (currentSeason != null) updateBosses();
 }
 
 function renderDR(me) {

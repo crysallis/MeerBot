@@ -1,5 +1,5 @@
 import { Chart, registerables } from 'chart.js';
-import { getCSSVar, cssVarRgba } from '../utils.js';
+import { getCSSVar, cssVarRgba, fetchSeasons } from '../utils.js';
 Chart.register(...registerables);
 
 const BAD_THRESHOLD = 500;
@@ -26,12 +26,27 @@ export async function initActivenessChart(me) {
                 warbandId:   row.warband_id,
                 warbandName: row.warband_name,
                 snapMap:     {},
+                seasonMap:   {}, // snapshot_id -> season_id, for the season filter
             });
         }
-        members.get(row.member_id).snapMap[row.snapshot_id] = row.activeness;
+        const m = members.get(row.member_id);
+        m.snapMap[row.snapshot_id]   = row.activeness;
+        m.seasonMap[row.snapshot_id] = row.season_id;
     }
 
     state = { snapshots: data.snapshots, members };
+
+    // Only offer seasons that actually have rows here -- see power.js for why
+    // (ally_seasons has several prepped-but-not-started placeholder seasons).
+    const seasonsWithData = new Set(data.rows.map(r => r.season_id));
+    const seasons  = (await fetchSeasons()).filter(s => seasonsWithData.has(s.id));
+    const seasonEl = document.getElementById('activeness-season');
+    for (const s of seasons) {
+        const opt = document.createElement('option');
+        opt.value = s.id; opt.textContent = s.name;
+        seasonEl.appendChild(opt);
+    }
+    seasonEl.addEventListener('change', render);
 
     // Default: pre-select current user
     if (meId && members.has(meId)) {
@@ -230,7 +245,16 @@ function makeCheckItem(id, label, checked) {
 
 function render() {
     const { snapshots, members } = state;
-    const wbSel = document.getElementById('activeness-warband').value;
+    const wbSel     = document.getElementById('activeness-warband').value;
+    const seasonSel = document.getElementById('activeness-season').value;
+
+    // Season filter narrows the x-axis itself, not just which members show --
+    // a snapshot outside the selected season is dropped entirely, so ranking,
+    // sorting and the chart's own labels all stay in sync with what's plotted.
+    const seasonId        = seasonSel ? parseInt(seasonSel) : null;
+    const activeSnapshots = seasonId
+        ? snapshots.filter(s => [...members.values()].some(m => m.seasonMap[s.id] === seasonId))
+        : snapshots;
 
     let filtered = [...members.values()];
 
@@ -244,7 +268,7 @@ function render() {
         // decides WHO is shown and their order; the lines plotted below are
         // still each member's raw per-snapshot values, unaveraged.
         const ranked = filtered
-            .map(m => ({ m, avg: avgActiveness(m, snapshots) }))
+            .map(m => ({ m, avg: avgActiveness(m, activeSnapshots) }))
             .filter(r => r.avg != null)
             .sort((a, b) => viewMode === 'top10' ? b.avg - a.avg : a.avg - b.avg);
         filtered = ranked.slice(0, 10).map(r => r.m);
@@ -258,7 +282,7 @@ function render() {
 
     if (viewMode !== 'top10' && viewMode !== 'bottom10') {
         filtered.sort((a, b) => {
-            const lastSnap = snapshots[snapshots.length - 1]?.id;
+            const lastSnap = activeSnapshots[activeSnapshots.length - 1]?.id;
             return (b.snapMap[lastSnap] || 0) - (a.snapMap[lastSnap] || 0);
         });
     }
@@ -266,7 +290,7 @@ function render() {
     // from the ranking step above: highest-avg first for top10 (per explicit
     // request), most-concerning (lowest-avg) first for bottom10.
 
-    const labels   = snapshots.map(s => s.scraped_at.slice(0, 10));
+    const labels   = activeSnapshots.map(s => s.scraped_at.slice(0, 10));
     const colors   = memberColors(filtered.length);
     const datasets = filtered.map((m, i) => {
         // In "All" mode: user's line is bold, others are muted; in select mode all equal
@@ -276,7 +300,7 @@ function render() {
         const borderColor = muted ? muteHsl(color, 0.9) : color;
         return {
             label:           m.name,
-            data:            snapshots.map(s => m.snapMap[s.id] ?? null),
+            data:            activeSnapshots.map(s => m.snapMap[s.id] ?? null),
             borderColor,
             backgroundColor: borderColor,
             borderWidth:     muted ? 1 : isMe ? 2.5 : 2,

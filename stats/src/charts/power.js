@@ -1,5 +1,5 @@
 import { Chart, registerables } from 'chart.js';
-import { getCSSVar, cssVarRgba } from '../utils.js';
+import { getCSSVar, cssVarRgba, fetchSeasons } from '../utils.js';
 Chart.register(...registerables);
 
 let chart  = null;
@@ -23,12 +23,28 @@ export async function initPowerChart(me) {
                 warbandId:   row.warband_id,
                 warbandName: row.warband_name,
                 snapMap:     {},
+                seasonMap:   {}, // snapshot_id -> season_id, for the season filter
             });
         }
-        members.get(row.member_id).snapMap[row.snapshot_id] = row.combat_power_value;
+        const m = members.get(row.member_id);
+        m.snapMap[row.snapshot_id]   = row.combat_power_value;
+        m.seasonMap[row.snapshot_id] = row.season_id;
     }
 
     state = { snapshots: data.snapshots, members };
+
+    // Only offer seasons that actually have rows here -- ally_seasons includes
+    // several prepped-but-not-started placeholders (2026-09-25: seasons 2-7
+    // have no member_snapshots at all) that would otherwise show an empty chart.
+    const seasonsWithData = new Set(data.rows.map(r => r.season_id));
+    const seasons  = (await fetchSeasons()).filter(s => seasonsWithData.has(s.id));
+    const seasonEl = document.getElementById('power-season');
+    for (const s of seasons) {
+        const opt = document.createElement('option');
+        opt.value = s.id; opt.textContent = s.name;
+        seasonEl.appendChild(opt);
+    }
+    seasonEl.addEventListener('change', render);
 
     // Default: pre-select current user
     if (meId && members.has(meId)) {
@@ -171,7 +187,16 @@ function makeCheckItem(id, label, checked) {
 
 function render() {
     const { snapshots, members } = state;
-    const wbSel = document.getElementById('power-warband').value;
+    const wbSel     = document.getElementById('power-warband').value;
+    const seasonSel = document.getElementById('power-season').value;
+
+    // Season filter narrows the x-axis itself, not just which members show --
+    // a snapshot outside the selected season is dropped entirely, so sorting
+    // and the chart's own labels stay in sync with what's actually plotted.
+    const seasonId       = seasonSel ? parseInt(seasonSel) : null;
+    const activeSnapshots = seasonId
+        ? snapshots.filter(s => [...members.values()].some(m => m.seasonMap[s.id] === seasonId))
+        : snapshots;
 
     let filtered = [...members.values()];
 
@@ -184,11 +209,11 @@ function render() {
     }
 
     filtered.sort((a, b) => {
-        const lastSnap = snapshots[snapshots.length - 1]?.id;
+        const lastSnap = activeSnapshots[activeSnapshots.length - 1]?.id;
         return (b.snapMap[lastSnap] || 0) - (a.snapMap[lastSnap] || 0);
     });
 
-    const labels   = snapshots.map(s => s.scraped_at.slice(0, 10));
+    const labels   = activeSnapshots.map(s => s.scraped_at.slice(0, 10));
     const colors   = memberColors(filtered.length);
     const datasets = filtered.map((m, i) => {
         // In "All" mode: user's line is bold, others are muted; in select mode all equal
@@ -198,7 +223,7 @@ function render() {
         const borderColor = muted ? muteHsl(color, 0.9) : color;
         return {
             label:           m.name,
-            data:            snapshots.map(s => m.snapMap[s.id] ? m.snapMap[s.id] / 1e6 : null),
+            data:            activeSnapshots.map(s => m.snapMap[s.id] ? m.snapMap[s.id] / 1e6 : null),
             borderColor,
             backgroundColor: borderColor,
             borderWidth:     muted ? 1 : isMe ? 2.5 : 2,
