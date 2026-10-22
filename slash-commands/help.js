@@ -43,6 +43,13 @@ const COMMANDS = {
             { name: '/glory count message:', desc: 'Count reactions on a `/glory cta` or `/glory confirm` post. Pass a message link (right-click/long-press the post → Copy Message Link).' },
         ],
     },
+    guildduel: {
+        description: 'Guild Duel Battle Report data · see who the scan missed and fill in rows by hand.',
+        subcommands: [
+            { name: '/guildduel missing', desc: 'Lists active members with no Guild Duel row for the current Battle Report week.' },
+            { name: '/guildduel add name: rank: crests:', desc: 'Add or correct one member\'s row for the current week. Name autocompletes. Defaults to Manage Server only.' },
+        ],
+    },
     member: {
         description: 'Look up a single guild member.',
         subcommands: [
@@ -257,6 +264,7 @@ module.exports = {
             remindme: 'Set · list · cancel personal reminders',
             ping: 'Latency check with a quip',
             glory: 'Clash of Glory vote · confirm · count',
+            guildduel: 'missing · add Guild Duel rows by hand',
             scan: 'Trigger a guild scan',
             rename: 'Rename a member in the database',
             note: 'Add · view · delete notes on members',

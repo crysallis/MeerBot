@@ -359,6 +359,10 @@ Authorization checks `transfer_approval_eligibility` (was this user recorded eli
 
 Calls `interaction.deferUpdate()` immediately after the eligibility/status gates, before any role edits or REST fetches -- `applyTransferRoles()` plus several member/user lookups can exceed Discord's 3s interaction ack deadline. On resolution it edits whichever message was clicked, then syncs every other surviving copy (the channel post, if the click came from a DM or vice versa, and every other eligible approver's DM) to the resolved state via `Promise.all`.
 
+### guildduel.js
+
+`/guildduel missing` and `/guildduel add` work against the miner-owned `guild_duel_rankings` table (PK `member_id, period_start`). Both use `guildDuelPeriodKey()` in `utils/guildDuel.js`, a JS port of the miner's `guild_duel_period_key` (Monday of the current UTC week minus 7 days, since Battle Report shows the week that just ended) -- if the miner's boundary logic changes, change both. `missing` selects active, non-pending members with no row for that period, so scan-written and hand-added rows both count as present. `add` is `INSERT OR REPLACE`, so re-adding corrects a row. The command sets `setDefaultMemberPermissions(ManageGuild)` because `enforcePermissions` treats a command with no configured rules as open to everyone, which is too loose for a DB write.
+
 ### glory.js / gloryctaReactionGuard.js / gloryctaCancelButtonHandler.js
 
 One command file (`slash-commands/glory.js`), three subcommands, all backed by the shared `glorycta_polls` table (see Database Tables above):
