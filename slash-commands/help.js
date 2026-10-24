@@ -44,8 +44,9 @@ const COMMANDS = {
         ],
     },
     guildduel: {
-        description: 'Guild Duel Battle Report data · see who the scan missed and fill in rows by hand.',
+        description: 'Guild Duel Battle Report data · see who the scan missed, who is falling short, and fill in rows by hand.',
         subcommands: [
+            { name: '/guildduel low', desc: 'Members falling short on guild activity: Guild Duel crests well under the weekly guild median in 3+ of the last 8 weeks, or any week with activeness under 500.' },
             { name: '/guildduel missing', desc: 'Lists active members with no Guild Duel row for the current Battle Report week.' },
             { name: '/guildduel add name: rank: crests:', desc: 'Add or correct one member\'s row for the current week. Name autocompletes. Defaults to Manage Server only.' },
         ],
@@ -264,7 +265,7 @@ module.exports = {
             remindme: 'Set · list · cancel personal reminders',
             ping: 'Latency check with a quip',
             glory: 'Clash of Glory vote · confirm · count',
-            guildduel: 'missing · add Guild Duel rows by hand',
+            guildduel: 'low · missing · add Guild Duel rows by hand',
             scan: 'Trigger a guild scan',
             rename: 'Rename a member in the database',
             note: 'Add · view · delete notes on members',

@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const db = require('../utils/db');
 const { pickColor } = require('../utils/colors');
 const { enforcePermissions } = require('../utils/permissions');
+const { archiveEnded } = require('../utils/afkHistory');
 
 function getMemberByName(name) {
     return db.prepare('SELECT id, ingame_name FROM members WHERE ingame_name LIKE ?').get(name);
@@ -66,6 +67,7 @@ module.exports = {
             if (!member) {
                 return interaction.reply({ content: `Member **${name}** not found.`, flags: MessageFlags.Ephemeral });
             }
+            archiveEnded(db, member.id, new Date().toISOString());
             db.prepare(`
                 INSERT OR REPLACE INTO member_afk (member_id, reason, return_date, set_by, set_at)
                 VALUES (?, ?, ?, ?, ?)
@@ -83,6 +85,7 @@ module.exports = {
             if (!member) {
                 return interaction.reply({ content: `Member **${name}** not found.`, flags: MessageFlags.Ephemeral });
             }
+            archiveEnded(db, member.id, new Date().toISOString());
             const result = db.prepare('DELETE FROM member_afk WHERE member_id = ?').run(member.id);
             if (result.changes === 0) {
                 return interaction.reply({ content: `**${member.ingame_name}** was not marked AFK.`, flags: MessageFlags.Ephemeral });

@@ -3,6 +3,7 @@ const db = require('../db');
 const { logJobRun } = require('../jobLog');
 const botConfig = require('../botConfig');
 const { pickColor } = require('../colors');
+const { archiveExpired } = require('../afkHistory');
 
 module.exports = async function handleAfkExpiry(client, job) {
     try {
@@ -18,6 +19,7 @@ module.exports = async function handleAfkExpiry(client, job) {
 
         if (expired.length === 0) return;
 
+        archiveExpired(db, today);
         db.prepare(`
             DELETE FROM member_afk
             WHERE return_date IS NOT NULL AND return_date < ?

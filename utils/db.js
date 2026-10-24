@@ -192,6 +192,16 @@ db.exec(`
     set_at      TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS member_afk_history (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id   INTEGER NOT NULL REFERENCES members(id),
+    started_at  TEXT NOT NULL,
+    ended_at    TEXT NOT NULL,
+    return_date TEXT,
+    reason      TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_afk_history_member ON member_afk_history(member_id);
+
   CREATE TABLE IF NOT EXISTS scheduler_log (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     name      TEXT NOT NULL,

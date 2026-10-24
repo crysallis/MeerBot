@@ -122,6 +122,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 |---|---|
 | `/glory cta time1: time2: duration:` | Post a Clash of Glory battle-time vote · two UTC HH:MM options (random emoji, non-pool reactions silently stripped, both-emoji counts as "either works"), auto-tallies and unpins after `duration` hours, has a Cancel Vote button |
 | `/glory confirm time:` | Post the decided UTC HH:MM battle time (Local + UTC shown, same as `cta`) for yes/no/maybe (✅/❌/🤔) availability confirmation · one vote per person, no time limit, not auto-tallied |
+| `/guildduel low` | Members falling short on guild activity · Guild Duel crests well under the weekly guild median in 3+ of the last 8 weeks, or any week with activeness under 500 · Manage Server by default |
 | `/guildduel missing` | List active members the last Guild Duel scan didn't capture (current Battle Report week) |
 | `/guildduel add name: rank: crests:` | Add or correct one member's Guild Duel row by hand · Manage Server by default |
 | `/glory count message:` | Count reactions on a `/glory cta` or `/glory confirm` post · pass a Discord message link |

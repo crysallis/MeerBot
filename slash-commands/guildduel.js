@@ -3,6 +3,27 @@ const db = require("../utils/db");
 const { pickColor } = require("../utils/colors");
 const { enforcePermissions } = require("../utils/permissions");
 const { guildDuelPeriodKey } = require("../utils/guildDuel");
+const { THRESHOLDS, evaluate, loadRows } = require("../utils/guildDuelLow");
+
+function signed(n) {
+	return `${n >= 0 ? "+" : ""}${Math.round(n).toLocaleString("en-US")}`;
+}
+
+function fitLines(lines, limit) {
+	let out = "";
+	for (const line of lines) {
+		if (out.length + line.length + 1 > limit) return `${out}\n...`;
+		out += (out ? "\n" : "") + line;
+	}
+	return out;
+}
+
+function flaggedLine(p) {
+	const crest = p.crestN ? `crests ${signed(p.crestAvgGap)} (low ${p.crestLow}/${p.crestN})` : "crests n/a";
+	const act = p.actN ? `activeness avg ${Math.round(p.actAvg)}` : "activeness n/a";
+	const under = p.actUnder ? ` · ${p.actUnder} wk under ${THRESHOLDS.actMin}` : "";
+	return `**${p.name}** · ${crest} · ${act}${under}`;
+}
 
 function missingRows(period) {
 	return db.prepare(`
@@ -22,6 +43,9 @@ module.exports = {
 		.addSubcommand(s => s
 			.setName("missing")
 			.setDescription("Active members the last Guild Duel scan didn't capture"))
+		.addSubcommand(s => s
+			.setName("low")
+			.setDescription("Members falling short on guild activity, measured against the guild median"))
 		.addSubcommand(s => s
 			.setName("add")
 			.setDescription("Add or correct one member's Guild Duel row by hand")
@@ -53,6 +77,22 @@ module.exports = {
 					.setTitle(`Missing from Guild Duel (${rows.length})`)
 					.setDescription(rows.map(r => `· ${r.ingame_name}`).join("\n").slice(0, 4000))
 					.setFooter({ text: `Period ${period} · fix with /guildduel add` })
+					.setColor(pickColor())],
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+
+		if (sub === "low") {
+			const result = evaluate(loadRows(db));
+			const t = THRESHOLDS;
+			const sections = [];
+			sections.push(`**Needs a look (${result.flagged.length})**`);
+			sections.push(...(result.flagged.length ? result.flagged.map(flaggedLine) : ["Nobody this round."]));
+			return interaction.reply({
+				embeds: [new EmbedBuilder()
+					.setTitle("Guild Duel · who's falling short")
+					.setDescription(fitLines(sections, 4000))
+					.setFooter({ text: `Low = crests ${Math.abs(t.crestGap)}+ under the weekly guild median in ${t.flagWeeks}+ of the last ${t.lookback} weeks, or any week with activeness under ${t.actMin} · ${result.crestWeeks.length} crest wks, ${result.actWeeks.length} complete activeness wks${result.afkSkipped ? ` · AFK weeks skipped for ${result.afkSkipped}` : ""}` })
 					.setColor(pickColor())],
 				flags: MessageFlags.Ephemeral,
 			});
