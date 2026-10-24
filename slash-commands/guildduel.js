@@ -3,7 +3,8 @@ const db = require("../utils/db");
 const { pickColor } = require("../utils/colors");
 const { enforcePermissions } = require("../utils/permissions");
 const { guildDuelPeriodKey } = require("../utils/guildDuel");
-const { THRESHOLDS, evaluate, loadRows } = require("../utils/guildDuelLow");
+const botConfig = require("../utils/botConfig");
+const { evaluate, loadRows, thresholdsFromConfig } = require("../utils/guildDuelLow");
 
 function signed(n) {
 	return `${n >= 0 ? "+" : ""}${Math.round(n).toLocaleString("en-US")}`;
@@ -18,10 +19,10 @@ function fitLines(lines, limit) {
 	return out;
 }
 
-function flaggedLine(p) {
+function flaggedLine(p, t) {
 	const crest = p.crestN ? `crests ${signed(p.crestAvgGap)} (low ${p.crestLow}/${p.crestN})` : "crests n/a";
 	const act = p.actN ? `activeness avg ${Math.round(p.actAvg)}` : "activeness n/a";
-	const under = p.actUnder ? ` · ${p.actUnder} wk under ${THRESHOLDS.actMin}` : "";
+	const under = p.actUnder ? ` · ${p.actUnder} wk under ${t.actMin}` : "";
 	return `**${p.name}** · ${crest} · ${act}${under}`;
 }
 
@@ -83,11 +84,11 @@ module.exports = {
 		}
 
 		if (sub === "low") {
-			const result = evaluate(loadRows(db));
-			const t = THRESHOLDS;
+			const t = thresholdsFromConfig(botConfig.get);
+			const result = evaluate(loadRows(db), t);
 			const sections = [];
 			sections.push(`**Needs a look (${result.flagged.length})**`);
-			sections.push(...(result.flagged.length ? result.flagged.map(flaggedLine) : ["Nobody this round."]));
+			sections.push(...(result.flagged.length ? result.flagged.map(p => flaggedLine(p, t)) : ["Nobody this round."]));
 			return interaction.reply({
 				embeds: [new EmbedBuilder()
 					.setTitle("Guild Duel · who's falling short")

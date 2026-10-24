@@ -9,6 +9,14 @@ const THRESHOLDS = {
 	minWeeks: 4,
 };
 
+const CONFIG_KEYS = {
+	actMin: 'GUILDDUEL_ACTIVENESS_MIN',
+	crestGap: 'GUILDDUEL_CREST_GAP',
+	flagWeeks: 'GUILDDUEL_FLAG_WEEKS',
+	lookback: 'GUILDDUEL_LOOKBACK_WEEKS',
+	minWeeks: 'GUILDDUEL_MIN_WEEKS',
+};
+
 function weekStartUtc(input) {
 	const d = new Date(input);
 	const today = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
@@ -124,6 +132,15 @@ function evaluate({ crestRows, actRows, activeIds, afkSpans = [] }, t = THRESHOL
 	return { flagged, actWeeks, crestWeeks, afkSkipped: afkSkipped.size };
 }
 
+function thresholdsFromConfig(get) {
+	const t = { ...THRESHOLDS };
+	for (const [field, key] of Object.entries(CONFIG_KEYS)) {
+		const n = Number.parseInt(get(key), 10);
+		if (Number.isFinite(n) && n > 0) t[field] = field === 'crestGap' ? -n : n;
+	}
+	return t;
+}
+
 function loadRows(db) {
 	const crestRows = db.prepare(`
 		SELECT g.member_id AS memberId, m.ingame_name AS name, g.period_start AS week, g.crests AS crests
@@ -151,4 +168,4 @@ function loadRows(db) {
 	return { crestRows, actRows, activeIds, afkSpans };
 }
 
-module.exports = { THRESHOLDS, weekStartUtc, isCompleteScan, evaluate, loadRows };
+module.exports = { THRESHOLDS, CONFIG_KEYS, thresholdsFromConfig, weekStartUtc, isCompleteScan, evaluate, loadRows };
