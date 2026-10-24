@@ -116,6 +116,11 @@ input[type=text], input[type=number], input[type=time], select { width: 100%; }
   overflow: hidden; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.2);
 }
 
+.config-group { border: 1px solid var(--color-primary); border-radius: 8px; margin-bottom: 20px; overflow: hidden; background: var(--color-base-100); }
+.config-group-banner { background: var(--color-primary); color: var(--color-primary-content); padding: 8px 14px; font-size: 13px; font-weight: 600; letter-spacing: .03em; }
+.config-group-note { padding: 8px 14px; border-bottom: 1px solid var(--color-base-300); }
+.config-group .panel-card { border: 0; border-radius: 0; box-shadow: none; margin-bottom: 0; }
+
 #sjContainer { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: start; }
 
 .sj-card { background: var(--color-base-100); border: 1px solid var(--color-base-300); border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.2); overflow: hidden; }

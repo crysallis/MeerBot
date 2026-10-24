@@ -393,20 +393,52 @@ function renderAllSections() {
     section.id = 'section-config-' + cat;
     section.innerHTML = `<div class="section-title">${CATEGORY_LABELS[cat] ?? cat}</div>`;
 
-    const card = document.createElement('div');
-    card.className = 'panel-card';
-
-    const table = document.createElement('table');
-    table.innerHTML = `<thead><tr>
-      <th>Setting</th><th>Description</th><th>Value</th><th>Source</th><th></th>
-    </tr></thead>`;
-    const tbody = document.createElement('tbody');
-    for (const entry of entries) tbody.appendChild(buildRow(entry, cat));
-    table.appendChild(tbody);
-    card.appendChild(table);
-    section.appendChild(card);
+    const general = entries.filter(e => !e.group);
+    if (general.length || !entries.length) section.appendChild(buildConfigCard(general, cat));
+    for (const group of new Set(entries.filter(e => e.group).map(e => e.group))) {
+      section.appendChild(buildGroupBox(group, entries.filter(e => e.group === group), cat));
+    }
     container.appendChild(section);
   }
+}
+
+const GROUP_INFO = {
+  guildduel: {
+    title: 'Guild Duel · /guildduel low',
+    note: 'These five settings drive the /guildduel low report. Change a value, press Save, then run the command again to see the difference. No restart needed.',
+  },
+};
+
+function buildConfigCard(entries, cat) {
+  const card = document.createElement('div');
+  card.className = 'panel-card';
+  const table = document.createElement('table');
+  table.innerHTML = `<thead><tr>
+      <th>Setting</th><th>Description</th><th>Value</th><th>Source</th><th></th>
+    </tr></thead>`;
+  const tbody = document.createElement('tbody');
+  for (const entry of entries) tbody.appendChild(buildRow(entry, cat));
+  table.appendChild(tbody);
+  card.appendChild(table);
+  return card;
+}
+
+function buildGroupBox(group, entries, cat) {
+  const info = GROUP_INFO[group] ?? { title: group, note: '' };
+  const box = document.createElement('div');
+  box.className = 'config-group';
+  const banner = document.createElement('div');
+  banner.className = 'config-group-banner';
+  banner.textContent = info.title;
+  box.appendChild(banner);
+  if (info.note) {
+    const note = document.createElement('div');
+    note.className = 'config-group-note muted-note';
+    note.textContent = info.note;
+    box.appendChild(note);
+  }
+  box.appendChild(buildConfigCard(entries, cat));
+  return box;
 }
 
 function buildRow(entry, cat) {
@@ -425,6 +457,12 @@ function buildRow(entry, cat) {
   const tdDesc = document.createElement('td');
   tdDesc.className = 'desc-col';
   tdDesc.textContent = entry.description;
+  if (entry.hint) {
+    const hint = document.createElement('div');
+    hint.className = 'muted-note';
+    hint.textContent = entry.hint;
+    tdDesc.appendChild(hint);
+  }
 
   // value col — build input via DOM to avoid inline event handlers (CSP blocks script-src-attr)
   const tdVal = document.createElement('td');

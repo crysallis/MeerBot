@@ -23,11 +23,11 @@ const CONFIG_META = {
     INACTIVITY_DAYS:             { label: 'Inactivity Days',           description: 'Days before flagging a member inactive',  category: 'thresholds',  default: '3' },
     LATE_WARNING_MINUTES:        { label: 'Late Warning Minutes',      description: 'Minutes late before adding a late footer',category: 'thresholds',  default: '30' },
     AUTO_DELETE_SECONDS:         { label: 'Auto-Delete Delay (seconds)', description: 'How long after posting an auto-delete-enabled reply is removed', category: 'thresholds', default: '30' },
-    GUILDDUEL_ACTIVENESS_MIN:    { label: 'Guild Duel · Activeness Minimum',    description: '/guildduel low: any complete week with activeness under this is flagged',                          category: 'thresholds',  default: '500' },
-    GUILDDUEL_CREST_GAP:         { label: 'Guild Duel · Crest Gap',             description: '/guildduel low: a week counts as low when crests are this many under the weekly guild median',       category: 'thresholds',  default: '1000' },
-    GUILDDUEL_FLAG_WEEKS:        { label: 'Guild Duel · Low Weeks To Flag',     description: '/guildduel low: flag on crests after this many low weeks within the lookback',                       category: 'thresholds',  default: '3' },
-    GUILDDUEL_LOOKBACK_WEEKS:    { label: 'Guild Duel · Lookback Weeks',        description: '/guildduel low: how many weeks back to look',                                                          category: 'thresholds',  default: '8' },
-    GUILDDUEL_MIN_WEEKS:         { label: 'Guild Duel · Minimum Weeks Of Data', description: '/guildduel low: crest-based flags need at least this many weeks of data on a member',              category: 'thresholds',  default: '4' },
+    GUILDDUEL_ACTIVENESS_MIN:    { label: 'Activeness Minimum',    description: 'any complete week with activeness under this is flagged',                          category: 'thresholds', group: 'guildduel', hint: 'Raise it to flag more people, lower it to flag fewer.',  default: '500' },
+    GUILDDUEL_CREST_GAP:         { label: 'Crest Gap',             description: 'a week counts as low when crests are this many under the weekly guild median',       category: 'thresholds', group: 'guildduel', hint: 'Lower is stricter (more people flagged), higher is looser.',  default: '1000' },
+    GUILDDUEL_FLAG_WEEKS:        { label: 'Low Weeks To Flag',     description: 'flag on crests after this many low weeks within the lookback',                       category: 'thresholds', group: 'guildduel', hint: 'Lower flags people sooner, higher needs a longer pattern.',  default: '3' },
+    GUILDDUEL_LOOKBACK_WEEKS:    { label: 'Lookback Weeks',        description: 'how many weeks back to look',                                                          category: 'thresholds', group: 'guildduel', hint: 'A longer lookback takes longer to build up and longer to clear.',  default: '8' },
+    GUILDDUEL_MIN_WEEKS:         { label: 'Minimum Weeks Of Data', description: 'crest-based flags need at least this many weeks of data on a member',              category: 'thresholds', group: 'guildduel', hint: 'Members with fewer weeks of data than this cannot be flagged on crests.',  default: '4' },
     // --- Permissions ---
     SCAN_AUTHORIZED_USER:        { label: 'Scan Authorized User',      description: 'Discord user ID allowed to run /scan',    category: 'permissions', default: '' },
     CHECKIN_TEST_MODE_DISCORD_ID: { label: 'Check-in Test Mode (Discord ID)', description: 'ROLLOUT SAFETY GATE: when set, check-in DMs go ONLY to this Discord ID, ignoring real eligibility. Clear once verified.', category: 'permissions', default: '' },
@@ -77,6 +77,8 @@ function getAll() {
             label: meta.label,
             description: meta.description,
             category: meta.category,
+            group: meta.group ?? null,
+            hint: meta.hint ?? null,
             updated_at: dbRow?.updated_at ?? null,
         };
     });
