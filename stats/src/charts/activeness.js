@@ -2,7 +2,8 @@ import { Chart, registerables } from 'chart.js';
 import { getCSSVar, cssVarRgba, fetchSeasons } from '../utils.js';
 Chart.register(...registerables);
 
-const BAD_THRESHOLD = 500;
+const DEFAULT_THRESHOLD = 500;
+let badThreshold = DEFAULT_THRESHOLD;
 
 let chart  = null;
 let state  = null;
@@ -16,6 +17,7 @@ export async function initActivenessChart(me) {
     const data = await res.json();
 
     meId = me?.memberId ?? null;
+    badThreshold = Number(data.threshold) > 0 ? Number(data.threshold) : DEFAULT_THRESHOLD;
 
     const members = new Map();
     for (const row of data.rows) {
@@ -314,7 +316,7 @@ function render() {
     // from the legend so it doesn't get mixed in with real member lines.
     const thresholdDataset = {
         label:           'Low activeness threshold',
-        data:            labels.map(() => BAD_THRESHOLD),
+        data:            labels.map(() => badThreshold),
         borderColor:     'rgba(220, 50, 50, 0.6)',
         borderWidth:     1.5,
         borderDash:      [6, 4],

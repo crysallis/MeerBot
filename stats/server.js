@@ -6,6 +6,8 @@ const helmet    = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path      = require('path');
 const db        = require('../utils/db');
+const botConfig = require('../utils/botConfig');
+const { thresholdsFromConfig } = require('../utils/guildDuelLow');
 const auth      = require('./auth');
 
 const PORT = process.env.STATS_PORT || 3002;
@@ -139,7 +141,8 @@ app.get('/api/activeness-history', (req, res) => {
             WHERE m.active = 1 AND m.pending = 0 AND ms.snapshot_id >= ?
             ORDER BY m.ingame_name, ms.snapshot_id
         `).all(ACTIVENESS_START_ID);
-        res.json({ snapshots, rows });
+        const threshold = thresholdsFromConfig(botConfig.get).actMin;
+        res.json({ snapshots, rows, threshold });
     } catch (err) {
         console.error('[stats] /api/activeness-history error:', err);
         res.status(500).json({ error: 'Database error' });
