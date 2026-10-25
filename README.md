@@ -126,7 +126,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/guildduel missing` | List active members the last Guild Duel scan didn't capture (current Battle Report week) |
 | `/guildduel add name: rank: crests:` | Add or correct one member's Guild Duel row by hand · Manage Server by default |
 | `/glory count message:` | Count reactions on a `/glory cta` or `/glory confirm` post · pass a Discord message link |
-| `/scan` | Trigger a live guild scrape (authorized user only) · always runs the roster scan; enabled mode scans run alongside |
+| `/scan` | Trigger a live guild scrape (authorized user only) · always runs the roster scan; enabled mode scans run alongside · the Guild Duel Damage mode (off by default, toggle in the admin Scan Modes tab) reads each member's boss damage and only runs Saturday to Sunday UTC, before the Monday reset |
 | `/roster add guild: user:` | Add a Discord member to a guild role (RiffRaff or Frop) · removes Who Dis? role |
 | `/roster remove guild: user:` | Remove a Discord member from a guild role |
 | `/roster transfer user: to_warband:` | Request moving a member to a different warband (autocomplete) · executes immediately if the initiator leads both warbands or holds a guild override role, otherwise posts an Approve/Deny request to the other side's warband leader |

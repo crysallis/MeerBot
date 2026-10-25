@@ -18,7 +18,10 @@ const MODE_FLAGS = {
 	SCAN_ARCANE_LAB: "--arcane-lab",
 	SCAN_CLASHFRONTS: "--clashfronts",
 	SCAN_GUILD_DUEL: "--guild-duel",
+	SCAN_GUILD_DUEL_DAMAGE: "--guild-duel-damage",
 };
+
+const MODE_OUTPUT_RE = /^(DREAM_REALM|AFK_STAGES|ARENA|SUPREME_ARENA|HONOR_DUEL|ARCANE_LAB|CLASHFRONTS|GUILD_DUEL|GUILD_DUEL_DAMAGE|MODE_FAILED):/;
 
 function enabledModeFlags() {
 	return Object.entries(MODE_FLAGS)
@@ -198,7 +201,7 @@ module.exports = {
 					.filter(Boolean),
 			)].join(", ");
 			const modeResults = lines.filter((l) =>
-				/^(DREAM_REALM|AFK_STAGES|ARENA|SUPREME_ARENA|HONOR_DUEL|ARCANE_LAB|CLASHFRONTS|GUILD_DUEL|MODE_FAILED):/.test(l));
+				MODE_OUTPUT_RE.test(l));
 
 			let reply = `✅ Scan complete!\n${done || saved || "Snapshot saved."}`;
 			if (modeResults.length) {
@@ -227,3 +230,6 @@ module.exports = {
 		});
 	},
 };
+
+module.exports.MODE_OUTPUT_RE = MODE_OUTPUT_RE;
+module.exports.MODE_FLAGS = MODE_FLAGS;
