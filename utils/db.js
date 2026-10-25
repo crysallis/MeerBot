@@ -653,6 +653,19 @@ function mergeMembers(keepId, dropId) {
             }
         }
 
+        // A guild duel week is two independently scanned halves (crests and rank from the
+        // Battle Report, damage from the weekend scan), so combine overlapping weeks field
+        // by field before the generic collapse below drops the dropped member's row.
+        db.prepare(`
+            UPDATE guild_duel_rankings AS k SET
+                rank = COALESCE(k.rank, d.rank),
+                crests = COALESCE(k.crests, d.crests),
+                damage = COALESCE(k.damage, d.damage),
+                damage_scanned_at = COALESCE(k.damage_scanned_at, d.damage_scanned_at)
+            FROM guild_duel_rankings AS d
+            WHERE k.member_id = ? AND d.member_id = ? AND k.period_start = d.period_start
+        `).run(keepId, dropId);
+
         // Multi-row ranking tables keyed by (member_id, period) — same collapse
         // pattern as member_snapshots: drop overlapping periods, repoint the rest.
         for (const { table, periodCol } of [
