@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const db = require('../utils/db');
 const { pickColor, toRgba } = require('../utils/colors');
 const { enforcePermissions } = require('../utils/permissions');
+const { latestCrestsRow } = require('../utils/guildDuelRows');
 
 function fmtPower(val) {
     if (!val) return '·';
@@ -125,10 +126,7 @@ module.exports = {
             SELECT rank FROM arcane_lab_rankings WHERE member_id = ?
             ORDER BY scanned_at DESC LIMIT 1
         `).get(mid);
-        const guildDuel = db.prepare(`
-            SELECT rank, crests FROM guild_duel_rankings WHERE member_id = ?
-            ORDER BY scanned_at DESC LIMIT 1
-        `).get(mid);
+        const guildDuel = latestCrestsRow(db, mid);
         const dreamRealm = db.prepare(`
             SELECT ds.boss_name, ds.rank, MAX(ds.scanned_at) AS scanned_at
             FROM dream_realm_scores ds

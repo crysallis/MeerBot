@@ -5,6 +5,7 @@ const { enforcePermissions } = require("../utils/permissions");
 const { guildDuelPeriodKey } = require("../utils/guildDuel");
 const botConfig = require("../utils/botConfig");
 const { evaluate, loadRows, thresholdsFromConfig } = require("../utils/guildDuelLow");
+const { missingForPeriod, upsertCrests } = require("../utils/guildDuelRows");
 
 function signed(n) {
 	return `${n >= 0 ? "+" : ""}${Math.round(n).toLocaleString("en-US")}`;
@@ -24,16 +25,6 @@ function flaggedLine(p, t) {
 	const act = p.actN ? `activeness avg ${Math.round(p.actAvg)}` : "activeness n/a";
 	const under = p.actUnder ? ` · ${p.actUnder} wk under ${t.actMin}` : "";
 	return `**${p.name}** · ${crest} · ${act}${under}`;
-}
-
-function missingRows(period) {
-	return db.prepare(`
-		SELECT m.ingame_name FROM members m
-		WHERE m.active = 1 AND m.pending = 0
-		  AND NOT EXISTS (SELECT 1 FROM guild_duel_rankings g
-		                  WHERE g.member_id = m.id AND g.period_start = ?)
-		ORDER BY m.ingame_name COLLATE NOCASE
-	`).all(period);
 }
 
 module.exports = {
@@ -69,7 +60,7 @@ module.exports = {
 		const period = guildDuelPeriodKey();
 
 		if (sub === "missing") {
-			const rows = missingRows(period);
+			const rows = missingForPeriod(db, period);
 			if (rows.length === 0) {
 				return interaction.reply({ content: `✅ Every active member has a Guild Duel row for ${period}.`, flags: MessageFlags.Ephemeral });
 			}
@@ -109,10 +100,7 @@ module.exports = {
 			if (!member) {
 				return interaction.reply({ content: `❌ No member named **${name}**. Pick from the autocomplete list.`, flags: MessageFlags.Ephemeral });
 			}
-			db.prepare(`
-				INSERT OR REPLACE INTO guild_duel_rankings (member_id, period_start, rank, crests, scanned_at)
-				VALUES (?, ?, ?, ?, ?)
-			`).run(member.id, period, rank, crests, new Date().toISOString());
+			upsertCrests(db, member.id, period, rank, crests, new Date().toISOString());
 			return interaction.reply({
 				content: `✅ Saved **${member.ingame_name}**: rank #${rank}, ${crests} crests (period ${period}).`,
 				flags: MessageFlags.Ephemeral,
