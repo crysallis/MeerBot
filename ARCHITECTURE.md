@@ -363,6 +363,8 @@ Calls `interaction.deferUpdate()` immediately after the eligibility/status gates
 
 `/guildduel missing` and `/guildduel add` work against the miner-owned `guild_duel_rankings` table (PK `member_id, period_start`). Both use `guildDuelPeriodKey()` in `utils/guildDuel.js`, a JS port of the miner's `guild_duel_period_key` (Monday of the current UTC week minus 7 days, since Battle Report shows the week that just ended) -- if the miner's boundary logic changes, change both. `missing` selects active, non-pending members with no row for that period, so scan-written and hand-added rows both count as present. `add` is `INSERT OR REPLACE`, so re-adding corrects a row. The command sets `setDefaultMemberPermissions(ManageGuild)` because `enforcePermissions` treats a command with no configured rules as open to everyone, which is too loose for a DB write.
 
+A `guild_duel_rankings` row can now exist with only `damage` (written by the miner's Saturday-Sunday `guild_duel_damage` scan) and no `crests` until the Monday Battle Report scan fills them, so every reader that means "has crests" filters `crests IS NOT NULL`. The shared SQL lives in `utils/guildDuelRows.js` (`missingForPeriod`, `latestCrestsRow`, `upsertCrests`, `crestReport`), used by this command, `/member` and the stats site's `/api/guild-duel`, and `mergeMembers` combines overlapping weeks field by field so merging two members never drops one half of a week.
+
 ### glory.js / gloryctaReactionGuard.js / gloryctaCancelButtonHandler.js
 
 One command file (`slash-commands/glory.js`), three subcommands, all backed by the shared `glorycta_polls` table (see Database Tables above):
