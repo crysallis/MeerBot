@@ -78,7 +78,7 @@ const COMMANDS = {
         description: 'Trigger a live guild member scan. Requires BlueStacks and the game to be open.',
         perm: 'scanUser',
         subcommands: [
-            { name: '/scan', desc: 'Optional Guild Duel Damage mode (admin Scan Modes tab, off by default) also reads each member's boss damage on Saturday and Sunday UTC. Navigates to the guild member list, scrapes all data, and saves a snapshot. Afterwards posts an inactivity alert for active members who have been offline too long (AFK-exempt members excluded, departed members excluded).' },
+            { name: '/scan', desc: 'Optional Guild Duel Damage mode (admin Scan Modes tab, off by default) also reads boss damage for every member on Saturday and Sunday UTC. Navigates to the guild member list, scrapes all data, and saves a snapshot. Afterwards posts an inactivity alert for active members who have been offline too long (AFK-exempt members excluded, departed members excluded).' },
         ],
     },
     anniversary: {
