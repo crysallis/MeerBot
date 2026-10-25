@@ -226,6 +226,12 @@ module.exports = {
 			}
 
 			await postInactivityAlert(interaction.client);
+			try {
+				const returned = db.markReturnedCheckins();
+				if (returned) console.log(`[Checkin] Marked ${returned} pending check-in(s) as returned (member seen active again).`);
+			} catch (err) {
+				console.error('[Checkin] markReturnedCheckins failed:', err.message);
+			}
 			await sendInactivityCheckins(interaction.client);
 		});
 	},

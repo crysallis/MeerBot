@@ -60,7 +60,7 @@ async function handleCheckinReaction(reaction, user, client) {
         }
     }
 
-    const row = db.getPendingCheckinByMessageId(reaction.message.id);
+    const row = db.getOpenCheckinByMessageId(reaction.message.id);
     if (!row) return;
 
     const emojiName = stripVariationSelectors(reaction.emoji.name);

@@ -465,10 +465,11 @@ db.exec(`
     sent_at               TEXT NOT NULL,
     days_inactive_at_send INTEGER NOT NULL,
     status                TEXT NOT NULL DEFAULT 'pending'
-        CHECK(status IN ('pending', 'responded_text', 'responded_reaction', 'dm_failed')),
+        CHECK(status IN ('pending', 'responded_text', 'responded_reaction', 'dm_failed', 'returned')),
     response_text         TEXT,
     response_emoji        TEXT,
-    responded_at          TEXT
+    responded_at          TEXT,
+    returned_at           TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_checkin_message ON member_checkin_dms(dm_message_id);
   CREATE INDEX IF NOT EXISTS idx_checkin_member_status ON member_checkin_dms(member_id, status);
@@ -566,6 +567,47 @@ function runRelayMessageMigration() {
     }
 }
 runRelayMessageMigration();
+
+// member_checkin_dms gained a 'returned' status (the member was seen active
+// again after the DM went out, so the check-in no longer needs an answer) and a
+// returned_at column. SQLite cannot change a CHECK constraint in place, so the
+// table is rebuilt once; a no-op on every later startup.
+function migrateCheckinReturned(handle = db) {
+    const row = handle.prepare(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'member_checkin_dms'").get();
+    if (!row || row.sql.includes("'returned'")) return false;
+    handle.transaction(() => {
+        handle.exec(`
+          CREATE TABLE member_checkin_dms_new (
+            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+            member_id             INTEGER NOT NULL REFERENCES members(id),
+            discord_id            TEXT NOT NULL,
+            dm_message_id         TEXT,
+            sent_at               TEXT NOT NULL,
+            days_inactive_at_send INTEGER NOT NULL,
+            status                TEXT NOT NULL DEFAULT 'pending'
+                CHECK(status IN ('pending', 'responded_text', 'responded_reaction', 'dm_failed', 'returned')),
+            response_text         TEXT,
+            response_emoji        TEXT,
+            responded_at          TEXT,
+            returned_at           TEXT
+          );
+          INSERT INTO member_checkin_dms_new
+            (id, member_id, discord_id, dm_message_id, sent_at, days_inactive_at_send,
+             status, response_text, response_emoji, responded_at)
+            SELECT id, member_id, discord_id, dm_message_id, sent_at, days_inactive_at_send,
+                   status, response_text, response_emoji, responded_at
+            FROM member_checkin_dms;
+          DROP TABLE member_checkin_dms;
+          ALTER TABLE member_checkin_dms_new RENAME TO member_checkin_dms;
+          CREATE INDEX IF NOT EXISTS idx_checkin_message ON member_checkin_dms(dm_message_id);
+          CREATE INDEX IF NOT EXISTS idx_checkin_member_status ON member_checkin_dms(member_id, status);
+        `);
+    })();
+    console.log('[DB] Rebuilt member_checkin_dms with the returned status.');
+    return true;
+}
+migrateCheckinReturned();
 
 // One-time consolidation: translation_usage (and the short-lived ask_usage,
 // added and dropped in the same feature wave) merge into claude_usage so
@@ -942,16 +984,50 @@ function createCheckinDm({ memberId, discordId, dmMessageId, sentAt, daysInactiv
     return result.lastInsertRowid;
 }
 
-function getPendingCheckinByMessageId(messageId) {
-    return db.prepare(
-        "SELECT * FROM member_checkin_dms WHERE dm_message_id = ? AND status = 'pending'"
+// A reaction on one specific check-in DM is unambiguous, so it still counts after
+// the member has returned (status 'returned' = seen active again, not yet answered).
+function getOpenCheckinByMessageId(messageId, handle = db) {
+    return handle.prepare(
+        "SELECT * FROM member_checkin_dms WHERE dm_message_id = ? AND status IN ('pending', 'returned')"
     ).get(messageId);
 }
 
-function getPendingCheckinByDiscordId(discordId) {
-    return db.prepare(
+// Free-text replies match 'pending' only: once a member has returned, a plain DM to
+// the bot is a normal question for the ask handler, not an answer to an old check-in.
+function getPendingCheckinByDiscordId(discordId, handle = db) {
+    return handle.prepare(
         "SELECT * FROM member_checkin_dms WHERE discord_id = ? AND status = 'pending'"
     ).get(discordId);
+}
+
+// Tags every still-pending check-in whose member a LATER snapshot shows active again
+// (last_active is not the "Nd ago" form, same test getMembersEligibleForCheckin uses
+// for "a new absence") as 'returned', recording when they were first seen back. It
+// does not claim a response: they logged in, they did not answer the DM.
+function markReturnedCheckins(handle = db) {
+    const pending = handle.prepare(
+        "SELECT id, member_id, sent_at FROM member_checkin_dms WHERE status = 'pending'").all();
+    const firstSeenBack = handle.prepare(`
+        SELECT s.scraped_at
+        FROM member_snapshots ms
+        JOIN snapshots s ON s.id = ms.snapshot_id
+        WHERE ms.member_id = ?
+          AND s.scraped_at > ?
+          AND ms.last_active IS NOT NULL
+          AND ms.last_active NOT LIKE '%d ago'
+        ORDER BY s.scraped_at ASC
+        LIMIT 1`);
+    const mark = handle.prepare(
+        "UPDATE member_checkin_dms SET status = 'returned', returned_at = ? WHERE id = ? AND status = 'pending'");
+    let marked = 0;
+    for (const row of pending) {
+        const seen = firstSeenBack.get(row.member_id, row.sent_at);
+        if (seen) {
+            mark.run(seen.scraped_at, row.id);
+            marked++;
+        }
+    }
+    return marked;
 }
 
 function resolveCheckinResponse(id, { status, responseText, responseEmoji, respondedAt }) {
@@ -1073,8 +1149,10 @@ module.exports.createGloryctaPoll = createGloryctaPoll;
 module.exports.getGloryctaPollByMessageId = getGloryctaPollByMessageId;
 module.exports.deleteGloryctaPoll = deleteGloryctaPoll;
 module.exports.createCheckinDm = createCheckinDm;
-module.exports.getPendingCheckinByMessageId = getPendingCheckinByMessageId;
+module.exports.getOpenCheckinByMessageId = getOpenCheckinByMessageId;
 module.exports.getPendingCheckinByDiscordId = getPendingCheckinByDiscordId;
+module.exports.markReturnedCheckins = markReturnedCheckins;
+module.exports.migrateCheckinReturned = migrateCheckinReturned;
 module.exports.resolveCheckinResponse = resolveCheckinResponse;
 module.exports.getMembersEligibleForCheckin = getMembersEligibleForCheckin;
 module.exports.getRecentlyResolvedCheckin = getRecentlyResolvedCheckin;
