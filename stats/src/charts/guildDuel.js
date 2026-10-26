@@ -106,24 +106,33 @@ function renderDamageChart() {
     empty.classList.add('is-hidden');
     wrap.classList.remove('is-hidden');
 
-    const labels = series.rows.map(r => r.name);
+    const labels = series.rows.map(r => r.id === meId ? `${r.name} (you)` : r.name);
     const data = series.rows.map(r => r.damage);
-    const backgroundColor = series.rows.map(r => r.id === meId ? cssVarRgba('--color-accent', 0.95) : cssVarRgba('--color-primary', 0.8));
+    const isMe = series.rows.map(r => r.id === meId);
+    const text = getCSSVar('--color-base-content');
+    const accent = getCSSVar('--color-accent');
+    const backgroundColor = isMe.map(me => me ? accent : cssVarRgba('--color-primary', 0.5));
+    const borderColor = isMe.map(me => me ? text : 'transparent');
+    const borderWidth = isMe.map(me => me ? 2 : 0);
+    const tickColor = ctx => isMe[ctx.index] ? accent : text;
+    const tickFont = ctx => ({ size: isMe[ctx.index] ? 12 : 10, weight: isMe[ctx.index] ? 'bold' : 'normal' });
 
     if (damageChart) {
+        const ds = damageChart.data.datasets[0];
         damageChart.data.labels = labels;
-        damageChart.data.datasets[0].data = data;
-        damageChart.data.datasets[0].backgroundColor = backgroundColor;
+        Object.assign(ds, { data, backgroundColor, borderColor, borderWidth });
+        const xTicks = damageChart.options.scales.x.ticks;
+        xTicks.color = tickColor;
+        xTicks.font = tickFont;
         damageChart.update();
         return;
     }
 
-    const text = getCSSVar('--color-base-content');
     damageChart = new Chart(document.getElementById('chart-guildduel-damage'), {
         type: 'bar',
         data: {
             labels,
-            datasets: [{ label: 'Damage', data, backgroundColor, borderRadius: 3 }],
+            datasets: [{ label: 'Damage', data, backgroundColor, borderColor, borderWidth, borderRadius: 3 }],
         },
         options: {
             responsive: true,
@@ -133,7 +142,7 @@ function renderDamageChart() {
                 tooltip: { callbacks: { label: ctx => ` ${formatDamage(ctx.parsed.y)}` } },
             },
             scales: {
-                x: { grid: { display: false }, ticks: { color: text, autoSkip: false, maxRotation: 90, minRotation: 60, font: { size: 10 } } },
+                x: { grid: { display: false }, ticks: { color: tickColor, autoSkip: false, maxRotation: 90, minRotation: 60, font: tickFont } },
                 y: { beginAtZero: true, grid: { color: text }, ticks: { color: text, callback: v => formatDamage(v) } },
             },
         },
