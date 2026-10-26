@@ -150,7 +150,7 @@ test('an AFK period that ended before the week does not exempt it', () => {
 test('thresholdsFromConfig applies valid overrides and stores the crest gap as negative', () => {
 	const values = { GUILDDUEL_ACTIVENESS_MIN: '650', GUILDDUEL_CREST_GAP: '1200', GUILDDUEL_FLAG_WEEKS: '2', GUILDDUEL_LOOKBACK_WEEKS: '6', GUILDDUEL_MIN_WEEKS: '3' };
 	const t = thresholdsFromConfig(k => values[k]);
-	assert.deepStrictEqual(t, { actMin: 650, crestGap: -1200, flagWeeks: 2, lookback: 6, minWeeks: 3 });
+	assert.deepStrictEqual(t, { actMin: 650, crestGap: -1200, flagWeeks: 2, lookback: 6, minWeeks: 3, hitFloor: 50 });
 });
 
 test('thresholdsFromConfig falls back to the defaults on blank, zero, negative or non-numeric values', () => {

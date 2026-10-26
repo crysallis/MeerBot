@@ -5,6 +5,7 @@ const { enforcePermissions } = require("../utils/permissions");
 const { guildDuelPeriodKey } = require("../utils/guildDuel");
 const botConfig = require("../utils/botConfig");
 const { evaluate, loadRows, thresholdsFromConfig } = require("../utils/guildDuelLow");
+const { damageLine, zeroSection, damageFooter } = require("../utils/guildDuelLowFormat");
 const { missingForPeriod, upsertCrests } = require("../utils/guildDuelRows");
 const {
 	weekStartOf, afkMemberIdsForWeek, evaluateRecap, classifyWeek, listRecapWeeks, buildRecapEmbed, recapMessage,
@@ -91,14 +92,14 @@ module.exports = {
 		if (sub === "low") {
 			const t = thresholdsFromConfig(botConfig.get);
 			const result = evaluate(loadRows(db), t);
-			const sections = [];
+			const sections = [...zeroSection(result.zeroAttackers)];
 			sections.push(`**Needs a look (${result.flagged.length})**`);
-			sections.push(...(result.flagged.length ? result.flagged.map(p => flaggedLine(p, t)) : ["Nobody this round."]));
+			sections.push(...(result.flagged.length ? result.flagged.flatMap(p => [flaggedLine(p, t), damageLine(p, t)]) : ["Nobody this round."]));
 			return interaction.reply({
 				embeds: [new EmbedBuilder()
 					.setTitle("Guild Duel · who's falling short")
 					.setDescription(fitLines(sections, 4000))
-					.setFooter({ text: `Low = crests ${Math.abs(t.crestGap)}+ under the weekly guild median in ${t.flagWeeks}+ of the last ${t.lookback} weeks, or any week with activeness under ${t.actMin} · ${result.crestWeeks.length} crest wks, ${result.actWeeks.length} complete activeness wks${result.afkSkipped ? ` · AFK weeks skipped for ${result.afkSkipped}` : ""}` })
+					.setFooter({ text: `Low = crests ${Math.abs(t.crestGap)}+ under the weekly guild median in ${t.flagWeeks}+ of the last ${t.lookback} weeks, or any week with activeness under ${t.actMin} · ${result.crestWeeks.length} crest wks, ${result.actWeeks.length} complete activeness wks${result.afkSkipped ? ` · AFK weeks skipped for ${result.afkSkipped}` : ""} · ${damageFooter(t, result.hitMean, result.damageWeeks.length)}` })
 					.setColor(pickColor())],
 				flags: MessageFlags.Ephemeral,
 			});
@@ -118,7 +119,7 @@ module.exports = {
 			const verdict = classifyWeek(db, weekStart);
 			if (verdict.kind !== "ok") return interaction.reply({ content: recapMessage(verdict), flags: MessageFlags.Ephemeral });
 			const rows = db.prepare("SELECT member_id, crests, damage FROM guild_duel_rankings WHERE period_start = ?").all(weekStart);
-			const result = evaluateRecap(rows, afkMemberIdsForWeek(db, weekStart));
+			const result = evaluateRecap(rows, afkMemberIdsForWeek(db, weekStart), thresholdsFromConfig(botConfig.get).hitFloor / 100);
 			if (!result) return interaction.reply({ content: recapMessage({ kind: "no-data" }), flags: MessageFlags.Ephemeral });
 			return interaction.reply({ embeds: [buildRecapEmbed(result, weekStart)] });
 		}

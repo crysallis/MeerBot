@@ -182,7 +182,7 @@ Guild Duel data from the scans. Defaults to Manage Server; the admin panel's Per
 |---|---|
 | `/guildduel recap date:` | Posts a numbers-only recap of one finished Guild Duel week: damage dealt, hits and average hit, and how many hits went unspent. No member names. `date` is any day in that Monday-to-Sunday (UTC) duel week, or leave it empty for the latest finished one. Weeks before Oct 19, 2026 have no damage data, and the current duel can be recapped next week. AFK members are left out. |
 | `/guildduel missing` | Active members the last Guild Duel scan didn't capture for the current Battle Report week |
-| `/guildduel low` | Members falling short on guild activity: crests well under the weekly guild median in 3+ of the last 8 weeks, or any week with activeness under 500 |
+| `/guildduel low` | Members falling short on guild activity: crests well under the weekly guild median in 3+ of the last 8 weeks, or any week with activeness under 500. Also calls out anyone who earned crests but never attacked, and adds a damage note under each flagged member (about what share of their crests they spent against the guild mean hit, against an adjustable Damage Floor). |
 | `/guildduel add name: crests: rank:` | Add or correct one member's Guild Duel row by hand. Rank is optional, and an existing rank is kept. |
 
 ---

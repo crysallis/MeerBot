@@ -405,7 +405,7 @@ function renderAllSections() {
 const GROUP_INFO = {
   guildduel: {
     title: 'Guild Duel · /guildduel low',
-    note: 'These five settings drive the /guildduel low report. Change a value, press Save, then run the command again to see the difference. No restart needed.',
+    note: 'These six settings drive the /guildduel low report and the damage note under each flagged member. Change a value, press Save, then run the command again to see the difference. No restart needed.',
   },
 };
 

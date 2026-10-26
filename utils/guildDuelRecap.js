@@ -2,7 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const { pickColor } = require('./colors');
 
 const HIT_CRESTS = 200;
-const LOW_FACTOR = 0.5;
+const DEFAULT_HIT_FLOOR = 0.5;
 const MIN_ROWS = 10;
 const DAY_MS = 86400000;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -66,46 +66,42 @@ function afkMemberIdsForWeek(handle, weekStart) {
     return ids;
 }
 
-function median(sorted) {
-    const mid = Math.floor(sorted.length / 2);
-    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
-// Hits are crests / 200. The yardstick is the median damage per hit among members who
-// attacked; "unspent" hits are estimated at that median. No member ids or names come out.
-function evaluateRecap(rows, afkIds) {
+// Hits are crests / 200. The yardstick is the guild's mean damage per hit among members who attacked
+// (total damage / total hits); "unspent" hits are estimated at that mean. hitFloor is the shared
+// Guild Duel setting (a share of the mean hit, 0.5 = half): a dealer under it "used only a small part
+// of their crests". No member ids or names come out.
+function evaluateRecap(rows, afkIds, hitFloor = DEFAULT_HIT_FLOOR) {
     const active = rows.filter(r => !afkIds.has(r.member_id));
     const dealers = active.filter(r => r.crests > 0 && r.damage > 0);
     if (dealers.length === 0) return null;
 
-    const perHit = dealers.map(r => r.damage / (r.crests / HIT_CRESTS)).sort((a, b) => a - b);
-    const medianPerHit = median(perHit);
     const totalDamage = dealers.reduce((s, r) => s + r.damage, 0);
     const totalHits = dealers.reduce((s, r) => s + r.crests / HIT_CRESTS, 0);
+    const meanPerHit = totalDamage / totalHits;
 
-    const zeroRows = active.filter(r => r.crests > 0 && !(r.damage > 0));
+    const zeroRows = active.filter(r => r.crests >= HIT_CRESTS && !(r.damage > 0));
     const zeroHits = zeroRows.reduce((s, r) => s + r.crests / HIT_CRESTS, 0);
 
     let lowCount = 0;
     let lowHits = 0;
     for (const r of dealers) {
         const hits = r.crests / HIT_CRESTS;
-        if (r.damage / hits < LOW_FACTOR * medianPerHit) {
+        if (r.damage / hits < hitFloor * meanPerHit) {
             lowCount++;
-            lowHits += hits - r.damage / medianPerHit;
+            lowHits += hits - r.damage / meanPerHit;
         }
     }
 
     const combinedHits = zeroHits + lowHits;
-    const combinedDamage = combinedHits * medianPerHit;
+    const combinedDamage = combinedHits * meanPerHit;
     return {
         dealers: dealers.length,
         totalDamage,
         totalHits,
-        avgPerHit: totalDamage / totalHits,
-        medianPerHit,
-        zero: { count: zeroRows.length, hits: zeroHits, damage: zeroHits * medianPerHit },
-        low: { count: lowCount, hits: lowHits, damage: lowHits * medianPerHit },
+        avgPerHit: meanPerHit,
+        meanPerHit,
+        zero: { count: zeroRows.length, hits: zeroHits, damage: zeroHits * meanPerHit },
+        low: { count: lowCount, hits: lowHits, damage: lowHits * meanPerHit },
         combined: { hits: combinedHits, damage: combinedDamage, pct: (combinedDamage / totalDamage) * 100 },
         afkExcluded: rows.length - active.length,
     };
@@ -177,7 +173,7 @@ function buildRecapEmbed(result, weekStart) {
                 value: `about **${Math.round(result.combined.hits)} unspent hits** · roughly **${fmtB(result.combined.damage)}**\n${result.combined.pct.toFixed(1)}% on top of what we dealt`,
             },
         )
-        .setFooter({ text: `AFK members excluded · estimates use the median hit (${(result.medianPerHit / 1e9).toFixed(2)}B) · one hit = ${HIT_CRESTS} crests` })
+        .setFooter({ text: `AFK members excluded · estimates use the guild mean hit (${(result.meanPerHit / 1e9).toFixed(2)}B) · one hit = ${HIT_CRESTS} crests` })
         .setColor(pickColor());
 }
 

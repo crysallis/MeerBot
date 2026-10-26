@@ -46,7 +46,7 @@ const COMMANDS = {
     guildduel: {
         description: 'Guild Duel Battle Report data · see who the scan missed, who is falling short, and fill in rows by hand.',
         subcommands: [
-            { name: '/guildduel low', desc: 'Members falling short on guild activity: Guild Duel crests well under the weekly guild median in 3+ of the last 8 weeks, or any week with activeness under 500.' },
+            { name: '/guildduel low', desc: 'Members falling short on guild activity: Guild Duel crests well under the weekly guild median in 3+ of the last 8 weeks, or any week with activeness under 500. Calls out anyone who earned crests but never attacked, and adds a damage note under each flagged member (share of crests spent against the guild mean hit, with an adjustable floor).' },
             { name: '/guildduel missing', desc: 'Lists active members with no Guild Duel row for the current Battle Report week.' },
             { name: '/guildduel recap date:', desc: 'Posts a numbers-only recap of one finished Guild Duel week: damage dealt, hits and average hit, and how many hits went unspent (no names). Date is any day in the duel week; leave it empty for the latest finished one. Weeks before Oct 19, 2026 have no data, and the current duel is available next week. Defaults to Manage Server only.' },
             { name: '/guildduel add name: crests: rank:', desc: 'Add or correct one member\'s row for the current week. Name autocompletes, rank is optional (an existing rank is kept). Defaults to Manage Server only.' },

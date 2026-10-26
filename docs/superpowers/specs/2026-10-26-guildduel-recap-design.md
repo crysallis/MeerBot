@@ -21,16 +21,17 @@ unspent, without naming anyone. A manual version (2026-10-25, week of Oct 19) fo
 - Embed, no member names anywhere: date range (and the Sat/Sun boss window), guild total damage, hits
   and average damage per hit, then two groups (earned crests but never attacked; attacked but far below
   their crests) with member count, unspent hits and estimated damage, then the combined unspent hits,
-  damage and percent of what the guild dealt. Footer: AFK excluded, estimates use the median hit, one
+  damage and percent of what the guild dealt. Footer: AFK excluded, estimates use the guild mean hit, one
   hit = 200 crests.
 
 ## Numbers (same as the manual run)
 
 Hits = crests / 200. Dealers = non-AFK members with crests > 0 and damage > 0. Average damage per hit =
-total damage / total hits over dealers. Median per-member damage per hit is the yardstick. Group 1 =
-non-AFK members with crests > 0 and no damage: unspent hits = crests / 200. Group 2 = dealers whose
-damage per hit is under half the median: unspent hits = hits - damage / median. Estimated damage =
-unspent hits x median. Thresholds are constants in code for now (half the median).
+total damage / total hits over dealers, and that mean is the yardstick (changed from the median on
+2026-10-26 so the recap and `/guildduel low` agree). Group 1 = non-AFK members with crests >= 200 and no
+damage: unspent hits = crests / 200. Group 2 = dealers whose damage per hit is under the shared
+`GUILDDUEL_HIT_FLOOR` share of the mean hit (default 50 percent, adjustable on the admin Config tab):
+unspent hits = hits - damage / mean. Estimated damage = unspent hits x mean.
 
 ## AFK rule (user's decision)
 

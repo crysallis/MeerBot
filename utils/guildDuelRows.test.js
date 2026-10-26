@@ -102,3 +102,20 @@ test('guildDuelLow loadRows ignores damage-only rows', () => {
 	addRow(db, 2, '2026-10-19', { rank: 4, crests: 4000 });
 	assert.deepEqual(loadRows(db).crestRows.map(r => r.name), ['Bbb']);
 });
+
+test('guildDuelLow loadRows returns the weekly damage values next to the crest rows', () => {
+	const db = makeDb();
+	db.exec(`
+		CREATE TABLE snapshots (id INTEGER PRIMARY KEY, scraped_at TEXT);
+		CREATE TABLE member_snapshots (snapshot_id INTEGER, member_id INTEGER, activeness INTEGER);
+		CREATE TABLE member_afk (member_id INTEGER, set_at TEXT, return_date TEXT);
+		CREATE TABLE member_afk_history (member_id INTEGER, started_at TEXT, ended_at TEXT);
+	`);
+	addRow(db, 1, '2026-10-19', { rank: 3, crests: 4200, damage: 5e11 });
+	addRow(db, 2, '2026-10-19', { crests: 4000 });
+	addRow(db, 3, '2026-10-19', { damage: 3e11 });
+	const rows = loadRows(db);
+	assert.deepEqual(rows.damageRows.map(r => [r.name, r.week, r.damage]),
+		[['Aaa', '2026-10-19', 5e11], ['Ccc', '2026-10-19', 3e11]]);
+	assert.deepEqual(rows.crestRows.map(r => r.name), ['Aaa', 'Bbb']);
+});

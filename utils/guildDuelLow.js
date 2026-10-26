@@ -7,6 +7,7 @@ const THRESHOLDS = {
 	lookback: 8,
 	flagWeeks: 3,
 	minWeeks: 4,
+	hitFloor: 50,
 };
 
 const CONFIG_KEYS = {
@@ -15,7 +16,11 @@ const CONFIG_KEYS = {
 	flagWeeks: 'GUILDDUEL_FLAG_WEEKS',
 	lookback: 'GUILDDUEL_LOOKBACK_WEEKS',
 	minWeeks: 'GUILDDUEL_MIN_WEEKS',
+	hitFloor: 'GUILDDUEL_HIT_FLOOR',
 };
+
+const HIT_CRESTS = 200;
+const DAMAGE_MIN_ROWS = 10;
 
 function weekStartUtc(input) {
 	const d = new Date(input);
@@ -65,7 +70,54 @@ function makeAfkCheck(afkSpans) {
 	};
 }
 
-function evaluate({ crestRows, actRows, activeIds, afkSpans = [] }, t = THRESHOLDS) {
+// Damage is context, never a trigger on its own. A week only counts once enough members have damage
+// recorded (the weekend scan ran), hits are crests / 200, and "spent" is a member's damage per crest
+// earned against the guild's mean damage per hit that week. Crests earned with no damage are listed
+// separately, since that is the clearest red flag.
+function damageContext({ crestRows, damageRows, activeIds, isAfkWeek, crestWeeks }) {
+	const dealtBy = new Map(damageRows.filter(r => r.damage > 0).map(r => [`${r.memberId}|${r.week}`, r.damage]));
+	const dealersPerWeek = new Map();
+	for (const r of damageRows) if (r.damage > 0) dealersPerWeek.set(r.week, (dealersPerWeek.get(r.week) || 0) + 1);
+	const weeks = crestWeeks.filter(w => (dealersPerWeek.get(w) || 0) >= DAMAGE_MIN_ROWS);
+
+	const weekMean = new Map();
+	let allDamage = 0;
+	let allHits = 0;
+	for (const wk of weeks) {
+		let damage = 0;
+		let hits = 0;
+		for (const r of crestRows) {
+			if (r.week !== wk || r.crests <= 0 || isAfkWeek(r.memberId, wk)) continue;
+			const d = dealtBy.get(`${r.memberId}|${wk}`);
+			if (!d) continue;
+			damage += d;
+			hits += r.crests / HIT_CRESTS;
+		}
+		if (hits > 0) {
+			weekMean.set(wk, damage / hits);
+			allDamage += damage;
+			allHits += hits;
+		}
+	}
+
+	const people = new Map();
+	for (const r of crestRows) {
+		const mean = weekMean.get(r.week);
+		if (!mean || r.crests <= 0 || !activeIds.has(r.memberId) || isAfkWeek(r.memberId, r.week)) continue;
+		const damage = dealtBy.get(`${r.memberId}|${r.week}`) || 0;
+		if (!people.has(r.memberId)) people.set(r.memberId, { name: r.name, n: 0, ratioSum: 0, zeroWeeks: 0, zeroCrests: 0 });
+		const p = people.get(r.memberId);
+		p.n++;
+		p.ratioSum += damage > 0 ? damage / (r.crests / HIT_CRESTS) / mean : 0;
+		if (damage === 0 && r.crests >= HIT_CRESTS) {
+			p.zeroWeeks++;
+			p.zeroCrests += r.crests;
+		}
+	}
+	return { people, weeks: [...weeks], hitMean: allHits > 0 ? allDamage / allHits : null };
+}
+
+function evaluate({ crestRows, actRows, activeIds, afkSpans = [], damageRows = [] }, t = THRESHOLDS) {
 	const isAfkWeek = makeAfkCheck(afkSpans);
 	const afkSkipped = new Set();
 	const notAfk = (memberId, week) => {
@@ -113,8 +165,15 @@ function evaluate({ crestRows, actRows, activeIds, afkSpans = [] }, t = THRESHOL
 		if (gap < t.crestGap) p.crestLow++;
 	}
 
+	const dmg = damageContext({ crestRows, damageRows, activeIds, isAfkWeek, crestWeeks });
+	const damageOf = id => {
+		const d = dmg.people.get(id);
+		const avg = d && d.n ? d.ratioSum / d.n : null;
+		return { dmgN: d ? d.n : 0, dmgRatioAvg: avg, dmgAtOrAbove: avg == null ? null : avg >= t.hitFloor / 100 };
+	};
+
 	const flagged = [];
-	for (const p of people.values()) {
+	for (const [id, p] of people) {
 		const out = {
 			name: p.name,
 			actN: p.actN,
@@ -123,13 +182,20 @@ function evaluate({ crestRows, actRows, activeIds, afkSpans = [] }, t = THRESHOL
 			crestN: p.crestN,
 			crestLow: p.crestLow,
 			crestAvgGap: p.crestN ? p.gapSum / p.crestN : null,
+			...damageOf(id),
 		};
 		const crestFlag = p.crestN >= t.minWeeks && p.crestLow >= t.flagWeeks;
 		if (crestFlag || p.actUnder > 0) flagged.push(out);
 	}
 
 	flagged.sort((a, b) => b.actUnder - a.actUnder || b.crestLow - a.crestLow || a.crestAvgGap - b.crestAvgGap);
-	return { flagged, actWeeks, crestWeeks, afkSkipped: afkSkipped.size };
+
+	const zeroAttackers = [...dmg.people.values()]
+		.filter(d => d.zeroWeeks > 0)
+		.map(d => ({ name: d.name, zeroWeeks: d.zeroWeeks, damageWeeks: d.n, crests: d.zeroCrests }))
+		.sort((a, b) => b.zeroWeeks - a.zeroWeeks || b.crests - a.crests || a.name.localeCompare(b.name));
+
+	return { flagged, zeroAttackers, damageWeeks: dmg.weeks, hitMean: dmg.hitMean, actWeeks, crestWeeks, afkSkipped: afkSkipped.size };
 }
 
 function thresholdsFromConfig(get) {
@@ -146,6 +212,12 @@ function loadRows(db) {
 		SELECT g.member_id AS memberId, m.ingame_name AS name, g.period_start AS week, g.crests AS crests
 		FROM guild_duel_rankings g JOIN members m ON m.id = g.member_id
 		WHERE g.crests IS NOT NULL
+	`).all();
+	const damageRows = db.prepare(`
+		SELECT g.member_id AS memberId, m.ingame_name AS name, g.period_start AS week, g.damage AS damage
+		FROM guild_duel_rankings g JOIN members m ON m.id = g.member_id
+		WHERE g.damage IS NOT NULL
+		ORDER BY g.period_start, g.member_id
 	`).all();
 	const actRows = db.prepare(`
 		SELECT ms.member_id AS memberId, m.ingame_name AS name, s.scraped_at AS scrapedAt, ms.activeness AS activeness
@@ -165,7 +237,7 @@ function loadRows(db) {
 			FROM member_afk
 		`).all(),
 	];
-	return { crestRows, actRows, activeIds, afkSpans };
+	return { crestRows, damageRows, actRows, activeIds, afkSpans };
 }
 
 module.exports = { THRESHOLDS, CONFIG_KEYS, thresholdsFromConfig, weekStartUtc, isCompleteScan, evaluate, loadRows };

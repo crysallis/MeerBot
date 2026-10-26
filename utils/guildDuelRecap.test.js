@@ -86,12 +86,14 @@ test('evaluateRecap counts the guild total, the average hit and both unspent gro
     assert.equal(r.totalDamage, 255e9);
     assert.equal(r.totalHits, 30);
     assert.equal(r.avgPerHit, 8.5e9);
-    assert.equal(r.medianPerHit, 10e9);
-    assert.deepEqual(r.zero, { count: 1, hits: 3, damage: 30e9 });
-    assert.deepEqual(r.low, { count: 1, hits: 4.5, damage: 45e9 });
-    assert.equal(r.combined.hits, 7.5);
-    assert.equal(r.combined.damage, 75e9);
-    assert.ok(Math.abs(r.combined.pct - 29.41) < 0.01);
+    assert.equal(r.meanPerHit, 8.5e9);
+    assert.deepEqual(r.zero, { count: 1, hits: 3, damage: 25.5e9 });
+    assert.equal(r.low.count, 1);
+    assert.ok(Math.abs(r.low.hits - 4.4118) < 0.001);
+    assert.ok(Math.abs(r.low.damage - 37.5e9) < 1e6);
+    assert.ok(Math.abs(r.combined.hits - 7.4118) < 0.001);
+    assert.ok(Math.abs(r.combined.damage - 63e9) < 1e6);
+    assert.ok(Math.abs(r.combined.pct - 24.71) < 0.01);
     assert.equal(r.afkExcluded, 1);
 });
 
@@ -165,7 +167,7 @@ test('the embed has the date range, the totals and the groups, and no names', ()
     assert.ok(byName['Guild total'].includes('8.5B per hit'));
     assert.ok(byName['Earned crests, never attacked'].includes('1 member'));
     assert.ok(byName['Used only a small part of their crests'].includes('1 member'));
-    assert.ok(byName['Left on the table'].includes('29.4%'));
+    assert.ok(byName['Left on the table'].includes('24.7%'));
     assert.ok(embed.footer.text.includes('AFK'));
 });
 
@@ -185,4 +187,25 @@ test('the replies for weeks we cannot recap say why, in one plain sentence', () 
     assert.ok(recapMessage({ kind: 'crests-pending' }).includes('Monday'));
     assert.ok(recapMessage({ kind: 'invalid' }).includes('YYYY-MM-DD'));
     assert.ok(recapMessage({ kind: 'no-data' }).includes("don't have"));
+});
+
+test('the floor is the shared setting: a lower floor stops counting a member as using little of their crests', () => {
+    const strict = evaluateRecap(rows, new Set([8]), 0.5);
+    const loose = evaluateRecap(rows, new Set([8]), 0.05);
+    assert.equal(strict.low.count, 1);
+    assert.equal(loose.low.count, 0);
+});
+
+test('the floor defaults to half the mean hit', () => {
+    assert.deepEqual(evaluateRecap(rows, new Set([8])).low, evaluateRecap(rows, new Set([8]), 0.5).low);
+});
+
+test('crests worth less than one hit do not count as earning and never attacking', () => {
+    const withTiny = [...rows, { member_id: 9, crests: 150, damage: null }];
+    assert.equal(evaluateRecap(withTiny, new Set([8])).zero.count, 1);
+});
+
+test('the footer names the mean hit it estimates with', () => {
+    const embed = buildRecapEmbed(evaluateRecap(rows, new Set([8])), '2026-10-19').toJSON();
+    assert.ok(embed.footer.text.includes('guild mean hit (8.50B)'));
 });
