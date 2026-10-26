@@ -2,7 +2,8 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const db = require('../utils/db');
 const { pickColor, toRgba } = require('../utils/colors');
 const { enforcePermissions } = require('../utils/permissions');
-const { latestCrestsRow } = require('../utils/guildDuelRows');
+const { latestDuelWeek, weekHasDamageData, duelDamageText, duelCrestsText } = require('../utils/guildDuelRows');
+const { isMemberAfkForWeek } = require('../utils/guildDuelRecap');
 
 function fmtPower(val) {
     if (!val) return '·';
@@ -126,7 +127,9 @@ module.exports = {
             SELECT rank FROM arcane_lab_rankings WHERE member_id = ?
             ORDER BY scanned_at DESC LIMIT 1
         `).get(mid);
-        const guildDuel = latestCrestsRow(db, mid);
+        const guildDuel = latestDuelWeek(db, mid);
+        const afkThatWeek = guildDuel ? isMemberAfkForWeek(db, mid, guildDuel.period_start) : false;
+        const afkNow = !!db.prepare('SELECT 1 FROM member_afk WHERE member_id = ?').get(mid);
         const dreamRealm = db.prepare(`
             SELECT ds.boss_name, ds.rank, MAX(ds.scanned_at) AS scanned_at
             FROM dream_realm_scores ds
@@ -140,7 +143,7 @@ module.exports = {
             ? afkStages.map(s => `P${s.phase} ${s.progress || '·'}${s.rank != null ? ` (#${s.rank})` : ''}`).join('\n')
             : '·';
 
-        const afkValue = current.afk_until ? `Until ${current.afk_until}` : 'Not AF AFK';
+        const afkValue = current.afk_until ? `Until ${current.afk_until}` : afkNow ? 'Yes · no return date' : 'Not AF AFK';
 
         const lastScanned = history[0]?.scraped_at?.slice(0, 10);
         const embed = new EmbedBuilder()
@@ -157,9 +160,12 @@ module.exports = {
             .setColor(color);
 
         const rankStr = (row) => (row && row.rank != null) ? `#${row.rank}` : '·';
-        const guildDuelValue = guildDuel && guildDuel.crests != null
-            ? `${guildDuel.crests}${guildDuel.rank != null ? ` (#${guildDuel.rank})` : ''}`
-            : '·';
+        const guildDuelValue = duelCrestsText(guildDuel, afkThatWeek, afkNow);
+        const guildDuelDamage = duelDamageText(
+            guildDuel,
+            guildDuel ? weekHasDamageData(db, guildDuel.period_start) : false,
+            guildDuel ? afkThatWeek : afkNow,
+        );
 
         embed.addFields(
             { name: '🏔️ AFK Stages',    value: afkStagesValue,        inline: true },
@@ -168,6 +174,7 @@ module.exports = {
             { name: '🎖️ Honor Duel',     value: rankStr(honor),        inline: true },
             { name: '🧪 Arcane Lab',     value: rankStr(arcaneLab),    inline: true },
             { name: '⚜️ Guild Duel Crests', value: guildDuelValue,     inline: true },
+            { name: '💥 Guild Duel Damage', value: guildDuelDamage,   inline: true },
         );
 
         if (dreamRealm.length) {

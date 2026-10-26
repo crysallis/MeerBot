@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const Database = require('better-sqlite3');
 const {
     weekStartOf, formatWeekRange, formatBossWindow, afkMemberIdsForWeek, evaluateRecap,
-    classifyWeek, listRecapWeeks, buildRecapEmbed, recapMessage,
+    classifyWeek, listRecapWeeks, buildRecapEmbed, recapMessage, isMemberAfkForWeek,
 } = require('./guildDuelRecap');
 
 function memDb() {
@@ -208,4 +208,15 @@ test('crests worth less than one hit do not count as earning and never attacking
 test('the footer names the mean hit it estimates with', () => {
     const embed = buildRecapEmbed(evaluateRecap(rows, new Set([8])), '2026-10-19').toJSON();
     assert.ok(embed.footer.text.includes('guild mean hit (8.50B)'));
+});
+
+test('AFK: the check can be narrowed to one member and uses the same rule', () => {
+    const h = memDb();
+    h.prepare("INSERT INTO member_afk VALUES (1, 'x', NULL, '2026-10-20T10:00:00.000Z')").run();
+    h.prepare("INSERT INTO member_afk VALUES (2, 'x', NULL, '2026-10-26T01:24:00.000Z')").run();
+    h.prepare("INSERT INTO member_afk_history (member_id, started_at, ended_at) VALUES (3, '2026-10-10T00:00:00.000Z', '2026-10-21T23:59:59.999Z')").run();
+    assert.equal(isMemberAfkForWeek(h, 1, '2026-10-19'), true);
+    assert.equal(isMemberAfkForWeek(h, 2, '2026-10-19'), false);
+    assert.equal(isMemberAfkForWeek(h, 3, '2026-10-19'), true);
+    assert.equal(isMemberAfkForWeek(h, 4, '2026-10-19'), false);
 });

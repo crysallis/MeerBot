@@ -51,19 +51,24 @@ function shortRange(weekStart) {
 // A member is excluded when an AFK period touched the duel week: a current record that
 // started before the week ended (unless its return date already passed before the week),
 // or any history row overlapping it. AFK that began after the week does not count.
-function afkMemberIdsForWeek(handle, weekStart) {
+function afkMemberIdsForWeek(handle, weekStart, onlyMemberId = null) {
     const weekEnd = `${addDays(weekStart, 7)}T00:00:00.000Z`;
     const weekStartIso = `${weekStart}T00:00:00.000Z`;
     const ids = new Set();
     for (const r of handle.prepare('SELECT member_id, set_at, return_date FROM member_afk').all()) {
+        if (onlyMemberId != null && r.member_id !== onlyMemberId) continue;
         if (r.set_at < weekEnd && !(r.return_date && r.return_date < weekStart)) ids.add(r.member_id);
     }
     for (const r of handle.prepare(
         'SELECT member_id FROM member_afk_history WHERE started_at < ? AND (ended_at IS NULL OR ended_at >= ?)'
     ).all(weekEnd, weekStartIso)) {
-        ids.add(r.member_id);
+        if (onlyMemberId == null || r.member_id === onlyMemberId) ids.add(r.member_id);
     }
     return ids;
+}
+
+function isMemberAfkForWeek(handle, memberId, weekStart) {
+    return afkMemberIdsForWeek(handle, weekStart, memberId).has(memberId);
 }
 
 // Hits are crests / 200. The yardstick is the guild's mean damage per hit among members who attacked
@@ -199,6 +204,6 @@ function recapMessage(c) {
 }
 
 module.exports = {
-    weekStartOf, formatWeekRange, formatBossWindow, shortRange, afkMemberIdsForWeek, evaluateRecap,
+    weekStartOf, formatWeekRange, formatBossWindow, shortRange, afkMemberIdsForWeek, isMemberAfkForWeek, evaluateRecap,
     classifyWeek, listRecapWeeks, buildRecapEmbed, recapMessage,
 };

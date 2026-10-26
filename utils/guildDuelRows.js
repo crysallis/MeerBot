@@ -55,4 +55,46 @@ function crestReport(db) {
 	return { periods, rows, absent };
 }
 
-module.exports = { missingForPeriod, latestCrestsRow, upsertCrests, crestReport };
+// The most recent week that has crests, with that same week's damage (null when none was recorded).
+function latestDuelWeek(db, memberId) {
+	return db.prepare(`
+		SELECT period_start, rank, crests, damage FROM guild_duel_rankings
+		WHERE member_id = ? AND crests IS NOT NULL
+		ORDER BY scanned_at DESC LIMIT 1
+	`).get(memberId);
+}
+
+// A week only counts as having damage data once the weekend scan clearly ran (10+ members with damage),
+// so a week from before damage capture is never reported as "no damage".
+function weekHasDamageData(db, period, minRows = 10) {
+	return db.prepare('SELECT COUNT(*) AS n FROM guild_duel_rankings WHERE period_start = ? AND damage > 0')
+		.get(period).n >= minRows;
+}
+
+function formatDuelDamage(damage) {
+	if (damage >= 1e9) {
+		const b = damage / 1e9;
+		const shown = b >= 100 ? Math.round(b) : Math.round(b * 10) / 10;
+		return `${Number.isInteger(shown) ? shown : shown.toFixed(1)}B`;
+	}
+	return `${Math.round(damage / 1e6)}M`;
+}
+
+function duelDamageText(row, weekHasData, afk = false) {
+	if (row && row.damage > 0) return afk ? `${formatDuelDamage(row.damage)} · AFK` : formatDuelDamage(row.damage);
+	if (afk) return 'AFK';
+	return row && weekHasData ? 'No damage' : '·';
+}
+
+function duelCrestsText(row, afk = false, currentlyAfk = false) {
+	if (row && row.crests != null) {
+		const base = `${row.crests}${row.rank != null ? ` (#${row.rank})` : ''}`;
+		return afk ? `${base} · AFK` : base;
+	}
+	return currentlyAfk ? 'AFK' : '·';
+}
+
+module.exports = {
+	missingForPeriod, latestCrestsRow, upsertCrests, crestReport,
+	latestDuelWeek, weekHasDamageData, duelDamageText, duelCrestsText,
+};

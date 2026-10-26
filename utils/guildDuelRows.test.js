@@ -119,3 +119,85 @@ test('guildDuelLow loadRows returns the weekly damage values next to the crest r
 		[['Aaa', '2026-10-19', 5e11], ['Ccc', '2026-10-19', 3e11]]);
 	assert.deepEqual(rows.crestRows.map(r => r.name), ['Aaa', 'Bbb']);
 });
+
+const { latestDuelWeek, weekHasDamageData, duelDamageText } = require('./guildDuelRows');
+
+function addMembers(db, count) {
+	for (let i = 4; i < 4 + count; i++) db.prepare("INSERT INTO members (id, ingame_name) VALUES (?, ?)").run(i, `M${i}`);
+}
+
+test('latestDuelWeek returns the most recent crests row with that same week\'s damage', () => {
+	const db = makeDb();
+	addRow(db, 1, '2026-10-12', { rank: 2, crests: 4400, at: '2026-10-19T01:00:00Z' });
+	addRow(db, 1, '2026-10-19', { rank: 3, crests: 4200, damage: 5e11, at: '2026-10-26T01:00:00Z' });
+	assert.deepEqual({ ...latestDuelWeek(db, 1) },
+		{ period_start: '2026-10-19', rank: 3, crests: 4200, damage: 5e11 });
+});
+
+test('latestDuelWeek ignores a newer damage-only week and keeps the last week with crests', () => {
+	const db = makeDb();
+	addRow(db, 1, '2026-10-19', { crests: 4200, damage: 5e11, at: '2026-10-26T01:00:00Z' });
+	addRow(db, 1, '2026-10-26', { damage: 4e11, at: '2026-11-01T20:00:00Z' });
+	const row = latestDuelWeek(db, 1);
+	assert.equal(row.period_start, '2026-10-19');
+	assert.equal(row.damage, 5e11);
+});
+
+test('latestDuelWeek is undefined for a member with no crests row', () => {
+	assert.equal(latestDuelWeek(makeDb(), 1), undefined);
+});
+
+test('weekHasDamageData needs ten members with damage that week', () => {
+	const db = makeDb();
+	addMembers(db, 12);
+	for (let id = 4; id < 13; id++) addRow(db, id, '2026-10-19', { crests: 4000, damage: 1e11 });
+	assert.equal(weekHasDamageData(db, '2026-10-19'), false);
+	addRow(db, 13, '2026-10-19', { crests: 4000, damage: 1e11 });
+	assert.equal(weekHasDamageData(db, '2026-10-19'), true);
+	assert.equal(weekHasDamageData(db, '2026-10-12'), false);
+});
+
+test('duelDamageText shows the damage in the game\'s own style', () => {
+	assert.equal(duelDamageText({ damage: 567e9 }, true), '567B');
+	assert.equal(duelDamageText({ damage: 19.166e9 }, true), '19.2B');
+	assert.equal(duelDamageText({ damage: 450e6 }, true), '450M');
+});
+
+test('duelDamageText says no damage when the week has damage data and this member has none', () => {
+	assert.equal(duelDamageText({ damage: null }, true), 'No damage');
+	assert.equal(duelDamageText({ damage: 0 }, true), 'No damage');
+});
+
+test('duelDamageText stays blank for a week that predates damage capture and for no row at all', () => {
+	assert.equal(duelDamageText({ damage: null }, false), '·');
+	assert.equal(duelDamageText(undefined, false), '·');
+});
+
+const { duelCrestsText } = require('./guildDuelRows');
+
+test('duelDamageText shows AFK instead of "No damage" for a member who was out that week', () => {
+	assert.equal(duelDamageText({ damage: null }, true, true), 'AFK');
+	assert.equal(duelDamageText({ damage: 0 }, true, true), 'AFK');
+});
+
+test('duelDamageText keeps the damage and adds the AFK tag when an AFK member still attacked', () => {
+	assert.equal(duelDamageText({ damage: 567e9 }, true, true), '567B · AFK');
+});
+
+test('duelDamageText says AFK even for a week before damage capture, since the member was out', () => {
+	assert.equal(duelDamageText({ damage: null }, false, true), 'AFK');
+});
+
+test('duelCrestsText keeps today\'s crests format and adds the rank when there is one', () => {
+	assert.equal(duelCrestsText({ crests: 4850, rank: null }), '4850');
+	assert.equal(duelCrestsText({ crests: 4850, rank: 3 }), '4850 (#3)');
+});
+
+test('duelCrestsText tags a member who was AFK that week', () => {
+	assert.equal(duelCrestsText({ crests: 100, rank: null }, true), '100 · AFK');
+});
+
+test('duelCrestsText with no crests row is blank, or AFK when the member is out right now', () => {
+	assert.equal(duelCrestsText(undefined, false, false), '·');
+	assert.equal(duelCrestsText(undefined, false, true), 'AFK');
+});

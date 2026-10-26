@@ -281,9 +281,13 @@ Output is chunked into embeds of 50 members each (`chunkLinesIntoDescriptions`) 
 Displays the latest row (`ORDER BY scanned_at DESC LIMIT 1`, no period filtering
 even for period-keyed tables like `supreme_arena_rankings`/`guild_duel_rankings`)
 from each mode's ranking table: AFK Stages, Supreme Arena, Arena, Honor Duel,
-Arcane Lab, Guild Duel Crests, plus a separate multi-row Dream Realm field
+Arcane Lab, Guild Duel Crests and Guild Duel Damage, plus a separate multi-row Dream Realm field
 (per-boss). Guild Duel Crests shows `{crests} (#{rank})` rather than just a
-rank, since crests (not placement alone) is the tracked stat — see
+rank, since crests (not placement alone) is the tracked stat. Guild Duel Damage is that same
+week's damage (`567B`, `19.2B`), `No damage` when that week has damage data (10+ members with
+damage) and the member has none, and `·` for a week from before damage capture; a member who
+was AFK that week (same rule as `/guildduel recap`) gets `AFK` in both fields, with the numbers
+kept and ` · AFK` appended when they still attacked — see
 AFKDataMining's `guild_duel_rankings` schema (owned by the Python miner, this
 repo only reads it).
 
