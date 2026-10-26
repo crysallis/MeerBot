@@ -350,6 +350,7 @@ async function handleTranslationReactionSync(reaction, user, client, isAdd) {
                 if (existing) await existing.users.remove(client.user.id);
             }
         } catch (err) {
+            if (err.code === 10014) continue; // custom emoji from a server the bot is not in: it cannot mirror it
             console.error(`[TranslationRelay] Reaction sync failed for channel ${sibling.channel_id}:`, err.message);
         }
     }

@@ -208,3 +208,42 @@ test('handleTranslationReactionSync one target channel failing does not block ot
         if (groupId) db.deleteRelayMessagesByGroupId(groupId);
     }
 });
+
+async function runWithFailingReact(error) {
+    let groupId;
+    const errors = [];
+    const realError = console.error;
+    console.error = (...args) => errors.push(args.join(' '));
+    try {
+        groupId = db.insertRelayMessage({
+            relayGroupMessageId: 0, channelId: 'chan-src', messageId: 'msg-orig-quiet',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'English', text: 'hi',
+        });
+        db.setRelayMessageGroupId(groupId, groupId);
+        db.insertRelayMessage({
+            relayGroupMessageId: groupId, channelId: 'chan-target', messageId: 'msg-copy-quiet',
+            authorId: 'user-1', authorDisplayName: 'Tester', language: 'Spanish', text: 'hola',
+        });
+        const stubClient = {
+            user: { id: BOT_USER_ID },
+            channels: { fetch: async () => ({ messages: { fetch: async () => ({ react: async () => { throw error; } }) } }) },
+        };
+        const reaction = { partial: false, message: { id: 'msg-orig-quiet' }, emoji: { name: 'JAMrat', id: '798398295721639946' } };
+        await handleTranslationReactionSync(reaction, { id: 'real-user-1' }, stubClient, true);
+    } finally {
+        console.error = realError;
+        if (groupId) db.deleteRelayMessagesByGroupId(groupId);
+    }
+    return errors;
+}
+
+test('handleTranslationReactionSync stays quiet when the bot cannot use a custom emoji from another server', async () => {
+    const errors = await runWithFailingReact(Object.assign(new Error('Unknown Emoji'), { code: 10014 }));
+    assert.deepStrictEqual(errors, []);
+});
+
+test('handleTranslationReactionSync still logs any other reaction sync failure', async () => {
+    const errors = await runWithFailingReact(Object.assign(new Error('Missing Permissions'), { code: 50013 }));
+    assert.strictEqual(errors.length, 1);
+    assert.ok(errors[0].includes('Reaction sync failed'));
+});
