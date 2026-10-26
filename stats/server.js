@@ -8,7 +8,7 @@ const path      = require('path');
 const db        = require('../utils/db');
 const botConfig = require('../utils/botConfig');
 const { thresholdsFromConfig } = require('../utils/guildDuelLow');
-const { crestReport } = require('../utils/guildDuelRows');
+const { crestReport, damageReport } = require('../utils/guildDuelRows');
 const auth      = require('./auth');
 
 const PORT = process.env.STATS_PORT || 3002;
@@ -199,10 +199,10 @@ app.get('/api/arena', (req, res) => {
     }
 });
 
-// GET /api/guild-duel · crest rankings + who's missing, per period
+// GET /api/guild-duel · crest rankings + who's missing, per period, plus the weekly damage (damage.periods/rows/afk)
 app.get('/api/guild-duel', (req, res) => {
     try {
-        res.json(crestReport(db));
+        res.json({ ...crestReport(db), damage: damageReport(db) });
     } catch (err) {
         console.error('[stats] /api/guild-duel error:', err);
         res.status(500).json({ error: 'Database error' });

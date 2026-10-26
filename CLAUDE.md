@@ -107,6 +107,7 @@ from there.
 | `shared/themes.js` | Theme registry -- `THEMES` array (value/label/mode) + `themeMode(value)` helper · imported by both sites for dropdown and mode lookup |
 | `stats/src/style.css` | Tailwind v4 + DaisyUI v5 entry · `@import "tailwindcss"; @plugin "daisyui" { themes: false; }` · layout + component overrides |
 | `stats/src/index.html` | Public stats UI · DaisyUI component classes (`btn`, `badge`, `table`, `stat`, `card`) · Theme Preview tab shows all vars/components in active theme |
+| `stats/src/charts/guildDuel.js` + `guildDuelDamage.mjs` | Stats Guild Duel tab · crests line chart plus a damage bar chart (same Warband/Period/Members selectors) and a Damage column in the Had Crests table · `/api/guild-duel` = `crestReport` + `damageReport` (`utils/guildDuelRows.js`, weeks with 10+ damage rows only, AFK via `utils/duelWeeks.js`) · pure display rules in `guildDuelDamage.mjs` (No damage / AFK / blank) · charts must update in place, never destroy and recreate in `_recolor`, or the theme-recolor loop throws · needs `pm2 restart meerbot-stats --update-env` since `stats/server.js` changed |
 | `ecosystem.config.js` | PM2 multi-process config · defines `meerbot` (bot, `index.js`), `meerbot-admin` (`admin/server.js`), `meerbot-stats` (`stats/server.js`), `meerbot-test` (bot only, from the separate `DiscordBotAfkJ-test` checkout · not started by default, see Test Bot) |
 
 ## Slash Commands

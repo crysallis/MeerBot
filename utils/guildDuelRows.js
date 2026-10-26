@@ -1,3 +1,5 @@
+const { afkMemberIdsForWeek } = require('./duelWeeks');
+
 function missingForPeriod(db, period) {
 	return db.prepare(`
 		SELECT m.ingame_name FROM members m
@@ -94,7 +96,28 @@ function duelCrestsText(row, afk = false, currentlyAfk = false) {
 	return currentlyAfk ? 'AFK' : '·';
 }
 
+// Weekly damage for the stats site: only weeks where the weekend scan clearly ran (10+ members with
+// damage), the damage rows for those weeks, and who was AFK in each (same rule as the recap).
+function damageReport(db, minRows = 10) {
+	const periods = db.prepare(`
+		SELECT period_start FROM guild_duel_rankings WHERE damage > 0
+		GROUP BY period_start HAVING COUNT(*) >= ? ORDER BY period_start
+	`).all(minRows).map(r => r.period_start);
+	if (!periods.length) return { periods: [], rows: [], afk: {} };
+
+	const marks = periods.map(() => '?').join(',');
+	const rows = db.prepare(`
+		SELECT member_id, period_start, damage FROM guild_duel_rankings
+		WHERE damage > 0 AND period_start IN (${marks})
+		ORDER BY period_start, damage DESC
+	`).all(...periods);
+
+	const afk = {};
+	for (const p of periods) afk[p] = [...afkMemberIdsForWeek(db, p)];
+	return { periods, rows, afk };
+}
+
 module.exports = {
-	missingForPeriod, latestCrestsRow, upsertCrests, crestReport,
+	missingForPeriod, latestCrestsRow, upsertCrests, crestReport, damageReport,
 	latestDuelWeek, weekHasDamageData, duelDamageText, duelCrestsText,
 };

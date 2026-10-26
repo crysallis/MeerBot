@@ -1,8 +1,10 @@
 import { Chart, registerables } from 'chart.js';
-import { escHtml, getCSSVar } from '../utils.js';
+import { escHtml, getCSSVar, cssVarRgba } from '../utils.js';
+import { indexDamage, damageFor, damageSeries, formatDamage } from './guildDuelDamage.mjs';
 Chart.register(...registerables);
 
 let chart = null;
+let damageChart = null;
 let state = null;
 let meId  = null;
 
@@ -37,7 +39,7 @@ export async function initGuildDuel(me) {
         absentByPeriod.get(r.period_start).add(r.member_id);
     }
 
-    state = { periods: data.periods, memberMap, absentByPeriod };
+    state = { periods: data.periods, memberMap, absentByPeriod, damage: indexDamage(data.damage) };
 
     // Warband filter
     const wbFilter = document.getElementById('gd-warband-filter');
@@ -73,7 +75,70 @@ let allSelected = true;
 
 function renderAll() {
     renderChart();
+    renderDamageChart();
     renderLists();
+}
+
+function chartMembers() {
+    const wbSel = document.getElementById('gd-warband-filter').value;
+    let members = [...state.memberMap.values()];
+    if (!allSelected && selectedIds.size > 0) members = members.filter(m => selectedIds.has(m.id));
+    else if (wbSel) members = members.filter(m => m.warbandName === wbSel);
+    return members;
+}
+
+// Damage per member for the selected period (All Time = the weeks added up), one bar each, following the
+// same Warband / Period / Members selections as the crests chart and the tables below.
+function renderDamageChart() {
+    const wrap  = document.getElementById('gd-damage-wrap');
+    const empty = document.getElementById('gd-damage-empty');
+    const period = document.getElementById('gd-period-select').value;
+    const series = damageSeries(state.damage, chartMembers(), period);
+
+    if (!series.hasData || !series.rows.length) {
+        wrap.classList.add('is-hidden');
+        empty.classList.remove('is-hidden');
+        empty.textContent = series.hasData
+            ? 'No damage recorded for this selection.'
+            : 'Damage was not captured for this period.';
+        return;
+    }
+    empty.classList.add('is-hidden');
+    wrap.classList.remove('is-hidden');
+
+    const labels = series.rows.map(r => r.name);
+    const data = series.rows.map(r => r.damage);
+    const backgroundColor = series.rows.map(r => r.id === meId ? cssVarRgba('--color-accent', 0.95) : cssVarRgba('--color-primary', 0.8));
+
+    if (damageChart) {
+        damageChart.data.labels = labels;
+        damageChart.data.datasets[0].data = data;
+        damageChart.data.datasets[0].backgroundColor = backgroundColor;
+        damageChart.update();
+        return;
+    }
+
+    const text = getCSSVar('--color-base-content');
+    damageChart = new Chart(document.getElementById('chart-guildduel-damage'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{ label: 'Damage', data, backgroundColor, borderRadius: 3 }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend:  { display: false },
+                tooltip: { callbacks: { label: ctx => ` ${formatDamage(ctx.parsed.y)}` } },
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { color: text, autoSkip: false, maxRotation: 90, minRotation: 60, font: { size: 10 } } },
+                y: { beginAtZero: true, grid: { color: text }, ticks: { color: text, callback: v => formatDamage(v) } },
+            },
+        },
+    });
+    damageChart._recolor = renderDamageChart;
 }
 
 function renderChart() {
@@ -178,13 +243,16 @@ function renderLists() {
 function renderHadTable(rows, period) {
     if (!rows.length) return '<div class="empty-state">No data for this filter.</div>';
     const label = period === 'all' ? 'Total Crests' : 'Crests';
-    let html = `<table class="data-table"><thead><tr><th>Member</th><th>Warband</th><th>${label}</th></tr></thead><tbody>`;
+    const dmgLabel = period === 'all' ? 'Total Damage' : 'Damage';
+    let html = `<table class="data-table"><thead><tr><th>Member</th><th>Warband</th><th>${label}</th><th>${dmgLabel}</th></tr></thead><tbody>`;
     for (const { m, total } of rows) {
         const isMe = m.id === meId;
+        const dmg = damageFor(state.damage, m, period);
         html += `<tr${isMe ? ' class="me"' : ''}>
             <td data-label="Member">${escHtml(m.name)}</td>
             <td data-label="Warband"><span class="warband-tag">${escHtml(m.warbandName)}</span></td>
             <td data-label="${label}"><strong>${total}</strong></td>
+            <td data-label="${dmgLabel}" class="dmg-${dmg.kind}">${escHtml(dmg.text)}</td>
         </tr>`;
     }
     html += '</tbody></table>';
@@ -269,6 +337,7 @@ function buildMemberDropdown(container, members, me) {
         }
         syncBtn();
         renderChart();
+        renderDamageChart();
     });
 
     menu.querySelectorAll('input[data-member-id]').forEach(check => {
@@ -287,6 +356,7 @@ function buildMemberDropdown(container, members, me) {
             }
             syncBtn();
             renderChart();
+            renderDamageChart();
         });
     });
 

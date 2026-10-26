@@ -387,3 +387,10 @@ canvas { max-height: 400px; }
   .scan-note,
   .warband-tag { color: color-mix(in oklab, var(--color-base-content) 75%, transparent); }
 }
+
+/* Guild Duel damage chart and column */
+.is-hidden { display: none !important; }
+.gd-damage-wrap { position: relative; width: 100%; height: 420px; }
+#chart-guildduel-damage { max-height: none; }
+.data-table td.dmg-none { color: var(--color-error); font-weight: 600; }
+.data-table td.dmg-afk, .data-table td.dmg-blank { opacity: .65; }

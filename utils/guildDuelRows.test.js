@@ -201,3 +201,39 @@ test('duelCrestsText with no crests row is blank, or AFK when the member is out 
 	assert.equal(duelCrestsText(undefined, false, false), '·');
 	assert.equal(duelCrestsText(undefined, false, true), 'AFK');
 });
+
+const { damageReport } = require('./guildDuelRows');
+
+function damageDb() {
+	const db = makeDb();
+	db.exec(`
+		CREATE TABLE member_afk (member_id INTEGER, reason TEXT, return_date TEXT, set_at TEXT);
+		CREATE TABLE member_afk_history (member_id INTEGER, started_at TEXT, ended_at TEXT, return_date TEXT, reason TEXT);
+	`);
+	addMembers(db, 14);
+	return db;
+}
+
+test('damageReport lists only weeks with damage data, with their damage rows', () => {
+	const db = damageDb();
+	for (let id = 4; id < 14; id++) addRow(db, id, '2026-10-19', { crests: 4000, damage: (id - 3) * 1e10 });
+	for (let id = 4; id < 7; id++) addRow(db, id, '2026-10-12', { crests: 4000, damage: 1e10 });
+	const r = damageReport(db);
+	assert.deepEqual(r.periods, ['2026-10-19']);
+	assert.equal(r.rows.length, 10);
+	assert.ok(r.rows.every(x => x.period_start === '2026-10-19' && x.damage > 0));
+	assert.deepEqual({ ...r.rows.find(x => x.member_id === 5) }, { member_id: 5, period_start: '2026-10-19', damage: 2e10 });
+});
+
+test('damageReport says who was AFK in each damage week, by the recap rule', () => {
+	const db = damageDb();
+	for (let id = 4; id < 14; id++) addRow(db, id, '2026-10-19', { crests: 4000, damage: 1e10 });
+	db.prepare("INSERT INTO member_afk VALUES (4, 'travel', NULL, '2026-10-20T10:00:00.000Z')").run();
+	db.prepare("INSERT INTO member_afk VALUES (5, 'later', NULL, '2026-10-26T02:00:00.000Z')").run();
+	db.prepare("INSERT INTO member_afk_history (member_id, started_at, ended_at) VALUES (6, '2026-10-01T00:00:00.000Z', '2026-10-21T23:59:59.999Z')").run();
+	assert.deepEqual(damageReport(db).afk['2026-10-19'].sort((a, b) => a - b), [4, 6]);
+});
+
+test('damageReport on a database with no damage is empty', () => {
+	assert.deepEqual(damageReport(damageDb()), { periods: [], rows: [], afk: {} });
+});
