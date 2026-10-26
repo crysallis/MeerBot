@@ -106,7 +106,7 @@ function renderDamageChart() {
     empty.classList.add('is-hidden');
     wrap.classList.remove('is-hidden');
 
-    const labels = series.rows.map(r => r.id === meId ? `${r.name} (you)` : r.name);
+    const labels = series.rows.map(r => r.name);
     const data = series.rows.map(r => r.damage);
     const isMe = series.rows.map(r => r.id === meId);
     const text = getCSSVar('--color-base-content');
