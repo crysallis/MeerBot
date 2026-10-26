@@ -49,8 +49,8 @@ module.exports = {
 			.setName("add")
 			.setDescription("Add or correct one member's Guild Duel row by hand")
 			.addStringOption(o => o.setName("name").setDescription("In-game name").setRequired(true).setAutocomplete(true))
-			.addIntegerOption(o => o.setName("rank").setDescription("Rank on the Battle Report").setRequired(true).setMinValue(1))
-			.addIntegerOption(o => o.setName("crests").setDescription("Crest total").setRequired(true).setMinValue(0))),
+			.addIntegerOption(o => o.setName("crests").setDescription("Crest total").setRequired(true).setMinValue(0))
+			.addIntegerOption(o => o.setName("rank").setDescription("Rank on the Battle Report (optional, rarely captured)").setMinValue(1))),
 
 	async autocomplete(interaction) {
 		const focusedOption = interaction.options.getFocused(true);
@@ -135,7 +135,7 @@ module.exports = {
 			}
 			upsertCrests(db, member.id, period, rank, crests, new Date().toISOString());
 			return interaction.reply({
-				content: `✅ Saved **${member.ingame_name}**: rank #${rank}, ${crests} crests (period ${period}).`,
+				content: `✅ Saved **${member.ingame_name}**: ${rank ? `rank #${rank}, ` : ""}${crests} crests (period ${period}).`,
 				flags: MessageFlags.Ephemeral,
 			});
 		}

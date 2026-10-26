@@ -125,7 +125,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/guildduel low` | Members falling short on guild activity · Guild Duel crests well under the weekly guild median in 3+ of the last 8 weeks, or any week with activeness under 500 · Manage Server by default |
 | `/guildduel missing` | List active members the last Guild Duel scan didn't capture (current Battle Report week) |
 | `/guildduel recap date:` | Public numbers-only recap of one finished Guild Duel week (damage, hits, unspent hits, no names) · Manage Server by default |
-| `/guildduel add name: rank: crests:` | Add or correct one member's Guild Duel row by hand · Manage Server by default |
+| `/guildduel add name: crests: rank:` | Add or correct one member's Guild Duel row by hand · rank is optional, an existing rank is kept · Manage Server by default |
 | `/glory count message:` | Count reactions on a `/glory cta` or `/glory confirm` post · pass a Discord message link |
 | `/scan` | Trigger a live guild scrape (authorized user only) · always runs the roster scan; enabled mode scans run alongside · the Guild Duel Damage mode (off by default, toggle in the admin Scan Modes tab) reads each member's boss damage and only runs Saturday to Sunday UTC, before the Monday reset |
 | `/roster add guild: user:` | Add a Discord member to a guild role (RiffRaff or Frop) · removes Who Dis? role |

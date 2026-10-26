@@ -44,6 +44,28 @@ test('upsertCrests inserts a fresh row when none exists', () => {
 	assert.equal(db.prepare('SELECT crests FROM guild_duel_rankings WHERE member_id = 2').get().crests, 3100);
 });
 
+test('upsertCrests with no rank inserts a row with an empty rank', () => {
+	const db = makeDb();
+	upsertCrests(db, 2, '2026-10-12', null, 3100, '2026-10-19T01:00:00Z');
+	const row = db.prepare('SELECT rank, crests FROM guild_duel_rankings WHERE member_id = 2').get();
+	assert.deepEqual({ ...row }, { rank: null, crests: 3100 });
+});
+
+test('upsertCrests with no rank keeps a rank that was already saved', () => {
+	const db = makeDb();
+	addRow(db, 1, '2026-10-19', { rank: 7, crests: 3900, damage: 5e11 });
+	upsertCrests(db, 1, '2026-10-19', null, 4100, '2026-10-26T01:00:00Z');
+	const row = db.prepare('SELECT rank, crests, damage FROM guild_duel_rankings WHERE member_id = 1').get();
+	assert.deepEqual({ ...row }, { rank: 7, crests: 4100, damage: 5e11 });
+});
+
+test('upsertCrests with a rank still overwrites the old rank', () => {
+	const db = makeDb();
+	addRow(db, 1, '2026-10-19', { rank: 7, crests: 3900 });
+	upsertCrests(db, 1, '2026-10-19', 2, 4100, '2026-10-26T01:00:00Z');
+	assert.equal(db.prepare('SELECT rank FROM guild_duel_rankings WHERE member_id = 1').get().rank, 2);
+});
+
 test('latestCrestsRow returns the older crests row when a newer damage-only row exists', () => {
 	const db = makeDb();
 	addRow(db, 1, '2026-10-12', { rank: 2, crests: 4400, at: '2026-10-19T01:00:00Z' });

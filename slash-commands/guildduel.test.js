@@ -49,3 +49,12 @@ test('the member-name autocomplete used by /guildduel add still works', async ()
     assert.ok(i.responses[0].length <= 25);
     for (const choice of i.responses[0]) assert.equal(choice.name, choice.value);
 });
+
+test('/guildduel add needs name and crests, and rank is optional (listed last)', () => {
+    const add = cmd.data.toJSON().options.find(o => o.name === 'add');
+    assert.deepEqual(add.options.map(o => o.name), ['name', 'crests', 'rank']);
+    const byName = Object.fromEntries(add.options.map(o => [o.name, o]));
+    assert.equal(byName.name.required, true);
+    assert.equal(byName.crests.required, true);
+    assert.notEqual(byName.rank.required, true);
+});

@@ -21,7 +21,7 @@ function upsertCrests(db, memberId, period, rank, crests, scannedAt) {
 		INSERT INTO guild_duel_rankings (member_id, period_start, rank, crests, scanned_at)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(member_id, period_start) DO UPDATE SET
-			rank = excluded.rank, crests = excluded.crests, scanned_at = excluded.scanned_at
+			rank = COALESCE(excluded.rank, rank), crests = excluded.crests, scanned_at = excluded.scanned_at
 	`).run(memberId, period, rank, crests, scannedAt);
 }
 
