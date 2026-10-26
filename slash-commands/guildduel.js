@@ -6,6 +6,9 @@ const { guildDuelPeriodKey } = require("../utils/guildDuel");
 const botConfig = require("../utils/botConfig");
 const { evaluate, loadRows, thresholdsFromConfig } = require("../utils/guildDuelLow");
 const { missingForPeriod, upsertCrests } = require("../utils/guildDuelRows");
+const {
+	weekStartOf, afkMemberIdsForWeek, evaluateRecap, classifyWeek, listRecapWeeks, buildRecapEmbed, recapMessage,
+} = require("../utils/guildDuelRecap");
 
 function signed(n) {
 	return `${n >= 0 ? "+" : ""}${Math.round(n).toLocaleString("en-US")}`;
@@ -39,6 +42,10 @@ module.exports = {
 			.setName("low")
 			.setDescription("Members falling short on guild activity, measured against the guild median"))
 		.addSubcommand(s => s
+			.setName("recap")
+			.setDescription("Numbers-only recap of one Guild Duel week: damage dealt and hits left unspent")
+			.addStringOption(o => o.setName("date").setDescription("Any day in the duel week, YYYY-MM-DD (empty = latest finished duel)").setAutocomplete(true)))
+		.addSubcommand(s => s
 			.setName("add")
 			.setDescription("Add or correct one member's Guild Duel row by hand")
 			.addStringOption(o => o.setName("name").setDescription("In-game name").setRequired(true).setAutocomplete(true))
@@ -46,7 +53,14 @@ module.exports = {
 			.addIntegerOption(o => o.setName("crests").setDescription("Crest total").setRequired(true).setMinValue(0))),
 
 	async autocomplete(interaction) {
-		const focused = interaction.options.getFocused().toLowerCase();
+		const focusedOption = interaction.options.getFocused(true);
+		const focused = String(focusedOption.value).toLowerCase();
+		if (focusedOption.name === "date") {
+			const weeks = listRecapWeeks(db)
+				.filter(w => w.label.toLowerCase().includes(focused) || w.weekStart.includes(focused))
+				.slice(0, 25);
+			return interaction.respond(weeks.map(w => ({ name: w.label, value: w.weekStart })));
+		}
 		const names = db.prepare(
 			"SELECT ingame_name FROM members WHERE active = 1 AND pending = 0 ORDER BY ingame_name COLLATE NOCASE"
 		).all().map(r => r.ingame_name);
@@ -88,6 +102,25 @@ module.exports = {
 					.setColor(pickColor())],
 				flags: MessageFlags.Ephemeral,
 			});
+		}
+
+		if (sub === "recap") {
+			const raw = (interaction.options.getString("date") || "").trim();
+			let weekStart;
+			if (raw) {
+				weekStart = weekStartOf(raw);
+				if (!weekStart) return interaction.reply({ content: recapMessage({ kind: "invalid" }), flags: MessageFlags.Ephemeral });
+			} else {
+				const weeks = listRecapWeeks(db);
+				if (weeks.length === 0) return interaction.reply({ content: recapMessage({ kind: "none" }), flags: MessageFlags.Ephemeral });
+				weekStart = weeks[0].weekStart;
+			}
+			const verdict = classifyWeek(db, weekStart);
+			if (verdict.kind !== "ok") return interaction.reply({ content: recapMessage(verdict), flags: MessageFlags.Ephemeral });
+			const rows = db.prepare("SELECT member_id, crests, damage FROM guild_duel_rankings WHERE period_start = ?").all(weekStart);
+			const result = evaluateRecap(rows, afkMemberIdsForWeek(db, weekStart));
+			if (!result) return interaction.reply({ content: recapMessage({ kind: "no-data" }), flags: MessageFlags.Ephemeral });
+			return interaction.reply({ embeds: [buildRecapEmbed(result, weekStart)] });
 		}
 
 		if (sub === "add") {
