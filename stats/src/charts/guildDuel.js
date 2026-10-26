@@ -112,15 +112,13 @@ function renderDamageChart() {
     const text = getCSSVar('--color-base-content');
     const accent = getCSSVar('--color-accent');
     const backgroundColor = isMe.map(me => me ? accent : cssVarRgba('--color-primary', 0.5));
-    const borderColor = isMe.map(me => me ? text : 'transparent');
-    const borderWidth = isMe.map(me => me ? 2 : 0);
     const tickColor = ctx => isMe[ctx.index] ? accent : text;
     const tickFont = ctx => ({ size: isMe[ctx.index] ? 12 : 10, weight: isMe[ctx.index] ? 'bold' : 'normal' });
 
     if (damageChart) {
         const ds = damageChart.data.datasets[0];
         damageChart.data.labels = labels;
-        Object.assign(ds, { data, backgroundColor, borderColor, borderWidth });
+        Object.assign(ds, { data, backgroundColor });
         const xTicks = damageChart.options.scales.x.ticks;
         xTicks.color = tickColor;
         xTicks.font = tickFont;
@@ -132,7 +130,7 @@ function renderDamageChart() {
         type: 'bar',
         data: {
             labels,
-            datasets: [{ label: 'Damage', data, backgroundColor, borderColor, borderWidth, borderRadius: 3 }],
+            datasets: [{ label: 'Damage', data, backgroundColor, borderRadius: 3 }],
         },
         options: {
             responsive: true,
