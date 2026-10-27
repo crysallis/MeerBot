@@ -45,3 +45,11 @@ If someone asks how to "add a role" or "give someone a role" and they mean a gui
 Every command can be restricted to specific Discord roles and/or specific channels, set up by guild leadership through the admin panel. Not every command has restrictions -- most are open to everyone. When a command IS restricted, both conditions have to be true: you need the right role AND you need to be in an allowed channel, if either is configured.
 
 If someone can't run a command, it's one of those two things: missing a required role, or being in the wrong channel. There's no other reason a command would be blocked.
+
+## Game terms the bot does NOT explain
+
+This doc and the command list describe what the bot does, not how the game works. If someone asks what a game mode or mechanic IS (Guild Duel, crests, Supreme Arena, and so on), say plainly that you only know the bot's commands for it, not how it works in the game, and list those commands. Do not guess, and do not describe a game mode from the names of the commands that track it.
+
+The few game facts the bot's own commands rely on, and nothing beyond them:
+
+- **Guild Duel:** a weekly contest. Members earn **crests** for doing quests throughout the week. At the end of the week, in the Boss phase, each attack run costs 200 crests. A member's **damage** is calculated as their highest single hit x the number of hits. Each week we scan for dmg and crests earned.

@@ -152,3 +152,33 @@ test('handleAskReport writes a reported-source ask_flags row for a tracked reply
     assert.equal(row.answer, 'tracked answer');
     db.prepare('DELETE FROM ask_flags WHERE user_id = ?').run(userId);
 });
+
+const { parseAskResponse } = require('./askHandler');
+
+test('parseAskResponse reads a clean JSON reply', () => {
+    const out = parseAskResponse('{"reply": "Use /ping.", "flagged": false}');
+    assert.deepEqual(out, { text: 'Use /ping.', flagged: false, structured: true });
+});
+
+test('parseAskResponse reads a code-fenced JSON reply', () => {
+    const out = parseAskResponse('```json\n{"reply": "Hi", "flagged": true}\n```');
+    assert.deepEqual(out, { text: 'Hi', flagged: true, structured: true });
+});
+
+test('parseAskResponse takes the JSON reply when the model wrote prose before it', () => {
+    const raw = 'You\'re right, my bad.\n\n{"reply": "You\'re right, my bad.", "flagged": false}';
+    const out = parseAskResponse(raw);
+    assert.equal(out.text, 'You\'re right, my bad.');
+    assert.equal(out.flagged, false);
+    assert.equal(out.structured, true);
+});
+
+test('parseAskResponse falls back to the raw text when there is no JSON at all', () => {
+    const out = parseAskResponse('Just a plain answer.');
+    assert.deepEqual(out, { text: 'Just a plain answer.', flagged: false, structured: false });
+});
+
+test('parseAskResponse treats a reply that is not a string as unstructured', () => {
+    const out = parseAskResponse('{"reply": 5, "flagged": false}');
+    assert.equal(out.structured, false);
+});

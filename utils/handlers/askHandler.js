@@ -111,6 +111,26 @@ function recordExchange(userId, question, answer) {
     rateLimitLog.set(userId, entries);
 }
 
+function readReplyObject(candidate) {
+    try {
+        const parsed = JSON.parse(stripCodeFence(candidate));
+        if (typeof parsed.reply === 'string' && typeof parsed.flagged === 'boolean') return parsed;
+    } catch { /* not JSON */ }
+    return null;
+}
+
+// Haiku sometimes writes prose first and the JSON object after it (mostly on
+// follow-up questions), so a whole-string parse fails and the raw text, JSON
+// blob included, used to be posted. Fall back to the last {"reply": ...} object.
+function parseAskResponse(raw) {
+    const whole = raw ? readReplyObject(raw) : null;
+    if (whole) return { text: whole.reply, flagged: whole.flagged, structured: true };
+    const at = raw ? raw.lastIndexOf('{"reply"') : -1;
+    const tail = at >= 0 ? readReplyObject(raw.slice(at)) : null;
+    if (tail) return { text: tail.reply, flagged: tail.flagged, structured: true };
+    return { text: raw || '', flagged: false, structured: false };
+}
+
 async function handleAsk(message, client) {
     if (message.author.bot) return;
     if (message.guild !== null) return; // DM only
@@ -165,6 +185,7 @@ async function handleAsk(message, client) {
         const system = [
             'You are MeerBot, a Discord bot for an AFK Journey guild called RiffRaff. A guild member has DMed you asking what you can do or how to do something.',
             'Answer ONLY using the command list, guide, channel guide (if present), and capability summary below. Do not invent commands, features, or behavior not described in this context.',
+            'State only what the context below literally says. Do not infer, extrapolate, or add a summary of what something is "basically about" or why it exists. A command list describes what the BOT does; it does not tell you how a game mode, event, or mechanic works. If asked what something in the game IS and the context does not explain it, say you don\'t have that explained, then offer the bot commands that touch it. Never fill the gap with general knowledge or a guess, and never define a game term (crests, damage, hits) beyond what the context says.',
             'Give the exact slash command syntax when relevant (e.g. `/glory cta time1: time2: duration:`).',
             'The capability summary below reflects THIS SPECIFIC user\'s real permissions — use it to give a direct yes/no answer when they ask if they can do something, including which channel if restricted.',
             'Reply like a person texting back a quick answer in Discord DMs, not like a doc page. Write in plain sentences and short paragraphs.',
@@ -205,19 +226,12 @@ async function handleAsk(message, client) {
         });
 
         const raw = response.content?.[0]?.text?.trim();
-        let text, flagged;
-        try {
-            const parsed = JSON.parse(stripCodeFence(raw));
-            if (typeof parsed.reply !== 'string' || typeof parsed.flagged !== 'boolean') {
-                throw new Error(`Malformed ask response shape: ${raw}`);
-            }
-            text = parsed.reply;
-            flagged = parsed.flagged;
-        } catch (parseErr) {
-            console.error('[AskHandler] Failed to parse structured response, falling back to raw text:', parseErr.message);
-            text = raw || "I couldn't come up with an answer to that — try `/help` for the full command list.";
-            flagged = false;
+        const parsed = parseAskResponse(raw);
+        if (!parsed.structured) {
+            console.error('[AskHandler] Failed to parse structured response, falling back to raw text:', raw?.slice(0, 80));
         }
+        const text = parsed.text || "I couldn't come up with an answer to that — try `/help` for the full command list.";
+        const flagged = parsed.flagged;
 
         const sent = await message.reply(text + REPORT_HINT);
         recordExchange(message.author.id, message.content, text);
@@ -275,4 +289,4 @@ async function handleAskReport(reaction, user, client) {
     }
 }
 
-module.exports = { handleAsk, handleAskReport, isRateLimited, getRecentHistory, recordExchange, rememberReply, isSilencedNonMember, silenceNonMember };
+module.exports = { handleAsk, handleAskReport, parseAskResponse, isRateLimited, getRecentHistory, recordExchange, rememberReply, isSilencedNonMember, silenceNonMember };
