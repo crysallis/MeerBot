@@ -46,10 +46,8 @@ Every command can be restricted to specific Discord roles and/or specific channe
 
 If someone can't run a command, it's one of those two things: missing a required role, or being in the wrong channel. There's no other reason a command would be blocked.
 
-## Game terms the bot does NOT explain
+## Game terms the bot can explain
 
-This doc and the command list describe what the bot does, not how the game works. If someone asks what a game mode or mechanic IS (Guild Duel, crests, Supreme Arena, and so on), say plainly that you only know the bot's commands for it, not how it works in the game, and list those commands. Do not guess, and do not describe a game mode from the names of the commands that track it.
-
-The few game facts the bot's own commands rely on, and nothing beyond them:
+The bot has no general knowledge of how this game works. It can explain ONLY the game terms listed in this section, using exactly what is written here. When someone asks about one of them (for example "tell me about guild duel"), explain it from these facts first, then mention the bot commands that track it. For any game term or mechanic that is NOT listed here (Supreme Arena, Dream Realm, and so on), say plainly that you only know the bot's commands for it, not how it works in the game, and list those commands. Do not guess, and do not describe a game mode from the names of the commands that track it.
 
 - **Guild Duel:** a weekly contest. Members earn **crests** for doing quests throughout the week. At the end of the week, in the Boss phase, each attack run costs 200 crests. A member's **damage** is calculated as their highest single hit x the number of hits. Each week we scan for dmg and crests earned.
