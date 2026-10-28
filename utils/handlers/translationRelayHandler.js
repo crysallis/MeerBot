@@ -2,11 +2,11 @@ const { WebhookClient } = require('discord.js');
 const Anthropic = require('@anthropic-ai/sdk');
 const db = require('../db');
 const botConfig = require('../botConfig');
+const { splitForDiscord, outputTokenBudget, DISCORD_CONTENT_MAX_LEN } = require('../relayLimits');
 
 const anthropic = new Anthropic();
 
 const QUOTE_MAX_LEN = 100;
-const DISCORD_CONTENT_MAX_LEN = 2000;
 
 const BATCH_TIMEOUT_KEY = 'translation_relay_batch_timeout_seconds';
 const BATCH_TIMEOUT_DEFAULT_SECONDS = 10;
@@ -23,13 +23,23 @@ function truncateQuote(text) {
     return t.length > QUOTE_MAX_LEN ? t.slice(0, QUOTE_MAX_LEN) + '…' : t;
 }
 
-// Keeps quotePrefix intact and truncates bodyText so the combined content fits Discord's
-// 2000-char message limit -- otherwise the webhook send is rejected outright and
-// sendViaWebhook's catch-all silently drops that one target channel's copy.
-function fitContent(quotePrefix, bodyText) {
-    const budget = DISCORD_CONTENT_MAX_LEN - quotePrefix.length - 1; // -1 for the … marker
-    if (bodyText.length <= budget) return bodyText;
-    return bodyText.slice(0, Math.max(0, budget)) + '…';
+// A relayed copy can be longer than Discord's 2000-char message limit (Nitro members post up
+// to 4000, and a translation can run longer than its source), and an over-long webhook send
+// is rejected outright. So a copy is split into consecutive messages instead: the first one
+// (which carries the reply quote and any attachments) is the copy's anchor, the rest are
+// remembered in extra_message_ids. MAX_CHUNKS stops one huge post flooding a channel.
+const MAX_CHUNKS = 5;
+
+function chunkBody(quotePrefix, bodyText) {
+    return splitForDiscord(bodyText, DISCORD_CONTENT_MAX_LEN - quotePrefix.length, MAX_CHUNKS);
+}
+
+function extraIdsOf(row) {
+    try {
+        return JSON.parse(row.extra_message_ids || '[]');
+    } catch {
+        return [];
+    }
 }
 
 async function getOrCreateWebhook(channelRow, channel) {
@@ -68,15 +78,9 @@ function stripCodeFence(text) {
     return fenced ? fenced[1].trim() : text;
 }
 
-// Base budget covers a normal single-message translation with headroom; batching multiplies
-// output size by both line count and target-language count (one full JSON array per language),
-// so the ceiling scales with both rather than staying fixed at the single-message value.
-const BASE_MAX_TOKENS = 512;
-const PER_LINE_PER_LANGUAGE_TOKENS = 128;
-
 async function callClaude(sourceLanguage, targetLanguages, lines) {
     const numberedLines = lines.map((l, i) => `${i + 1}. ${l}`).join('\n');
-    const maxTokens = Math.max(1024, BASE_MAX_TOKENS + lines.length * targetLanguages.length * PER_LINE_PER_LANGUAGE_TOKENS);
+    const maxTokens = outputTokenBudget(lines, targetLanguages.length); // scales with text length, not just line count
     const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5',
         max_tokens: maxTokens,
@@ -282,7 +286,7 @@ async function processTranslationRelay(client, batch) {
                 quotePrefix = `> ${truncateQuote(quoteText)}\n`;
             }
         }
-        bodyText = fitContent(quotePrefix, bodyText);
+        const chunks = chunkBody(quotePrefix, bodyText);
 
         const allAttachments = messages.flatMap(m => m.attachments ?? []);
         const files = allAttachments.length > 0
@@ -290,13 +294,25 @@ async function processTranslationRelay(client, batch) {
             : undefined;
 
         const sent = await sendViaWebhook(targetRow, channel, {
-            content: quotePrefix + bodyText,
+            content: quotePrefix + chunks[0],
             username: authorDisplayName,
             avatarURL: authorAvatarURL,
             allowedMentions: { parse: ['users'] },
             ...(files ? { files } : {}),
         });
         if (!sent) continue;
+
+        const extraMessageIds = [];
+        for (const chunk of chunks.slice(1)) {
+            const more = await sendViaWebhook(targetRow, channel, {
+                content: chunk,
+                username: authorDisplayName,
+                avatarURL: authorAvatarURL,
+                allowedMentions: { parse: ['users'] },
+            });
+            if (!more) break;
+            extraMessageIds.push(more.id);
+        }
 
         db.insertRelayMessage({
             relayGroupMessageId,
@@ -308,6 +324,7 @@ async function processTranslationRelay(client, batch) {
             text: bodyText,
             batchMessageIds,
             lastLineText: lastLineTranslated,
+            extraMessageIds,
         });
 
         if (!translations) {
@@ -361,6 +378,42 @@ function rebuildBatchAfterChange(batchMessageIds, messageId, newText) {
         return batchMessageIds.filter(entry => entry.messageId !== messageId);
     }
     return batchMessageIds.map(entry => entry.messageId === messageId ? { ...entry, text: newText } : entry);
+}
+
+// Brings a relayed copy's chunk messages in line with the new text: edits the chunks that
+// still exist, appends any extra ones, deletes any leftovers. Returns the copy's new
+// extra_message_ids (every chunk id after the first). A chunk appended by an edit lands at
+// the bottom of the channel, which is only out of place if people posted since.
+async function syncCopyChunks(webhook, channel, sibling, quotePrefix, chunks) {
+    const existing = [sibling.message_id, ...extraIdsOf(sibling)];
+    const kept = [];
+    for (let i = 0; i < chunks.length; i++) {
+        const content = (i === 0 ? quotePrefix : '') + chunks[i];
+        if (i < existing.length) {
+            await webhook.editMessage(existing[i], { content });
+            kept.push(existing[i]);
+            continue;
+        }
+        let avatarURL;
+        try {
+            avatarURL = (await channel.messages.fetch(existing[0])).author.displayAvatarURL();
+        } catch { /* falls back to the webhook's own avatar */ }
+        const sent = await webhook.send({
+            content,
+            username: sibling.author_display_name,
+            avatarURL,
+            allowedMentions: { parse: ['users'] },
+        });
+        kept.push(sent.id);
+    }
+    for (const staleId of existing.slice(chunks.length)) {
+        try {
+            await webhook.deleteMessage(staleId);
+        } catch (err) {
+            console.error(`[TranslationRelay] Failed to delete leftover chunk in channel ${sibling.channel_id}:`, err.message);
+        }
+    }
+    return kept.slice(1);
 }
 
 // replyMessageId (optional): the message.reference?.messageId of the edited/deleted
@@ -417,16 +470,15 @@ async function resyncRelayGroup(client, sourceRow, rebuiltBatch, replyMessageId 
                     quotePrefix = `> ${truncateQuote(quoteText)}\n`;
                 }
             }
-            bodyText = fitContent(quotePrefix, bodyText);
-
             const channel = await client.channels.fetch(sibling.channel_id);
             const webhook = await getOrCreateWebhook(targetRow, channel);
-            await webhook.editMessage(sibling.message_id, { content: quotePrefix + bodyText });
+            const extraMessageIds = await syncCopyChunks(webhook, channel, sibling, quotePrefix, chunkBody(quotePrefix, bodyText));
             db.updateRelayMessageText(sibling.id, {
                 text: bodyText,
                 batchMessageIds: sibling.batch_message_ids ? JSON.parse(sibling.batch_message_ids) : [],
                 lastLineText: bodyLines[bodyLines.length - 1],
             });
+            db.updateRelayMessageExtras(sibling.id, extraMessageIds);
         } catch (err) {
             console.error(`[TranslationRelay] Failed to sync edit to channel ${sibling.channel_id}:`, err.message);
         }
@@ -529,7 +581,13 @@ async function handleTranslationDeleteSync(message, client) {
                 const targetRow = db.getRelayChannelByChannelId(sibling.channel_id);
                 const channel = await client.channels.fetch(sibling.channel_id);
                 const webhook = await getOrCreateWebhook(targetRow, channel);
-                await webhook.deleteMessage(sibling.message_id);
+                for (const copyMessageId of [sibling.message_id, ...extraIdsOf(sibling)]) {
+                    try {
+                        await webhook.deleteMessage(copyMessageId);
+                    } catch (err) {
+                        console.error(`[TranslationRelay] Failed to delete relayed copy in channel ${sibling.channel_id}:`, err.message);
+                    }
+                }
             } catch (err) {
                 console.error(`[TranslationRelay] Failed to delete relayed copy in channel ${sibling.channel_id}:`, err.message);
             }

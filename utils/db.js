@@ -391,6 +391,7 @@ db.exec(`
     text                     TEXT NOT NULL,
     batch_message_ids        TEXT NOT NULL DEFAULT '[]',
     last_line_text           TEXT NOT NULL DEFAULT '',
+    extra_message_ids        TEXT NOT NULL DEFAULT '[]',
     created_at               TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_trm_group_msg ON translation_relay_messages(relay_group_message_id);
@@ -493,6 +494,7 @@ const relayMessageCols = new Set(db.prepare("PRAGMA table_info(translation_relay
 for (const [col, ddl] of [
     ['batch_message_ids', "ALTER TABLE translation_relay_messages ADD COLUMN batch_message_ids TEXT NOT NULL DEFAULT '[]'"],
     ['last_line_text', "ALTER TABLE translation_relay_messages ADD COLUMN last_line_text TEXT NOT NULL DEFAULT ''"],
+    ['extra_message_ids', "ALTER TABLE translation_relay_messages ADD COLUMN extra_message_ids TEXT NOT NULL DEFAULT '[]'"],
 ]) {
     if (!relayMessageCols.has(col)) db.exec(ddl);
 }
@@ -893,12 +895,13 @@ function setRelayChannelWebhook(id, webhookId, webhookToken) {
         .run(webhookId, webhookToken, id);
 }
 
-function insertRelayMessage({ relayGroupMessageId, channelId, messageId, authorId, authorDisplayName, language, text, batchMessageIds, lastLineText }) {
+function insertRelayMessage({ relayGroupMessageId, channelId, messageId, authorId, authorDisplayName, language, text, batchMessageIds, lastLineText, extraMessageIds }) {
     const r = db.prepare(`INSERT INTO translation_relay_messages
-        (relay_group_message_id, channel_id, message_id, author_id, author_display_name, language, text, batch_message_ids, last_line_text)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        (relay_group_message_id, channel_id, message_id, author_id, author_display_name, language, text, batch_message_ids, last_line_text, extra_message_ids)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(relayGroupMessageId, channelId, messageId, authorId, authorDisplayName, language, text,
-             JSON.stringify(batchMessageIds ?? [{ messageId, text }]), lastLineText ?? text);
+             JSON.stringify(batchMessageIds ?? [{ messageId, text }]), lastLineText ?? text,
+             JSON.stringify(extraMessageIds ?? []));
     return r.lastInsertRowid;
 }
 
@@ -915,7 +918,10 @@ function getRelayMessageByMessageId(messageId) {
                SELECT 1 FROM json_each(batch_message_ids)
                WHERE value LIKE '{%' AND json_extract(value, '$.messageId') = ?
            )
-    `).get(messageId, messageId);
+           OR EXISTS (
+               SELECT 1 FROM json_each(extra_message_ids) WHERE value = ?
+           )
+    `).get(messageId, messageId, messageId);
 }
 
 function getRelayMessagesByGroupId(relayGroupMessageId) {
@@ -953,6 +959,11 @@ function setRelayMessageGroupId(id, relayGroupMessageId) {
 function updateRelayMessageText(id, { text, batchMessageIds, lastLineText }) {
     db.prepare('UPDATE translation_relay_messages SET text = ?, batch_message_ids = ?, last_line_text = ? WHERE id = ?')
         .run(text, JSON.stringify(batchMessageIds), lastLineText, id);
+}
+
+function updateRelayMessageExtras(id, extraMessageIds) {
+    db.prepare('UPDATE translation_relay_messages SET extra_message_ids = ? WHERE id = ?')
+        .run(JSON.stringify(extraMessageIds), id);
 }
 
 function deleteRelayMessagesByGroupId(relayGroupMessageId) {
@@ -1144,6 +1155,7 @@ module.exports.insertNewsletterUsage = insertNewsletterUsage;
 module.exports.insertAskFlag = insertAskFlag;
 module.exports.setRelayMessageGroupId = setRelayMessageGroupId;
 module.exports.updateRelayMessageText = updateRelayMessageText;
+module.exports.updateRelayMessageExtras = updateRelayMessageExtras;
 module.exports.deleteRelayMessagesByGroupId = deleteRelayMessagesByGroupId;
 module.exports.createGloryctaPoll = createGloryctaPoll;
 module.exports.getGloryctaPollByMessageId = getGloryctaPollByMessageId;
