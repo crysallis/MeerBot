@@ -371,7 +371,9 @@ A `guild_duel_rankings` row can now exist with only `damage` (written by the min
 
 The stats site's Guild Duel tab also charts damage. `/api/guild-duel` returns `crestReport(db)` plus a `damage` block from `damageReport(db)` in `utils/guildDuelRows.js`: only weeks where the weekend scan clearly ran (10+ members with damage), those weeks' damage rows, and who was AFK in each (the same AFK rule as the recap, shared in `utils/duelWeeks.js`). The pure display logic lives in `stats/src/charts/guildDuelDamage.mjs` (tested under `node --test`): a bar chart that follows the same Warband / Period / Members selectors as the crests chart, and a Damage column in the Had Crests table. A member with crests and no damage in a week that has damage data reads `No damage` (red), an AFK member reads `AFK` instead, and a week without damage data shows a blank rather than accusing anyone. All Time adds the weeks up. The chart updates its Chart.js instance in place, because the shared theme-recolor loop calls `update()` on every chart after `_recolor` and throws on a destroyed one.
 
-### glory.js / gloryctaReactionGuard.js / gloryctaCancelButtonHandler.js
+### clashfronts.js
+
+`/clashfronts signedup`, `notsigned` and `remind` only read `clashfronts_signups` (miner-owned: member_id, selected, scanned_at), which the miner's optional Clashfronts scan mode (`SCAN_CLASHFRONTS`, admin Scan Modes tab) rewrites in full on every run, so the table always reflects the last scan and goes stale between events. `notsigned` and `remind` use active members with no sign-up row and no `member_afk` row. `remind` posts to `CLASHFRONTS_REMINDER_CHANNEL_ID`, pings linked members in chunks of 50 (Discord's content and mention limits), and lists unlinked members in a separate embed. There is no code-level permission gate and no Discord default permission, so an unconfigured command is open to everyone: set the rules on the admin Permissions tab, especially for `remind`.
 
 One command file (`slash-commands/glory.js`), three subcommands, all backed by the shared `glorycta_polls` table (see Database Tables above):
 

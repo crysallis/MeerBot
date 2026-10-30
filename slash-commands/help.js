@@ -52,6 +52,14 @@ const COMMANDS = {
             { name: '/guildduel add name: crests: rank:', desc: 'Add or correct one member\'s row for the current week. Name autocompletes, rank is optional (an existing rank is kept). Defaults to Manage Server only.' },
         ],
     },
+    clashfronts: {
+        description: 'Clashfronts sign-up tracking · who has signed up, who still needs to, and a nudge for the rest. Reads the most recent Clashfronts scan.',
+        subcommands: [
+            { name: '/clashfronts signedup', desc: 'Lists members who signed up, marking who has been selected (✅) and who has not yet (🚫).' },
+            { name: '/clashfronts notsigned', desc: 'Lists active members who have not signed up. Members on AFK are left out.' },
+            { name: '/clashfronts remind', desc: 'Posts a reminder in the Clashfronts reminder channel pinging every member who has not signed up. Members not linked to Discord are listed separately, since they cannot be pinged.' },
+        ],
+    },
     member: {
         description: 'Look up a single guild member.',
         subcommands: [
@@ -267,6 +275,7 @@ module.exports = {
             ping: 'Latency check with a quip',
             glory: 'Clash of Glory vote · confirm · count',
             guildduel: 'low · missing · recap · add Guild Duel rows by hand',
+            clashfronts: 'signedup · notsigned · remind',
             scan: 'Trigger a guild scan',
             rename: 'Rename a member in the database',
             note: 'Add · view · delete notes on members',
