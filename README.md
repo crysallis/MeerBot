@@ -126,6 +126,12 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/guildduel missing` | List active members the last Guild Duel scan didn't capture (current Battle Report week) |
 | `/guildduel recap date:` | Public numbers-only recap of one finished Guild Duel week (damage, hits, unspent hits, no names) · Manage Server by default |
 | `/guildduel add name: crests: rank:` | Add or correct one member's Guild Duel row by hand · rank is optional, an existing rank is kept · Manage Server by default |
+| `/warn add member: reason: expires:` | Add a warning to a member · free-text reason · expires after 3 months unless a date is given · Manage Server by default |
+| `/warn edit member: warning: reason: expires:` | Change a warning's reason or expiry · Manage Server by default |
+| `/warn expire member: warning: note:` | End a warning now, keeping it in history · Manage Server by default |
+| `/warn strike member: warning:` | Delete a warning permanently after a confirm button · Manage Server by default |
+| `/warn list member:` | One member's full warning history · Manage Server by default |
+| `/warn report include_expired:` | Members with active warnings, most first · Manage Server by default |
 | `/glory count message:` | Count reactions on a `/glory cta` or `/glory confirm` post · pass a Discord message link |
 | `/scan` | Trigger a live guild scrape (authorized user only) · always runs the roster scan; enabled mode scans run alongside · the Guild Duel Damage mode (off by default, toggle in the admin Scan Modes tab) reads each member's boss damage and only runs Saturday to Sunday UTC, before the Monday reset |
 | `/roster add guild: user:` | Add a Discord member to a guild role (RiffRaff or Frop) · removes Who Dis? role |
@@ -237,6 +243,7 @@ MeerBot/
         rename.js               /rename with autocomplete · merges on name collision.
         review.js               /review list/approve/merge for scanner-flagged pending members.
         note.js                 /note add/view/delete.
+        warn.js                 /warn add/edit/expire/strike/list/report · member warnings, plus an automatic one for the 3+ day offline callout.
         afk.js                  /afk set/clear/list.
         birthday.js             /birthday register/list/remove.
         help.js                 /help with permission-aware filtering.

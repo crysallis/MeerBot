@@ -133,6 +133,8 @@ warbands            Sub-unit within a guild (id, name UNIQUE, sort_order, archiv
 member_name_history Audit log of name changes from /rename and admin panel.
 name_corrections    OCR correction map. Written by scraper and /rename, readable by bot.
 member_notes        Admin notes on members. Multiple notes per member (/note command).
+member_warnings     Member warnings (/warn). Active is derived: not ended early and not past expires_at.
+warning_log         One row per /warn action, including the bot's automatic add. No FK to member_warnings, so a struck warning leaves only its action/actor/time.
 member_afk          AFK status. One row per member (UNIQUE on member_id).
 scheduled_jobs      Unified job queue. One row per pending or recurring job.
                     type = 'script_job' | 'text_job' | 'remindme' | 'recruitment_followup'
@@ -370,6 +372,16 @@ Calls `interaction.deferUpdate()` immediately after the eligibility/status gates
 A `guild_duel_rankings` row can now exist with only `damage` (written by the miner's Saturday-Sunday `guild_duel_damage` scan) and no `crests` until the Monday Battle Report scan fills them, so every reader that means "has crests" filters `crests IS NOT NULL`. The shared SQL lives in `utils/guildDuelRows.js` (`missingForPeriod`, `latestCrestsRow`, `upsertCrests`, `crestReport`), used by this command, `/member` and the stats site's `/api/guild-duel`, and `mergeMembers` combines overlapping weeks field by field so merging two members never drops one half of a week.
 
 The stats site's Guild Duel tab also charts damage. `/api/guild-duel` returns `crestReport(db)` plus a `damage` block from `damageReport(db)` in `utils/guildDuelRows.js`: only weeks where the weekend scan clearly ran (10+ members with damage), those weeks' damage rows, and who was AFK in each (the same AFK rule as the recap, shared in `utils/duelWeeks.js`). The pure display logic lives in `stats/src/charts/guildDuelDamage.mjs` (tested under `node --test`): a bar chart that follows the same Warband / Period / Members selectors as the crests chart, and a Damage column in the Had Crests table. A member with crests and no damage in a week that has damage data reads `No damage` (red), an AFK member reads `AFK` instead, and a week without damage data shows a blank rather than accusing anyone. All Time adds the weeks up. The chart updates its Chart.js instance in place, because the shared theme-recolor loop calls `update()` on every chart after `_recolor` and throws on a destroyed one.
+
+### warn.js
+
+`/warn` records warnings against members and does nothing else: no DMs, roles or escalation. All logic is in `utils/warnings.js` as functions over a db handle (so tests run on in-memory DBs), formatting is in `utils/warningReport.js`, and `slash-commands/warn.js` only parses options and replies, always ephemerally. The command sets `setDefaultMemberPermissions(ManageGuild)` for the same reason as `/guildduel add`: an unconfigured command is otherwise open to everyone. Ask MeerBot reads that default, so `/warn` is hidden from members without Manage Server.
+
+A warning is `active` when it has not been ended early and `expires_at` has not passed; `expired` and `ended` are the other two states, all derived at read time. Expired and ended warnings stay in `/warn list`. The default expiry is three calendar months (about one in-game season).
+
+`/warn strike` is a hard delete behind a confirm button (`utils/handlers/warnStrikeButtonHandler.js`, `warn_strike:<id>:<userId>:<issuedAtMs>`). The row goes, and so does the text: edit and expire log rows hold old/new reason text, so a strike also blanks `detail` on every earlier `warning_log` row for that warning. `commandLogger` records the invocation (including a typed reason, in the private command-log channel) but not the outcome, so the confirm handler also posts a one-line strike notice there.
+
+The one automatic warning is written by `scan.js` right after a scan, before the inactivity alert: `loadInactiveRows(db, INACTIVITY_DAYS)` is the single query for both, so the warning and the callout always agree, and it runs even when no alert channel is configured. `recordOfflineWarnings` creates a `created_by = 'bot'` warning (`Offline 3+ days`) for each listed member, linked to Discord or not, once per absence streak: a member is skipped unless they have never had an `auto_add` log row or a later snapshot shows them active again. The check reads `warning_log`, not `member_warnings`, so striking an automatic warning does not make the next scan re-create it.
 
 ### clashfronts.js
 

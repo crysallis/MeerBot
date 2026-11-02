@@ -52,6 +52,17 @@ const COMMANDS = {
             { name: '/guildduel add name: crests: rank:', desc: 'Add or correct one member\'s row for the current week. Name autocompletes, rank is optional (an existing rank is kept). Defaults to Manage Server only. Only you see the reply.' },
         ],
     },
+    warn: {
+        description: 'Member warnings · a record of who was warned, when, and why. Nothing happens automatically because of a warning. Defaults to Manage Server only. The bot also adds one on its own when a member shows in the 3+ days offline callout after a scan.',
+        subcommands: [
+            { name: '/warn add member: reason: expires:', desc: 'Add a warning to a member. Expires after 3 months unless you give a date (YYYY-MM-DD). Only you see the reply.' },
+            { name: '/warn edit member: warning: reason: expires:', desc: 'Change a warning\'s reason or expiry. Who added it and when never change. Only you see the reply.' },
+            { name: '/warn expire member: warning: note:', desc: 'End a warning now. It stays in the member\'s history, marked ended early. Only you see the reply.' },
+            { name: '/warn strike member: warning:', desc: 'Delete a warning permanently, after a confirm button. Only a log entry that it was struck, and by whom, remains. Only you see the reply.' },
+            { name: '/warn list member:', desc: 'One member\'s full warning history: active, expired and ended early, with who added each and any edits. Only you see the reply.' },
+            { name: '/warn report include_expired:', desc: 'Members with active warnings, most first, with their latest warning. Add include_expired to also list members whose warnings have all lapsed. Only you see the reply.' },
+        ],
+    },
     clashfronts: {
         description: 'Clashfronts sign-up tracking · who has signed up, who still needs to, and a nudge for the rest. Reads the most recent Clashfronts scan.',
         subcommands: [
@@ -276,6 +287,7 @@ module.exports = {
             glory: 'Clash of Glory vote · confirm · count',
             guildduel: 'low · missing · recap · add Guild Duel rows by hand',
             clashfronts: 'signedup · notsigned · remind',
+            warn: 'add · edit · expire · strike · list · report member warnings',
             scan: 'Trigger a guild scan',
             rename: 'Rename a member in the database',
             note: 'Add · view · delete notes on members',
