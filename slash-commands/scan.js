@@ -5,6 +5,7 @@ const { pickColor } = require("../utils/colors");
 const { enforce, enforcePermissions } = require("../utils/permissions");
 const botConfig = require("../utils/botConfig");
 const { CHECKIN_MESSAGE, CHECKIN_REACTIONS } = require("../utils/checkinContent");
+const warnings = require("../utils/warnings");
 
 const PYTHON = process.env.SCRAPER_PYTHON || "python";
 const SCRAPER = process.env.SCRAPER_SCRIPT;
@@ -29,27 +30,19 @@ function enabledModeFlags() {
 		.map(([, flag]) => flag);
 }
 
-function getLatestSnapshot() {
-	return db.prepare("SELECT id FROM snapshots ORDER BY id DESC LIMIT 1").get();
-}
-
 function getReviewerDiscordId() {
 	const row = db.prepare("SELECT discord_id FROM members WHERE id = 6").get();
 	return row?.discord_id ?? null;
 }
 
-async function postInactivityAlert(client) {
-	const INACTIVITY_CHANNEL = botConfig.get('INACTIVITY_ALERT_CHANNEL_ID');
-	const INACTIVITY_DAYS = Number(botConfig.get('INACTIVITY_DAYS', '3'));
-	if (!INACTIVITY_CHANNEL) return;
+function loadInactiveRows(h, inactiveDays) {
+	const snapshot = h.prepare("SELECT id FROM snapshots ORDER BY id DESC LIMIT 1").get();
+	if (!snapshot) return [];
 
-	const snapshot = getLatestSnapshot();
-	if (!snapshot) return;
-
-	const rows = db
+	return h
 		.prepare(
 			`
-        SELECT ms.name, ms.last_active, m.discord_id
+        SELECT ms.member_id, ms.name, ms.last_active, m.discord_id
         FROM member_snapshots ms
         LEFT JOIN members m ON m.id = ms.member_id
         LEFT JOIN member_afk afk ON afk.member_id = ms.member_id
@@ -58,16 +51,30 @@ async function postInactivityAlert(client) {
           AND afk.member_id IS NULL
     `,
 		)
-		.all(snapshot.id);
+		.all(snapshot.id)
+		.map(r => {
+			const m = r.last_active && r.last_active.match(/^(\d+)d\s*ago$/i);
+			return m ? { ...r, days_inactive: parseInt(m[1], 10) } : null;
+		})
+		.filter(r => r && r.days_inactive >= inactiveDays);
+}
 
-	const inactive = rows.filter(r => {
-		const m = r.last_active && r.last_active.match(/^(\d+)d\s*ago$/i);
-		return m && parseInt(m[1], 10) >= INACTIVITY_DAYS;
-	}).sort((a, b) => {
-		const daysA = parseInt(a.last_active.match(/^(\d+)/)[1], 10);
-		const daysB = parseInt(b.last_active.match(/^(\d+)/)[1], 10);
-		return daysB - daysA;
-	});
+function recordOfflineWarnings() {
+	const days = Number(botConfig.get('INACTIVITY_DAYS', '3'));
+	try {
+		const created = warnings.recordOfflineWarnings(db, loadInactiveRows(db, days), { thresholdDays: days, now: new Date() });
+		if (created) console.log(`[Warnings] Logged ${created} offline warning(s).`);
+	} catch (err) {
+		console.error('[Warnings] recordOfflineWarnings failed:', err.message);
+	}
+}
+
+async function postInactivityAlert(client) {
+	const INACTIVITY_CHANNEL = botConfig.get('INACTIVITY_ALERT_CHANNEL_ID');
+	const INACTIVITY_DAYS = Number(botConfig.get('INACTIVITY_DAYS', '3'));
+	if (!INACTIVITY_CHANNEL) return;
+
+	const inactive = loadInactiveRows(db, INACTIVITY_DAYS).sort((a, b) => b.days_inactive - a.days_inactive);
 
 	if (inactive.length === 0) return;
 
@@ -225,6 +232,7 @@ module.exports = {
 				}
 			}
 
+			recordOfflineWarnings();
 			await postInactivityAlert(interaction.client);
 			try {
 				const returned = db.markReturnedCheckins();
@@ -239,3 +247,4 @@ module.exports = {
 
 module.exports.MODE_OUTPUT_RE = MODE_OUTPUT_RE;
 module.exports.MODE_FLAGS = MODE_FLAGS;
+module.exports.loadInactiveRows = loadInactiveRows;
