@@ -60,7 +60,7 @@ Lifecycle and wording, as agreed:
 
 `member_warnings`: id, member_id (FK members), reason (free text), created_by (Discord id, or `bot`), created_at, expires_at, ended_at (nullable), ended_by (nullable).
 
-`warning_log`: id, warning_id (no FK, the row may be deleted), member_id, action (`add` / `edit` / `expire` / `strike` / `auto_add`), actor (Discord id or `bot`), at, detail (nullable). For `edit`, detail holds old and new values of the fields changed. For `strike`, detail is always empty.
+`warning_log`: id, warning_id (no FK, the row may be deleted), member_id, action (`add` / `edit` / `expire` / `strike` / `auto_add`), actor (Discord id or `bot`), at, detail (nullable). For `edit`, detail holds old and new values of the fields changed. For `strike`, detail is always empty, and the strike also blanks `detail` on every earlier log row for that warning (an `edit` row holds the old and new reason text), keeping only action, actor and time.
 
 Active count and status are derived at read time from `ended_at` and `expires_at`.
 
