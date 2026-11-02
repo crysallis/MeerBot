@@ -105,4 +105,18 @@ async function enforcePermissions(interaction, command, subcommand = null) {
     return false;
 }
 
-module.exports = { PERMS, getPerm, enforce, enforcePermissions, evaluatePermissions, pickRows };
+function configuredAccess(interaction, command) {
+    const db = require('./db');
+    let rows;
+    try {
+        rows = db.prepare("SELECT value_id FROM command_permissions WHERE command = ? AND type = 'role'").all(command);
+    } catch (err) {
+        console.error(`[permissions] DB read failed for ${command}: ${err.message}`);
+        return false;
+    }
+    if (rows.length === 0) return PERMS.admin.check(interaction);
+    const roles = interaction.member?.roles?.cache;
+    return rows.some(r => roles?.has(r.value_id));
+}
+
+module.exports = { PERMS, getPerm, enforce, enforcePermissions, evaluatePermissions, configuredAccess, pickRows };

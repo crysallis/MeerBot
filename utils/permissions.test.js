@@ -2,7 +2,7 @@ require('dotenv').config();
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const db = require('./db');
-const { enforcePermissions, evaluatePermissions } = require('./permissions');
+const { enforcePermissions, evaluatePermissions, configuredAccess } = require('./permissions');
 
 // Command name namespaced to this test file so it can never collide with a real
 // command's saved rows in the shared DB.
@@ -122,4 +122,30 @@ test('evaluatePermissions allows a member with the role in an allowed channel', 
     insertRule({ subcommand: null, type: 'channel', valueId: 'chan-allowed' });
     assert.equal(evaluatePermissions(fakeInteraction({ roleIds: ['role-riff'] }), CMD, 'sub1').allowed, true);
     assert.equal(evaluatePermissions(fakeInteraction({ roleIds: ['role-riff'], channelId: 'elsewhere' }), CMD, 'sub1').allowed, false);
+});
+
+function adminMember(roleIds, isAdmin) {
+    return { member: { roles: { cache: new Set(roleIds) }, permissions: { has: () => isAdmin } } };
+}
+
+test('configuredAccess falls back to Manage Server when no role rule is saved', () => {
+    assert.equal(configuredAccess(adminMember([], true), CMD), true);
+    assert.equal(configuredAccess(adminMember([], false), CMD), false);
+});
+
+test('configuredAccess follows a saved role rule, not Manage Server', () => {
+    insertRule({ subcommand: null, type: 'role', valueId: 'role-riff' });
+    assert.equal(configuredAccess(adminMember(['role-riff'], false), CMD), true);
+    assert.equal(configuredAccess(adminMember([], true), CMD), false);
+});
+
+test('configuredAccess counts a role rule saved on any subcommand', () => {
+    insertRule({ subcommand: 'strike', type: 'role', valueId: 'role-riff' });
+    assert.equal(configuredAccess(adminMember(['role-riff'], false), CMD), true);
+});
+
+test('configuredAccess ignores channel rules, since /help is used anywhere', () => {
+    insertRule({ subcommand: null, type: 'channel', valueId: 'chan-leader' });
+    assert.equal(configuredAccess(adminMember([], true), CMD), true);
+    assert.equal(configuredAccess(adminMember([], false), CMD), false);
 });

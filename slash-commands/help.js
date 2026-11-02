@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
-const { getPerm, enforcePermissions } = require('../utils/permissions');
+const { getPerm, enforcePermissions, configuredAccess } = require('../utils/permissions');
 const { pickColor } = require('../utils/colors');
 
 const COMMANDS = {
@@ -53,7 +53,7 @@ const COMMANDS = {
         ],
     },
     warn: {
-        perm: 'admin',
+        perm: 'configured',
         description: 'Member warnings · a record of who was warned, when, and why. Nothing happens automatically because of a warning. Defaults to Manage Server only. The bot also adds one on its own when a member shows in the 3+ days offline callout after a scan.',
         subcommands: [
             { name: '/warn add member: reason: expires:', desc: 'Add a warning to a member. Expires after 3 months unless you give a date (YYYY-MM-DD). Only you see the reply.' },
@@ -210,11 +210,19 @@ const COMMANDS = {
     },
 };
 
+const CONFIGURED = 'configured';
+
+function canSee(interaction, key) {
+    const perm = COMMANDS[key].perm;
+    return perm === CONFIGURED ? configuredAccess(interaction, key) : getPerm(perm).check(interaction);
+}
+
+function showsLabel(perm) {
+    return !!perm && perm !== 'everyone' && perm !== CONFIGURED;
+}
+
 function visibleCommands(interaction) {
-    return Object.keys(COMMANDS).filter(k => {
-        const perm = getPerm(COMMANDS[k].perm);
-        return perm.check(interaction);
-    });
+    return Object.keys(COMMANDS).filter(k => canSee(interaction, k));
 }
 
 function permTag(permName) {
@@ -251,16 +259,16 @@ module.exports = {
                 return interaction.reply({ content: `Unknown command \`/${cmd}\`.`, flags: MessageFlags.Ephemeral });
             }
             // Block detail view for restricted commands the user can't run
-            const cmdPerm = getPerm(info.perm);
-            if (!cmdPerm.check(interaction)) {
+            if (!canSee(interaction, cmd)) {
+                const label = showsLabel(info.perm) ? ` · requires **${getPerm(info.perm).label}**` : '';
                 return interaction.reply({
-                    content: `You don't have access to \`/${cmd}\` · requires **${cmdPerm.label}**.`,
+                    content: `You don't have access to \`/${cmd}\`${label}.`,
                     flags: MessageFlags.Ephemeral,
                 });
             }
 
-            const headerPerm = info.perm && info.perm !== 'everyone'
-                ? `**Requires: ${cmdPerm.label}**\n\n${info.description}`
+            const headerPerm = showsLabel(info.perm)
+                ? `**Requires: ${getPerm(info.perm).label}**\n\n${info.description}`
                 : info.description;
 
             const embed = new EmbedBuilder()
@@ -305,7 +313,7 @@ module.exports = {
 
         const fields = visible.map(k => {
             const perm = COMMANDS[k].perm;
-            const tag = (perm && perm !== 'everyone') ? ` · *${getPerm(perm).label}*` : '';
+            const tag = showsLabel(perm) ? ` · *${getPerm(perm).label}*` : '';
             return { name: `/${k}`, value: (summaries[k] || '') + tag };
         });
         fields.push({ name: '/help', value: 'You\'re looking at it. Add `command:name` for details.' });

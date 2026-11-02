@@ -2,8 +2,8 @@ require('dotenv').config();
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { COMMANDS } = require('./help');
+const warnCmd = require('./warn');
 const { visibleCommands } = require('../utils/handlers/askCapabilities');
-const { getPerm } = require('../utils/permissions');
 
 const SUBS = ['add', 'edit', 'expire', 'strike', 'list', 'report'];
 
@@ -22,18 +22,18 @@ test('every /warn help line says who sees the reply', () => {
     }
 });
 
-test('Ask MeerBot hides /warn from a member without Manage Server', () => {
-    assert.equal(visibleCommands(fakeMember(false), { warn: COMMANDS.warn }).warn, undefined);
+const ISOLATED = 'test_warn_ask_isolated';
+const MANAGE_SERVER = BigInt(warnCmd.data.default_member_permissions);
+
+test('Ask MeerBot hides a Manage Server command from a member without Manage Server', () => {
+    assert.equal(visibleCommands(fakeMember(false), { [ISOLATED]: COMMANDS.warn }, { [ISOLATED]: MANAGE_SERVER })[ISOLATED], undefined);
 });
 
 test('Ask MeerBot shows all /warn subcommands to a member with Manage Server', () => {
-    const out = visibleCommands(fakeMember(true), { warn: COMMANDS.warn });
-    assert.equal(out.warn.subcommands.length, 6);
+    const out = visibleCommands(fakeMember(true), { [ISOLATED]: COMMANDS.warn }, { [ISOLATED]: MANAGE_SERVER });
+    assert.equal(out[ISOLATED].subcommands.length, 6);
 });
 
-test('/help hides /warn from a member without Manage Server', () => {
-    const nonAdmin = { member: { permissions: { has: () => false } }, user: { id: 'x' } };
-    const admin = { member: { permissions: { has: () => true } }, user: { id: 'x' } };
-    assert.equal(getPerm(COMMANDS.warn.perm).check(nonAdmin), false);
-    assert.equal(getPerm(COMMANDS.warn.perm).check(admin), true);
+test('/help follows the saved permission rules for /warn instead of a fixed Manage Server label', () => {
+    assert.equal(COMMANDS.warn.perm, 'configured');
 });
