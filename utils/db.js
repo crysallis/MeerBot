@@ -1037,10 +1037,12 @@ function getPendingCheckinByDiscordId(discordId, handle = db) {
     ).get(discordId);
 }
 
-// Tags every still-pending check-in whose member a LATER snapshot shows active again
-// (last_active is not the "Nd ago" form, same test getMembersEligibleForCheckin uses
-// for "a new absence") as 'returned', recording when they were first seen back. It
-// does not claim a response: they logged in, they did not answer the DM.
+// Tags every still-pending check-in whose member has played since the DM went out
+// (a snapshot row with last_seen_approx later than sent_at) as 'returned',
+// recording when that was first seen. last_seen_approx is used, not the "Nd ago"
+// text, because a login between scans is often only seen as "1d ago" and the
+// weekly snapshot row is then overwritten. It does not claim a response: they
+// logged in, they did not answer the DM.
 function markReturnedCheckins(handle = db) {
     const pending = handle.prepare(
         "SELECT id, member_id, sent_at FROM member_checkin_dms WHERE status = 'pending'").all();
@@ -1049,9 +1051,8 @@ function markReturnedCheckins(handle = db) {
         FROM member_snapshots ms
         JOIN snapshots s ON s.id = ms.snapshot_id
         WHERE ms.member_id = ?
-          AND s.scraped_at > ?
-          AND ms.last_active IS NOT NULL
-          AND ms.last_active NOT LIKE '%d ago'
+          AND ms.last_seen_approx IS NOT NULL
+          AND ms.last_seen_approx > ?
         ORDER BY s.scraped_at ASC
         LIMIT 1`);
     const mark = handle.prepare(
@@ -1077,16 +1078,19 @@ function resolveCheckinResponse(id, { status, responseText, responseEmoji, respo
 
 // Eligible: 4+ days inactive per the latest snapshot, no active AFK record,
 // and either never checked in before, or their most recent check-in row's
-// sent_at predates a LATER snapshot showing them active again (a fresh
-// absence). member_snapshots' last_active text format ("Nd ago" / "Online" /
-// "Xm ago" / "Xh ago") is the same field postInactivityAlert already parses
-// in scan.js -- this mirrors that regex rather than introducing a new one.
-function getMembersEligibleForCheckin(inactivityDays) {
-    const snapshot = db.prepare('SELECT id FROM snapshots ORDER BY id DESC LIMIT 1').get();
+// sent_at predates the member's last_seen_approx (the miner's estimate of when
+// they last played: scan time minus the "Nd ago" reading). That last part is
+// "a fresh absence": the miner keeps ONE snapshot row per week and overwrites it
+// on every scan, so past snapshots cannot show a return, but last_seen_approx
+// can. member_snapshots' last_active text format ("Nd ago" / "Online" /
+// "Xm ago" / "Xh ago") is the same field postInactivityAlert parses in scan.js
+// -- this mirrors that regex rather than introducing a new one.
+function getMembersEligibleForCheckin(inactivityDays, handle = db) {
+    const snapshot = handle.prepare('SELECT id FROM snapshots ORDER BY id DESC LIMIT 1').get();
     if (!snapshot) return [];
 
-    const rows = db.prepare(`
-        SELECT ms.name, ms.last_active, m.id as member_id, m.discord_id
+    const rows = handle.prepare(`
+        SELECT ms.name, ms.last_active, ms.last_seen_approx, m.id as member_id, m.discord_id
         FROM member_snapshots ms
         LEFT JOIN members m ON m.id = ms.member_id
         LEFT JOIN member_afk afk ON afk.member_id = ms.member_id
@@ -1100,28 +1104,13 @@ function getMembersEligibleForCheckin(inactivityDays) {
         return match && parseInt(match[1], 10) >= inactivityDays;
     });
 
+    const lastCheckinStmt = handle.prepare(
+        'SELECT sent_at FROM member_checkin_dms WHERE member_id = ? ORDER BY id DESC LIMIT 1'
+    );
     const eligible = [];
     for (const r of inactive) {
-        const lastCheckin = db.prepare(
-            'SELECT sent_at FROM member_checkin_dms WHERE member_id = ? ORDER BY id DESC LIMIT 1'
-        ).get(r.member_id);
-
-        if (!lastCheckin) {
-            eligible.push(r);
-            continue;
-        }
-
-        const activeSince = db.prepare(`
-            SELECT 1
-            FROM member_snapshots ms2
-            JOIN snapshots s2 ON s2.id = ms2.snapshot_id
-            WHERE ms2.member_id = ?
-              AND s2.scraped_at > ?
-              AND ms2.last_active NOT LIKE '%d ago'
-            LIMIT 1
-        `).get(r.member_id, lastCheckin.sent_at);
-
-        if (activeSince) eligible.push(r);
+        const lastCheckin = lastCheckinStmt.get(r.member_id);
+        if (!lastCheckin || (r.last_seen_approx && r.last_seen_approx > lastCheckin.sent_at)) eligible.push(r);
     }
 
     return eligible.map(r => ({

@@ -7,7 +7,7 @@ const db = require('./db');
 const OLD_TABLE = `
   CREATE TABLE members (id INTEGER PRIMARY KEY);
   CREATE TABLE snapshots (id INTEGER PRIMARY KEY, scraped_at TEXT NOT NULL);
-  CREATE TABLE member_snapshots (member_id INTEGER, snapshot_id INTEGER, last_active TEXT);
+  CREATE TABLE member_snapshots (member_id INTEGER, snapshot_id INTEGER, last_active TEXT, last_seen_approx TEXT);
   CREATE TABLE member_checkin_dms (
     id                    INTEGER PRIMARY KEY AUTOINCREMENT,
     member_id             INTEGER NOT NULL REFERENCES members(id),
@@ -38,11 +38,20 @@ function addCheckin(h, { id, memberId, discordId = `d${memberId}`, messageId = `
         VALUES (?, ?, ?, ?, ?, 4, ?, ?)`).run(id, memberId, discordId, messageId, sentAt, status, respondedAt);
 }
 
+function approxFrom(scrapedAt, lastActive) {
+    if (!lastActive) return null;
+    if (lastActive.toLowerCase() === 'online') return scrapedAt;
+    const m = lastActive.match(/^(\d+)([smhd]) ago$/i);
+    if (!m) return scrapedAt;
+    const ms = { s: 1000, m: 60000, h: 3600000, d: 86400000 }[m[2].toLowerCase()] * Number(m[1]);
+    return new Date(Date.parse(`${scrapedAt.slice(0, 23)}Z`) - ms).toISOString().replace('Z', '000');
+}
+
 function addSnapshot(h, id, scrapedAt, activeByMember) {
     h.prepare('INSERT INTO snapshots (id, scraped_at) VALUES (?, ?)').run(id, scrapedAt);
     for (const [memberId, lastActive] of Object.entries(activeByMember)) {
-        h.prepare('INSERT INTO member_snapshots (member_id, snapshot_id, last_active) VALUES (?, ?, ?)')
-            .run(Number(memberId), id, lastActive);
+        h.prepare('INSERT INTO member_snapshots (member_id, snapshot_id, last_active, last_seen_approx) VALUES (?, ?, ?, ?)')
+            .run(Number(memberId), id, lastActive, approxFrom(scrapedAt, lastActive));
     }
 }
 
@@ -122,12 +131,39 @@ test('markReturnedCheckins leaves everything else alone', () => {
     addCheckin(h, { id: 4, memberId: 4, sentAt: '2026-10-20T10:00:00.000Z', status: 'dm_failed' });
     addCheckin(h, { id: 5, memberId: 5, sentAt: '2026-10-20T10:00:00.000Z' });
     addSnapshot(h, 1, '2026-10-19T12:00:00.000000', { 5: 'Online' });
-    addSnapshot(h, 2, '2026-10-22T12:00:00.000000', { 1: '2d ago', 2: null, 3: 'Online', 4: 'Online', 5: '9d ago' });
+    addSnapshot(h, 2, '2026-10-22T12:00:00.000000', { 1: '6d ago', 2: null, 3: 'Online', 4: 'Online', 5: '9d ago' });
 
     assert.equal(db.markReturnedCheckins(h), 0);
 
     const statuses = h.prepare('SELECT id, status FROM member_checkin_dms ORDER BY id').all().map(r => r.status);
     assert.deepEqual(statuses, ['pending', 'pending', 'responded_text', 'dm_failed', 'pending']);
+});
+
+test('markReturnedCheckins sees a return that the scan only shows as 1d ago', () => {
+    const h = migrated();
+    addCheckin(h, { id: 1, memberId: 1, sentAt: '2026-10-20T10:00:00.000Z' });
+    addSnapshot(h, 1, '2026-10-22T12:00:00.000000', { 1: '1d ago' });
+
+    assert.equal(db.markReturnedCheckins(h), 1);
+    assert.equal(h.prepare('SELECT returned_at FROM member_checkin_dms WHERE id = 1').get().returned_at, '2026-10-22T12:00:00.000000');
+});
+
+test('markReturnedCheckins does not treat a growing day count as a return', () => {
+    const h = migrated();
+    addCheckin(h, { id: 1, memberId: 1, sentAt: '2026-10-20T10:00:00.000Z' });
+    addSnapshot(h, 1, '2026-10-21T12:00:00.000000', { 1: '5d ago' });
+    addSnapshot(h, 2, '2026-10-23T12:00:00.000000', { 1: '7d ago' });
+    addSnapshot(h, 3, '2026-10-26T12:00:00.000000', { 1: '10d ago' });
+
+    assert.equal(db.markReturnedCheckins(h), 0);
+});
+
+test('markReturnedCheckins ignores a snapshot row with no readable last-seen time', () => {
+    const h = migrated();
+    addCheckin(h, { id: 1, memberId: 1, sentAt: '2026-10-20T10:00:00.000Z' });
+    addSnapshot(h, 1, '2026-10-22T12:00:00.000000', { 1: null });
+
+    assert.equal(db.markReturnedCheckins(h), 0);
 });
 
 test('markReturnedCheckins is idempotent', () => {
