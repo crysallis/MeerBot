@@ -53,6 +53,7 @@ const COMMANDS = {
         ],
     },
     warn: {
+        perm: 'admin',
         description: 'Member warnings · a record of who was warned, when, and why. Nothing happens automatically because of a warning. Defaults to Manage Server only. The bot also adds one on its own when a member shows in the 3+ days offline callout after a scan.',
         subcommands: [
             { name: '/warn add member: reason: expires:', desc: 'Add a warning to a member. Expires after 3 months unless you give a date (YYYY-MM-DD). Only you see the reply.' },

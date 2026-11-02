@@ -42,7 +42,7 @@ function loadInactiveRows(h, inactiveDays) {
 	return h
 		.prepare(
 			`
-        SELECT ms.member_id, ms.name, ms.last_active, m.discord_id
+        SELECT ms.member_id, ms.name, ms.last_active, ms.last_seen_approx, m.discord_id
         FROM member_snapshots ms
         LEFT JOIN members m ON m.id = ms.member_id
         LEFT JOIN member_afk afk ON afk.member_id = ms.member_id

@@ -12,8 +12,6 @@ function memDb() {
     const h = new Database(':memory:');
     h.exec(`
       CREATE TABLE members (id INTEGER PRIMARY KEY, ingame_name TEXT);
-      CREATE TABLE snapshots (id INTEGER PRIMARY KEY, scraped_at TEXT);
-      CREATE TABLE member_snapshots (snapshot_id INTEGER, member_id INTEGER, last_active TEXT);
       CREATE TABLE member_warnings (
         id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER NOT NULL REFERENCES members(id),
         reason TEXT NOT NULL, created_by TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL,
@@ -223,21 +221,44 @@ test('a struck automatic warning is not re-created while the member stays offlin
     assert.equal(h.prepare('SELECT COUNT(*) AS n FROM member_warnings').get().n, 0);
 });
 
-test('a member seen active in a later snapshot gets a new automatic warning when offline again', () => {
+test('a new automatic warning follows a return even when the weekly snapshot row was overwritten in place', () => {
     const h = memDb();
-    const rows = [{ member_id: 1, days_inactive: 3 }];
-    W.recordOfflineWarnings(h, rows, { thresholdDays: 3, now: NOW });
-    h.prepare("INSERT INTO snapshots (id, scraped_at) VALUES (1, '2026-11-03T08:00:00.000Z')").run();
-    h.prepare("INSERT INTO member_snapshots (snapshot_id, member_id, last_active) VALUES (1, 1, 'Online')").run();
-    assert.equal(W.needsAutoWarning(h, 1), true);
-    assert.equal(W.recordOfflineWarnings(h, rows, { thresholdDays: 3, now: LATER }), 1);
+    const monday = new Date('2026-11-02T12:00:00.000Z');
+    W.recordOfflineWarnings(h, [{ member_id: 1, days_inactive: 3, last_seen_approx: '2026-10-30T12:00:00.000000' }], { thresholdDays: 3, now: monday });
+    const sunday = new Date('2026-11-08T12:00:00.000Z');
+    const created = W.recordOfflineWarnings(h, [{ member_id: 1, days_inactive: 4, last_seen_approx: '2026-11-04T12:00:00.000000' }], { thresholdDays: 3, now: sunday });
+    assert.equal(created, 1);
     assert.equal(h.prepare('SELECT COUNT(*) AS n FROM member_warnings WHERE member_id = 1').get().n, 2);
 });
 
-test('a later snapshot that still shows the member offline does not count as a return', () => {
+test('the same absence seen on a later scan does not create another automatic warning', () => {
     const h = memDb();
-    W.recordOfflineWarnings(h, [{ member_id: 1, days_inactive: 3 }], { thresholdDays: 3, now: NOW });
-    h.prepare("INSERT INTO snapshots (id, scraped_at) VALUES (1, '2026-11-03T08:00:00.000Z')").run();
-    h.prepare("INSERT INTO member_snapshots (snapshot_id, member_id, last_active) VALUES (1, 1, '4d ago')").run();
-    assert.equal(W.needsAutoWarning(h, 1), false);
+    W.recordOfflineWarnings(h, [{ member_id: 1, days_inactive: 3, last_seen_approx: '2026-10-30T12:00:00.000000' }], { thresholdDays: 3, now: NOW });
+    const again = W.recordOfflineWarnings(h, [{ member_id: 1, days_inactive: 4, last_seen_approx: '2026-10-30T12:00:00.000000' }], { thresholdDays: 3, now: LATER });
+    assert.equal(again, 0);
+    assert.equal(W.needsAutoWarning(h, 1, '2026-10-30T12:00:00.000000'), false);
+});
+
+test('an unreadable last-seen time never starts a new streak, but the first warning is still created', () => {
+    const h = memDb();
+    assert.equal(W.recordOfflineWarnings(h, [{ member_id: 1, days_inactive: 3, last_seen_approx: null }], { thresholdDays: 3, now: NOW }), 1);
+    assert.equal(W.recordOfflineWarnings(h, [{ member_id: 1, days_inactive: 3, last_seen_approx: null }], { thresholdDays: 3, now: LATER }), 0);
+});
+
+test('a struck automatic warning does not come back when the member was last seen before it', () => {
+    const h = memDb();
+    const rows = [{ member_id: 1, days_inactive: 3, last_seen_approx: '2026-10-30T12:00:00.000000' }];
+    W.recordOfflineWarnings(h, rows, { thresholdDays: 3, now: NOW });
+    W.strikeWarning(h, h.prepare('SELECT id FROM member_warnings').get().id, '222', NOW);
+    assert.equal(W.recordOfflineWarnings(h, rows, { thresholdDays: 3, now: LATER }), 0);
+});
+
+test('listWarnings carries the note given when a warning was ended early', () => {
+    const h = memDb();
+    const id = W.addWarning(h, { memberId: 1, reason: 'R', createdBy: '1', now: NOW });
+    W.expireWarning(h, id, '2', 'sorted it out in chat', NOW);
+    const [w] = W.listWarnings(h, 1, NOW);
+    assert.equal(w.endNote, 'sorted it out in chat');
+    const other = W.addWarning(h, { memberId: 1, reason: 'Live', createdBy: '1', now: NOW });
+    assert.equal(W.listWarnings(h, 1, NOW).find(x => x.id === other).endNote, null);
 });

@@ -57,7 +57,7 @@ function historyLines(warnings) {
             `**#${w.id}** · ${label} · ${w.reason}`,
             `added by ${who(w.created_by)} · ${w.created_at.slice(0, 10)} · expires ${w.expires_at.slice(0, 10)}`,
         ];
-        if (w.ended_at) lines.push(`ended early by ${who(w.ended_by)} · ${w.ended_at.slice(0, 10)}`);
+        if (w.ended_at) lines.push(`ended early by ${who(w.ended_by)} · ${w.ended_at.slice(0, 10)}${w.endNote ? ` · "${w.endNote}"` : ''}`);
         for (const e of w.edits ?? []) lines.push(editLine(e));
         return lines.join('\n');
     });

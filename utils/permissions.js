@@ -62,7 +62,7 @@ function pickRows(rows, subcommand) {
     return specific.length > 0 ? specific : rows.filter(r => r.subcommand === null);
 }
 
-async function enforcePermissions(interaction, command, subcommand = null) {
+function evaluatePermissions(interaction, command, subcommand = null) {
     const db = require('./db');
 
     let roleRows, channelRows;
@@ -80,27 +80,29 @@ async function enforcePermissions(interaction, command, subcommand = null) {
         channelRows = pickRows(allChannelRows, subcommand);
     } catch (err) {
         console.error(`[permissions] DB read failed for ${command}/${subcommand ?? 'null'}: ${err.message}`);
-        await interaction.reply({ content: 'Bot is temporarily unavailable. Try again in a moment.', flags: MessageFlags.Ephemeral });
-        return false;
+        return { allowed: false, message: 'Bot is temporarily unavailable. Try again in a moment.' };
     }
 
     if (roleRows.length > 0) {
         const memberRoles = interaction.member?.roles?.cache;
         const hasRole = roleRows.some(r => memberRoles?.has(r.value_id));
-        if (!hasRole) {
-            await interaction.reply({ content: "You don't have permission to use this command.", flags: MessageFlags.Ephemeral });
-            return false;
-        }
+        if (!hasRole) return { allowed: false, message: "You don't have permission to use this command." };
     }
 
     if (channelRows.length > 0) {
         if (!channelRows.some(r => r.value_id === interaction.channelId)) {
-            await interaction.reply({ content: "This command can't be used in this channel.", flags: MessageFlags.Ephemeral });
-            return false;
+            return { allowed: false, message: "This command can't be used in this channel." };
         }
     }
 
-    return true;
+    return { allowed: true };
 }
 
-module.exports = { PERMS, getPerm, enforce, enforcePermissions, pickRows };
+async function enforcePermissions(interaction, command, subcommand = null) {
+    const result = evaluatePermissions(interaction, command, subcommand);
+    if (result.allowed) return true;
+    await interaction.reply({ content: result.message, flags: MessageFlags.Ephemeral });
+    return false;
+}
+
+module.exports = { PERMS, getPerm, enforce, enforcePermissions, evaluatePermissions, pickRows };

@@ -81,7 +81,13 @@ function loadWarnings(h, memberId, now) {
 function listWarnings(h, memberId, now = new Date()) {
     const editStmt = h.prepare(`SELECT at, actor, detail FROM warning_log
                                 WHERE warning_id = ? AND action = 'edit' ORDER BY id`);
-    return loadWarnings(h, memberId, now).map(w => ({ ...w, edits: editStmt.all(w.id) }));
+    const noteStmt = h.prepare(`SELECT detail FROM warning_log
+                                WHERE warning_id = ? AND action = 'expire' ORDER BY id DESC LIMIT 1`);
+    return loadWarnings(h, memberId, now).map(w => ({
+        ...w,
+        edits: editStmt.all(w.id),
+        endNote: w.ended_at ? (noteStmt.get(w.id)?.detail ?? null) : null,
+    }));
 }
 
 function countActive(h, memberId, now = new Date()) {
@@ -96,20 +102,17 @@ function pickerWarnings(h, memberId, mode, now = new Date()) {
     return all.slice().sort((a, b) => rank(a) - rank(b)).slice(0, EDIT_PICKER_LIMIT);
 }
 
-function needsAutoWarning(h, memberId) {
+function needsAutoWarning(h, memberId, lastSeenApprox) {
     const last = h.prepare(`SELECT at FROM warning_log WHERE member_id = ? AND action = 'auto_add'
                             ORDER BY id DESC LIMIT 1`).get(memberId);
     if (!last) return true;
-    return !!h.prepare(`SELECT 1 FROM member_snapshots ms
-                        JOIN snapshots s ON s.id = ms.snapshot_id
-                        WHERE ms.member_id = ? AND s.scraped_at > ? AND ms.last_active NOT LIKE '%d ago'
-                        LIMIT 1`).get(memberId, last.at);
+    return !!lastSeenApprox && lastSeenApprox > last.at;
 }
 
 function recordOfflineWarnings(h, inactiveRows, { thresholdDays, now = new Date() }) {
     let created = 0;
     for (const r of inactiveRows) {
-        if (!needsAutoWarning(h, r.member_id)) continue;
+        if (!needsAutoWarning(h, r.member_id, r.last_seen_approx)) continue;
         addWarning(h, {
             memberId: r.member_id,
             reason: `Offline ${thresholdDays}+ days`,

@@ -6,6 +6,8 @@ const { pickColor } = require('./colors');
 const SUB_COMMAND = 1;
 const SUB_COMMAND_GROUP = 2;
 
+const HIDDEN_OPTIONS = { warn: new Set(['reason', 'note']) };
+
 function buildCommandString(interaction) {
     const parts = [`/${interaction.commandName}`];
     let opts = interaction.options.data;
@@ -18,7 +20,8 @@ function buildCommandString(interaction) {
 
     for (const opt of opts) {
         let value = opt.value;
-        if (typeof value === 'string' && value.length > 60) value = value.slice(0, 57) + '...';
+        if (HIDDEN_OPTIONS[interaction.commandName]?.has(opt.name)) value = '[hidden]';
+        else if (typeof value === 'string' && value.length > 60) value = value.slice(0, 57) + '...';
         parts.push(`${opt.name}:${value}`);
     }
 
@@ -55,4 +58,4 @@ async function logCommand(interaction) {
     }
 }
 
-module.exports = { logCommand };
+module.exports = { logCommand, buildCommandString };

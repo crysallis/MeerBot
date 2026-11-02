@@ -4,7 +4,7 @@ const {
 } = require('discord.js');
 const db = require('../utils/db');
 const { pickColor } = require('../utils/colors');
-const { enforcePermissions } = require('../utils/permissions');
+const { enforcePermissions, evaluatePermissions } = require('../utils/permissions');
 const W = require('../utils/warnings');
 const { buildReport, reportLines, historyLines, chunkLines } = require('../utils/warningReport');
 
@@ -160,10 +160,11 @@ module.exports = {
     expireCommand,
     strikePrompt,
 
-    async autocomplete(interaction) {
+    async autocomplete(interaction, { evaluate = evaluatePermissions } = {}) {
+        const mode = interaction.options.getSubcommand();
+        if (!evaluate(interaction, 'warn', mode).allowed) return interaction.respond([]);
         const focused = interaction.options.getFocused(true);
         if (focused.name === 'member') return interaction.respond(memberChoices(db, focused.value));
-        const mode = interaction.options.getSubcommand();
         const name = interaction.options.getString('member');
         await interaction.respond(warningChoices(db, name, mode, focused.value));
     },

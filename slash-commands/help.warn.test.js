@@ -3,6 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { COMMANDS } = require('./help');
 const { visibleCommands } = require('../utils/handlers/askCapabilities');
+const { getPerm } = require('../utils/permissions');
 
 const SUBS = ['add', 'edit', 'expire', 'strike', 'list', 'report'];
 
@@ -28,4 +29,11 @@ test('Ask MeerBot hides /warn from a member without Manage Server', () => {
 test('Ask MeerBot shows all /warn subcommands to a member with Manage Server', () => {
     const out = visibleCommands(fakeMember(true), { warn: COMMANDS.warn });
     assert.equal(out.warn.subcommands.length, 6);
+});
+
+test('/help hides /warn from a member without Manage Server', () => {
+    const nonAdmin = { member: { permissions: { has: () => false } }, user: { id: 'x' } };
+    const admin = { member: { permissions: { has: () => true } }, user: { id: 'x' } };
+    assert.equal(getPerm(COMMANDS.warn.perm).check(nonAdmin), false);
+    assert.equal(getPerm(COMMANDS.warn.perm).check(admin), true);
 });

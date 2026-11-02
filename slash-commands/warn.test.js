@@ -160,3 +160,23 @@ test('member autocomplete answers with at most 25 plain choices', async () => {
     assert.ok(responses[0].length <= 25);
     for (const c of responses[0]) assert.equal(c.name, c.value);
 });
+
+test('autocomplete answers nothing when the caller would be refused by /warn permissions', async () => {
+    const responses = [];
+    const interaction = {
+        options: { getFocused: () => ({ name: 'member', value: '' }), getSubcommand: () => 'strike', getString: () => 'Alpha' },
+        respond: async (c) => { responses.push(c); },
+    };
+    await cmd.autocomplete(interaction, { evaluate: () => ({ allowed: false, message: 'no' }) });
+    assert.deepEqual(responses, [[]]);
+});
+
+test('autocomplete asks permissions about the warn command and the current subcommand', async () => {
+    const asked = [];
+    const interaction = {
+        options: { getFocused: () => ({ name: 'member', value: 'zzzz-no-such' }), getSubcommand: () => 'expire', getString: () => null },
+        respond: async () => {},
+    };
+    await cmd.autocomplete(interaction, { evaluate: (i, command, subcommand) => { asked.push([command, subcommand]); return { allowed: true }; } });
+    assert.deepEqual(asked, [['warn', 'expire']]);
+});

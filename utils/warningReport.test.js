@@ -90,3 +90,14 @@ test('chunkLines on nothing gives no chunks, and honors a custom separator', () 
     assert.deepEqual(chunkLines([]), []);
     assert.deepEqual(chunkLines(['a', 'b'], 3800, '\n\n'), ['a\n\nb']);
 });
+
+test('historyLines shows the note given when a warning was ended early', () => {
+    const [block] = historyLines([{ ...row({ ended_at: '2026-10-21T00:00:00.000Z', ended_by: '222' }), status: 'ended', edits: [], endNote: 'sorted it out in chat' }]);
+    assert.ok(block.includes('sorted it out in chat'));
+});
+
+test('historyLines ended line has no note text when none was given', () => {
+    const [block] = historyLines([{ ...row({ ended_at: '2026-10-21T00:00:00.000Z', ended_by: '222' }), status: 'ended', edits: [], endNote: null }]);
+    assert.ok(block.includes('ended early by <@222> · 2026-10-21'));
+    assert.ok(!block.includes('"'));
+});

@@ -2,7 +2,7 @@ require('dotenv').config();
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const db = require('./db');
-const { enforcePermissions } = require('./permissions');
+const { enforcePermissions, evaluatePermissions } = require('./permissions');
 
 // Command name namespaced to this test file so it can never collide with a real
 // command's saved rows in the shared DB.
@@ -99,4 +99,27 @@ test('enforcePermissions: a subcommand-specific rule of one type does not suppre
         fakeInteraction({ channelId: 'chan-other', roleIds: ['role-power-only'] }), CMD, 'power'
     );
     assert.equal(wrongChannel, false);
+});
+
+test('evaluatePermissions allows with no rules, and never replies', () => {
+    let replied = false;
+    const i = { ...fakeInteraction(), reply: async () => { replied = true; } };
+    assert.deepEqual(evaluatePermissions(i, CMD, 'sub1'), { allowed: true });
+    assert.equal(replied, false);
+});
+
+test('evaluatePermissions denies a role rule the member does not meet, with the message enforcePermissions sends', async () => {
+    insertRule({ subcommand: null, type: 'role', valueId: 'role-riff' });
+    const result = evaluatePermissions(fakeInteraction({ roleIds: [] }), CMD, 'sub1');
+    assert.equal(result.allowed, false);
+    const sent = [];
+    await enforcePermissions({ ...fakeInteraction({ roleIds: [] }), reply: async (p) => { sent.push(p.content); } }, CMD, 'sub1');
+    assert.equal(sent[0], result.message);
+});
+
+test('evaluatePermissions allows a member with the role in an allowed channel', () => {
+    insertRule({ subcommand: null, type: 'role', valueId: 'role-riff' });
+    insertRule({ subcommand: null, type: 'channel', valueId: 'chan-allowed' });
+    assert.equal(evaluatePermissions(fakeInteraction({ roleIds: ['role-riff'] }), CMD, 'sub1').allowed, true);
+    assert.equal(evaluatePermissions(fakeInteraction({ roleIds: ['role-riff'], channelId: 'elsewhere' }), CMD, 'sub1').allowed, false);
 });
