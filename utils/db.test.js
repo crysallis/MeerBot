@@ -42,6 +42,8 @@ function addDuelRow(memberId, fields) {
 test.afterEach(() => {
     for (const id of mergeFixtures.ids) {
         db.prepare('DELETE FROM guild_duel_rankings WHERE member_id = ?').run(id);
+        db.prepare('DELETE FROM member_warnings WHERE member_id = ?').run(id);
+        db.prepare('DELETE FROM warning_log WHERE member_id = ?').run(id);
         db.prepare('DELETE FROM member_name_history WHERE member_id = ?').run(id);
         db.prepare('DELETE FROM members WHERE id = ?').run(id);
     }
@@ -70,4 +72,24 @@ test('mergeMembers keeps the dropped member\'s crests when the keeper only has d
     db.mergeMembers(keep, drop);
     const row = db.prepare('SELECT rank, crests, damage FROM guild_duel_rankings WHERE member_id = ? AND period_start = ?').get(keep, MERGE_PERIOD);
     assert.deepEqual({ ...row }, { rank: 5, crests: 3500, damage: 567000000000 });
+});
+
+test('member_warnings table has the expected columns', () => {
+    const cols = db.prepare("PRAGMA table_info(member_warnings)").all().map(c => c.name);
+    assert.deepEqual(cols.sort(), ['created_at', 'created_by', 'ended_at', 'ended_by', 'expires_at', 'id', 'member_id', 'reason'].sort());
+});
+
+test('warning_log table has the expected columns', () => {
+    const cols = db.prepare("PRAGMA table_info(warning_log)").all().map(c => c.name);
+    assert.deepEqual(cols.sort(), ['action', 'actor', 'at', 'detail', 'id', 'member_id', 'warning_id'].sort());
+});
+
+test('mergeMembers repoints warnings and warning log rows onto the kept member', () => {
+    const keep = makeMergeMember('keep');
+    const drop = makeMergeMember('drop');
+    db.prepare("INSERT INTO member_warnings (member_id, reason, created_by, created_at, expires_at) VALUES (?, 'r', 'bot', '2026-11-02T00:00:00.000Z', '2027-02-02T00:00:00.000Z')").run(drop);
+    db.prepare("INSERT INTO warning_log (warning_id, member_id, action, actor, at) VALUES (1, ?, 'add', 'bot', '2026-11-02T00:00:00.000Z')").run(drop);
+    db.mergeMembers(keep, drop);
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM member_warnings WHERE member_id = ?').get(keep).n, 1);
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM warning_log WHERE member_id = ?').get(keep).n, 1);
 });

@@ -183,6 +183,30 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_notes_member ON member_notes(member_id);
 
+  CREATE TABLE IF NOT EXISTS member_warnings (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id   INTEGER NOT NULL REFERENCES members(id),
+    reason      TEXT NOT NULL,
+    created_by  TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    expires_at  TEXT NOT NULL,
+    ended_at    TEXT,
+    ended_by    TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_warnings_member ON member_warnings(member_id);
+
+  CREATE TABLE IF NOT EXISTS warning_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    warning_id  INTEGER NOT NULL,
+    member_id   INTEGER NOT NULL,
+    action      TEXT NOT NULL,
+    actor       TEXT NOT NULL,
+    at          TEXT NOT NULL,
+    detail      TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_warning_log_member ON warning_log(member_id);
+  CREATE INDEX IF NOT EXISTS idx_warning_log_warning ON warning_log(warning_id);
+
   CREATE TABLE IF NOT EXISTS member_afk (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     member_id   INTEGER NOT NULL UNIQUE REFERENCES members(id),
@@ -672,6 +696,8 @@ function mergeMembers(keepId, dropId) {
         db.prepare('UPDATE member_notes       SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
         db.prepare('UPDATE member_name_history SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
         db.prepare('UPDATE member_checkin_dms SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
+        db.prepare('UPDATE member_warnings    SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
+        db.prepare('UPDATE warning_log        SET member_id = ? WHERE member_id = ?').run(keepId, dropId);
 
         // This hand-maintained table list will drift as the miner adds new ranking tables
         // (each one FK-referencing members(id) will break the DELETE below if missed here).
