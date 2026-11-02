@@ -13,6 +13,7 @@ const { handleTranslationRelay, handleTranslationReactionSync, handleTranslation
 const { handleTransferButton } = require('./utils/handlers/transferButtonHandler');
 const { handleGloryctaReactionGuard } = require('./utils/handlers/gloryctaReactionGuard');
 const { handleGloryctaCancelButton } = require('./utils/handlers/gloryctaCancelButtonHandler');
+const { handleWarnStrikeButton } = require('./utils/handlers/warnStrikeButtonHandler');
 const { handleAsk, handleAskReport } = require('./utils/handlers/askHandler');
 const { handleCheckinReaction, resolveCheckinReply, postCheckinRelayAndConfirm } = require('./utils/handlers/checkinResponseHandler');
 const { rateLimit } = require('./config');
@@ -130,8 +131,9 @@ client.on('guildMemberUpdate', (oldMember, newMember) => handleTranslationRole(o
 client.on('interactionCreate', async interaction => {
   if (interaction.isButton()) {
     try {
-      const handled = await handleTransferButton(interaction);
-      if (!handled) await handleGloryctaCancelButton(interaction);
+      let handled = await handleTransferButton(interaction);
+      if (!handled) handled = await handleGloryctaCancelButton(interaction);
+      if (!handled) await handleWarnStrikeButton(interaction);
     } catch (err) {
       console.error('Button interaction error:', err);
     }
