@@ -22,6 +22,13 @@ test('the damage scan has an admin toggle that maps to its CLI flag, off by defa
 	assert.equal(botConfig.CONFIG_META.SCAN_GUILD_DUEL_DAMAGE.default, 'false');
 });
 
+test('the Horn Rally scan has an admin toggle, a CLI flag and a recognised status line', () => {
+	assert.equal(MODE_FLAGS.SCAN_HORN_RALLY, '--horn-rally');
+	assert.equal(botConfig.CONFIG_META.SCAN_HORN_RALLY.category, 'scan_modes');
+	assert.equal(botConfig.CONFIG_META.SCAN_HORN_RALLY.default, 'false');
+	assert.ok(MODE_OUTPUT_RE.test('HORN_RALLY: saved 41 attendees for 2026-11-06 (44 names read).'));
+});
+
 test('every scan flag key is registered in the admin config', () => {
 	for (const key of Object.keys(MODE_FLAGS)) {
 		assert.ok(botConfig.CONFIG_META[key], `${key} missing from CONFIG_META`);

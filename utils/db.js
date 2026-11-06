@@ -742,6 +742,7 @@ function mergeMembers(keepId, dropId) {
             { table: 'afk_stage_rankings', periodCol: 'season, phase' },
             { table: 'supreme_arena_rankings', periodCol: 'period_start' },
             { table: 'guild_duel_rankings', periodCol: 'period_start' },
+            { table: 'horn_rally_attendance', periodCol: 'event_date' },
         ]) {
             db.prepare(`DELETE FROM ${table}
                         WHERE member_id = ?

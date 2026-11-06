@@ -42,6 +42,7 @@ const CONFIG_META = {
     SCAN_CLASHFRONTS:            { label: 'Clashfronts Scan',          description: 'Include Clashfronts sign-ups in /scan',   category: 'scan_modes',  default: 'false' },
     SCAN_GUILD_DUEL:             { label: 'Guild Duel Scan',           description: 'Include Guild Duel crest rankings in /scan', category: 'scan_modes', default: 'false' },
     SCAN_GUILD_DUEL_DAMAGE:      { label: 'Guild Duel Damage Scan',     description: 'Include weekend Guild Duel damage in /scan (Saturday-Sunday UTC only)', category: 'scan_modes', default: 'false' },
+    SCAN_HORN_RALLY:             { label: 'Horn Rally Scan',           description: 'Include Horn Rally attendance in /scan (only while a horn is open, Events tab)', category: 'scan_modes', default: 'false' },
 };
 
 function get(key, fallback = '') {
