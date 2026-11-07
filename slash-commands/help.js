@@ -52,6 +52,12 @@ const COMMANDS = {
             { name: '/guildduel add name: crests: rank:', desc: 'Add or correct one member\'s row for the current week. Name autocompletes, rank is optional (an existing rank is kept). Defaults to Manage Server only. Only you see the reply.' },
         ],
     },
+    hornrally: {
+        description: 'Horn Rally attendance · who took part in a Horn Rally and who did not, from the Horn Rally scan.',
+        subcommands: [
+            { name: '/hornrally list participated: date:', desc: 'Lists the members who took part (yes) or did not (no) in a Horn Rally. Date autocompletes from the recorded Horn Rallies; leave it empty for the latest. "No" covers active members not on the list, with AFK members tagged. Defaults to Manage Server only. Only you see the reply.' },
+        ],
+    },
     warn: {
         perm: 'configured',
         description: 'Member warnings · a record of who was warned, when, and why. Nothing happens automatically because of a warning. Defaults to Manage Server only. The bot also adds one on its own when a member shows in the 3+ days offline callout after a scan.',
@@ -295,6 +301,7 @@ module.exports = {
             ping: 'Latency check with a quip',
             glory: 'Clash of Glory vote · confirm · count',
             guildduel: 'low · missing · recap · add Guild Duel rows by hand',
+            hornrally: 'list who took part in a Horn Rally or did not',
             clashfronts: 'signedup · notsigned · remind',
             warn: 'add · edit · expire · strike · list · report member warnings',
             scan: 'Trigger a guild scan',

@@ -126,6 +126,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/guildduel missing` | List active members the last Guild Duel scan didn't capture (current Battle Report week) |
 | `/guildduel recap date:` | Public numbers-only recap of one finished Guild Duel week (damage, hits, unspent hits, no names) · Manage Server by default |
 | `/guildduel add name: crests: rank:` | Add or correct one member's Guild Duel row by hand · rank is optional, an existing rank is kept · Manage Server by default |
+| `/hornrally list participated: date:` | List who took part (yes) or did not (no) in a Horn Rally · date autocompletes from the recorded horns, empty = latest · AFK members tagged · Manage Server by default · only you see the reply |
 | `/warn add member: reason: expires:` | Add a warning to a member · free-text reason · expires after 3 months unless a date is given · Manage Server by default |
 | `/warn edit member: warning: reason: expires:` | Change a warning's reason or expiry · Manage Server by default |
 | `/warn expire member: warning: note:` | End a warning now, keeping it in history · Manage Server by default |

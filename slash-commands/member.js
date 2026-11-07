@@ -2,7 +2,8 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const db = require('../utils/db');
 const { pickColor, toRgba } = require('../utils/colors');
 const { enforcePermissions } = require('../utils/permissions');
-const { latestDuelWeek, weekHasDamageData, duelDamageText, duelCrestsText } = require('../utils/guildDuelRows');
+const { memberHornStatus, hornRallyText } = require('../utils/hornRally');
+const { latestDuelWeek,weekHasDamageData, duelDamageText, duelCrestsText } = require('../utils/guildDuelRows');
 const { isMemberAfkForWeek } = require('../utils/guildDuelRecap');
 
 function fmtPower(val) {
@@ -175,6 +176,7 @@ module.exports = {
             { name: '🧪 Arcane Lab',     value: rankStr(arcaneLab),    inline: true },
             { name: '⚜️ Guild Duel Crests', value: guildDuelValue,     inline: true },
             { name: '💥 Guild Duel Damage', value: guildDuelDamage,   inline: true },
+            { name: '🎺 Horn Rally',        value: hornRallyText(memberHornStatus(db, mid), afkNow), inline: true },
         );
 
         if (dreamRealm.length) {
