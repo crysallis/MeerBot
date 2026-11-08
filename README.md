@@ -287,6 +287,10 @@ MeerBot/
                                 gains the translation role -- DMs a bilingual embed
                                 with instructions, then removes the role. Falls back
                                 to a general channel message if DMs are off.
+            memberLeaveHandler.js  guildMemberRemove handler. Posts who left (Discord
+                                name, in-game name, game id, warband, roles held) to
+                                the command-log channel, only for members the bot has
+                                linked. Read-only.
             transferButtonHandler.js  Button handler for transfer_approve:/transfer_deny:
                                 clicks (channel post or DM -- resolves the bot's one
                                 managed guild explicitly via GUILD_ID since a DM

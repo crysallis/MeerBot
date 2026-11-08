@@ -92,6 +92,19 @@ Requires `GatewayIntentBits.GuildMembers` (privileged intent -- must also be ena
 
 **`GatewayIntentBits.DirectMessages`** (not privileged, no Developer Portal toggle) is also required -- separately from `GuildMessages` -- for the bot to receive `messageCreate` events for DMs at all. Nothing needed it before `utils/handlers/askHandler.js`: `transferButtonHandler.js`'s DM flow is button *interactions* (`INTERACTION_CREATE`), a different gateway event that doesn't depend on this intent. Without it, a DM to the bot produces no error anywhere -- Discord's gateway simply never sends the event, so no `messageCreate` handler fires at all. `Partials.Channel` is also set, so an uncached DM channel doesn't arrive partial and fail downstream.
 
+### guildMemberRemove events
+
+```javascript
+client.on('guildMemberRemove', member => {
+    if (member.guild.id !== process.env.GUILD_ID) return;
+    handleMemberLeave(member, client);
+});
+```
+
+`utils/handlers/memberLeaveHandler.js` looks the leaver up by `members.discord_id`. A Discord id the bot never linked posts nothing, because the bare id cannot be traced back to anyone afterwards. A linked member gets an embed in the command-log channel with their Discord name and id, in-game name, game id, warband, join date and the roles they held. It never writes to the DB: the next scan inactivates them in game on its own.
+
+Roles are read from discord.js's member cache, and discord.js only emits `guildMemberRemove` for a cached member unless `Partials.GuildMember` is enabled. So `index.js` enables that partial (an uncached leaver still posts, with roles shown as unknown) and warms the cache with `guild.members.fetch()` on `clientReady`.
+
 ---
 
 ## utils/db.js (Database Layer)

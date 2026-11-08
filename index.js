@@ -7,6 +7,7 @@ const { logCommand } = require('./utils/commandLogger');
 const { scheduleCommandAutoDelete } = require('./utils/autoDelete');
 const { handleMessage } = require('./utils/messageReactions');
 const { handleTranslationRole } = require('./utils/handlers/translationRoleHandler');
+const { handleMemberLeave } = require('./utils/handlers/memberLeaveHandler');
 const { handlePromoCode } = require('./utils/handlers/promoCodeHandler');
 const { handleTitlePost, handleTitlePostEdit } = require('./utils/handlers/titlePostHandler');
 const { handleTranslationRelay, handleTranslationReactionSync, handleTranslationEditSync, handleTranslationDeleteSync } = require('./utils/handlers/translationRelayHandler');
@@ -48,7 +49,7 @@ const client = new Client({
     // receive messageReactionAdd events on reactions to the bot's own DM replies.
     GatewayIntentBits.DirectMessageReactions,
   ],
-  partials: [Partials.Message, Partials.Reaction, Partials.Channel],
+  partials: [Partials.Message, Partials.Reaction, Partials.Channel, Partials.GuildMember],
 });
 
 client.slashCommands = new Map();
@@ -70,6 +71,10 @@ client.once('clientReady', () => {
   console.log(`Ready. Logged in as ${client.user?.tag}`);
   client.user.setActivity('DM me for help or use the /help command', { type: ActivityType.Playing });
   initJobScheduler(client);
+  // guildMemberRemove carries roles only for members already in the cache
+  for (const guild of client.guilds.cache.values()) {
+    guild.members.fetch().catch(err => console.error(`[memberLeave] member cache warm failed: ${err.message}`));
+  }
 });
 
 client.on('messageCreate', message => {
@@ -127,6 +132,11 @@ client.on('messageDelete', message => {
   handleTranslationDeleteSync(message, client).catch(err => console.error('[TranslationRelay] Delete sync unhandled error:', err));
 });
 client.on('guildMemberUpdate', (oldMember, newMember) => handleTranslationRole(oldMember, newMember, client));
+
+client.on('guildMemberRemove', member => {
+  if (member.guild.id !== process.env.GUILD_ID) return;
+  handleMemberLeave(member, client);
+});
 
 client.on('interactionCreate', async interaction => {
   if (interaction.isButton()) {
