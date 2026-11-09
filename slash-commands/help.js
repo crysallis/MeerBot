@@ -207,7 +207,7 @@ const COMMANDS = {
         ],
     },
     roster: {
-        description: 'Manage guild membership roles (RKF RiffRaff · RKR Frop).',
+        description: 'Manage guild membership roles.',
         subcommands: [
             { name: '/roster add guild: user:',         desc: 'Add a member to a guild, by granting the correct guild level roles. It also removes the Who Dis? role if present and sends a welcome message. The reply is public.' },
             { name: '/roster remove guild: user:',      desc: 'Remove a member from a guild, by removing the correct guild level roles. The reply is public.' },

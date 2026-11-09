@@ -182,3 +182,10 @@ test('parseAskResponse treats a reply that is not a string as unstructured', () 
     const out = parseAskResponse('{"reply": 5, "flagged": false}');
     assert.equal(out.structured, false);
 });
+
+test('nonMemberReply names the guilds it is given and has no em dash', () => {
+    const { nonMemberReply } = require('./askHandler');
+    const reply = nonMemberReply('RiffRaff, Frop and Bulls');
+    assert.ok(reply.includes('RiffRaff, Frop and Bulls'));
+    assert.ok(!reply.includes('—'));
+});

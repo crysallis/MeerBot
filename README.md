@@ -135,7 +135,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/warn report include_expired:` | Members with active warnings, most first · Manage Server by default |
 | `/glory count message:` | Count reactions on a `/glory cta` or `/glory confirm` post · pass a Discord message link |
 | `/scan` | Trigger a live guild scrape (authorized user only) · always runs the roster scan; enabled mode scans run alongside · the Guild Duel Damage mode (off by default, toggle in the admin Scan Modes tab) reads each member's boss damage and only runs Saturday to Sunday UTC, before the Monday reset |
-| `/roster add guild: user:` | Add a Discord member to a guild role (RiffRaff or Frop) · removes Who Dis? role |
+| `/roster add guild: user:` | Add a Discord member to a guild role · `guild` autocompletes over the guilds table · removes Who Dis? role · welcome post goes to that guild's main channel |
 | `/roster remove guild: user:` | Remove a Discord member from a guild role |
 | `/roster transfer user: to_warband:` | Request moving a member to a different warband (autocomplete) · executes immediately if the initiator leads both warbands or holds a guild override role, otherwise posts an Approve/Deny request to the other side's warband leader |
 | `/rename old: new:` | Rename a member · merges into the target if that name already exists (dedupe) |
@@ -238,7 +238,7 @@ MeerBot/
                                 (one day past the alert threshold, once per absence streak).
                                 Always passes --guild.
         roster.js               /roster add/remove/transfer · Discord role management for
-                                RiffRaff and Frop guilds. transfer moves between warbands,
+                                every guild in the guilds table (autocomplete). transfer moves between warbands,
                                 requesting Approve/Deny from the other side's leader unless
                                 the initiator leads both sides or holds a guild override role.
         rename.js               /rename with autocomplete · merges on name collision.
@@ -302,6 +302,11 @@ MeerBot/
         sync-join-dates.js      One-time backfill of first_seen from Discord join dates.
         list-channels.js        Fetch all guild channels and dump to data/discord-channels.json.
         list-roles.js           Fetch all guild roles and dump to data/discord-roles.json.
+        onboard-guild.js        Stand up a new Discord-only guild: guild role, leader role,
+                                category, five channels, shared-category access, ids recorded
+                                in the guilds table. Dry run unless --apply is passed:
+                                node scripts/onboard-guild.js --name Bulls --leader-role "..." --emoji X
+                                After --apply it refreshes the two data/ snapshots itself.
     data/
         birthday-wishes.json    Rotating birthday wish messages (editable without restart).
         discord-channels.json   Snapshot of all server channels (IDs, names, categories).

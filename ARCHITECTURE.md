@@ -352,7 +352,7 @@ Whichever happens first wins: both `resolveCheckinReply` and `handleCheckinReact
 
 Manages Discord role assignment for guild/warband membership. Three subcommands:
 
-- **`add guild: user:`** -- adds the guild's role to the target member, removes the `Who Dis?` onboarding role if present, and optionally sends a welcome message to the guild's configured welcome channel (keyed by `ROSTER_WELCOME_<GUILD>_CHANNEL_ID` in `bot_config`). Guild-level only (RiffRaff/Frop) -- unrelated to warbands.
+- **`add guild: user:`** -- adds the guild's role to the target member, removes the `Who Dis?` onboarding role if present, and optionally sends a welcome message to the guild's welcome channel (`guilds.main_channel_id`; RiffRaff and Frop fall back to their legacy `ROSTER_WELCOME_*_CHANNEL_ID` `bot_config` keys). The `guild` option autocompletes over the `guilds` table (rows with a `guild_role_id`), so a newly onboarded guild appears with no code change. Guild-level only -- unrelated to warbands.
 - **`remove guild: user:`** -- removes the guild role.
 - **`transfer user: to_warband:`** -- requests moving a member to a different warband (autocomplete over the live `warbands` table). The target must already be linked (`members.discord_id` set via `/link`) -- blocks with an error otherwise, since there'd be nothing to key `transfer_approvals.member_id` off. No-ops with an error reply if the target is already in that warband.
 
@@ -367,6 +367,16 @@ Manages Discord role assignment for guild/warband membership. Three subcommands:
   **Approval only changes Discord roles, never `guild.db`.** `members.warband_id` is left for the next mining scan to resolve via OCR -- the in-game guild/warband move is a separate, human-driven action in AFK Journey that may not happen at the same moment as the Discord-side approval.
 
 Permission to run `/roster transfer` at all is entirely DB-backed via `enforcePermissions(interaction, 'roster', subcommand)` -- no hardcoded role check. The override/leader roles above are a separate, later gate (can this approval be bypassed / who must approve), not a replacement for that command-level permission.
+
+### Guild onboarding (scripts/onboard-guild.js)
+
+`node scripts/onboard-guild.js --name Bulls --leader-role "..." --emoji X [--apply]` stands up a Discord-only guild (one the miner cannot scan): a `RKF <Name> (Guild)` role, the leader role, a category with five channels, and access to the shared categories, with every id recorded in the database. It is a dry run unless `--apply` is passed, and a re-run after a partial failure resumes without duplicates.
+
+- `utils/guildOnboardingModel.js` is the fixed definition of what a new guild looks like (names and the three permission sets). Its values were copied once from Frop's category; it never reads another guild's setup.
+- `utils/guildOnboardingDiscovery.js` finds the shared categories: places where EVERY existing guild role has View Channel, excluding each guild's own category (`guilds.category_id`). Today that is Battle Modes only.
+- `utils/guildOnboarding.js` orchestrates against an adapter, so the dry run and the real run share one path; `utils/guildOnboardingDiscord.js` is the discord.js adapter. Editing a category's overwrites through the API does not cascade to its synced channels, so the adapter re-syncs each previously synced child with `lockPermissions()`.
+- `utils/guildRegistry.js` owns the `guilds` columns (`guild_role_id`, `leader_role_id`, `category_id`, `main_channel_id`), the `guild_channels` table (the four non-main channels and the shared-access grants), and a startup seed that fills them for RiffRaff and Frop.
+- No warbands, scanning or stats access for onboarded guilds; `stats/auth.js` stays RiffRaff and Frop only.
 
 ### transferButtonHandler.js
 
