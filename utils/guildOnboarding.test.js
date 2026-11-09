@@ -59,7 +59,11 @@ function makeDiscord({ canManage = true, failChannelOn = 0 } = {}) {
             channels.set(`${categoryId}|${name}`, id);
             return { id };
         },
-        async grantAccess(args) { calls.push('grantAccess'); (api.grants ||= []).push(args); },
+        async grantAccess(args) {
+            calls.push('grantAccess');
+            if (api.failGrant) throw new Error('50013 Missing Permissions');
+            (api.grants ||= []).push(args);
+        },
         async snapshotStructure() {
             calls.push('snapshotStructure');
             const v = id => ({ id, allow: ['ViewChannel'], deny: [] });
@@ -124,7 +128,7 @@ test('apply grants the new guild role on every shared target found', async () =>
     const g = reg.getGuildByName(h, 'RKF Bulls');
     assert.equal(discord.grants.length, 1);
     assert.deepEqual(discord.grants[0], { targetId: 'BM', roleId: g.guild_role_id, perms: SHARED_PERMS });
-    const grants = reg.getGuildChannels(h, g.id).filter(c => c.kind === 'shared_grant');
+    const grants = reg.getGuildChannels(h, g.id).filter(c => c.kind === 'shared_grant' && c.key !== 'grants_complete');
     assert.deepEqual(grants.map(c => c.discord_id), ['BM']);
 });
 
@@ -198,4 +202,19 @@ test('a pre-existing guild is never resumed or extended by name', async () => {
     assert.match(r.lines.join('\n'), /not created by onboarding/i);
     assert.deepEqual(writeCalls(), []);
     assert.equal(discord.calls.length, 0);
+});
+
+test('a failure while granting access is resumable and the finished guild is then refused', async () => {
+    discord.failGrant = true;
+    const first = await run();
+    assert.equal(first.ok, false);
+    assert.match(first.lines.join('\n'), /Stopped/);
+    discord.failGrant = false;
+    const second = await run();
+    assert.equal(second.ok, true, second.lines.join('\n'));
+    assert.equal(discord.grants.length, 1);
+    assert.equal(discord.channels.size, 5);
+    const third = await run();
+    assert.equal(third.ok, false);
+    assert.match(third.lines.join('\n'), /already onboarded/i);
 });

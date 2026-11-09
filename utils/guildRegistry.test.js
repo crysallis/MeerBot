@@ -69,7 +69,7 @@ test('addGuildChannel ignores a duplicate discord_id', () => {
     assert.deepEqual(rows.map(r => r.kind).sort(), ['channel', 'shared_grant']);
 });
 
-test('seedKnownGuilds fills nulls and never overwrites an existing value', () => {
+test('seedKnownGuilds fills role and category ids, leaves the welcome channel to the legacy config, and never overwrites', () => {
     reg.createGuild(h, 'RKF RiffRaff');
     const frop = reg.createGuild(h, 'RKF Frop');
     reg.setGuildDiscordIds(h, frop.id, { categoryId: 'x' });
@@ -79,11 +79,11 @@ test('seedKnownGuilds fills nulls and never overwrites an existing value', () =>
     assert.equal(f.category_id, 'x');
     assert.equal(f.guild_role_id, '1533951415633051688');
     assert.equal(f.leader_role_id, '1303422881002426398');
-    assert.equal(f.main_channel_id, '1482485945675550720');
+    assert.equal(f.main_channel_id, null);
     assert.deepEqual(JSON.parse(f.override_role_ids), ['1303422881002426398']);
     const r = reg.getGuildByName(h, 'RKF RiffRaff');
     assert.equal(r.guild_role_id, '1523580372208717964');
     assert.equal(r.category_id, '1510145205582692393');
-    assert.equal(r.main_channel_id, '1303421884687192174');
+    assert.equal(r.main_channel_id, null);
     assert.equal(r.leader_role_id, null);
 });

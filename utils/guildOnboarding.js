@@ -3,11 +3,14 @@ const model = require('./guildOnboardingModel');
 const { findSharedTargets } = require('./guildOnboardingDiscovery');
 
 const NON_MAIN_KEYS = model.CHANNEL_KEYS.filter(k => k !== 'main');
+const GRANTS_DONE_KEY = 'grants_complete';
 
 function isComplete(h, row) {
     if (!row.guild_role_id || !row.leader_role_id || !row.category_id || !row.main_channel_id) return false;
-    const keys = new Set(reg.getGuildChannels(h, row.id).filter(c => c.kind === 'channel').map(c => c.key));
-    return NON_MAIN_KEYS.every(k => keys.has(k));
+    const rows = reg.getGuildChannels(h, row.id);
+    const keys = new Set(rows.filter(c => c.kind === 'channel').map(c => c.key));
+    const grantsDone = rows.some(c => c.kind === 'shared_grant' && c.key === GRANTS_DONE_KEY);
+    return grantsDone && NON_MAIN_KEYS.every(k => keys.has(k));
 }
 
 async function runOnboarding({ input, discord, h, apply, log = () => {} }) {
@@ -143,6 +146,7 @@ async function runOnboarding({ input, discord, h, apply, log = () => {} }) {
             created.grants.push(target.id);
         }
         if (!targets.length) say('No shared categories found to grant access to.');
+        if (apply) reg.addGuildChannel(h, guild.id, 'shared_grant', GRANTS_DONE_KEY, GRANTS_DONE_KEY);
 
         return result(true);
     } catch (err) {

@@ -4,13 +4,11 @@ const KNOWN_GUILDS = {
     'RKF RiffRaff': {
         guild_role_id: '1523580372208717964',
         category_id: '1510145205582692393',
-        main_channel_id: '1303421884687192174',
     },
     'RKF Frop': {
         guild_role_id: '1533951415633051688',
         leader_role_id: '1303422881002426398',
         category_id: '1510143019951849492',
-        main_channel_id: '1482485945675550720',
     },
 };
 
