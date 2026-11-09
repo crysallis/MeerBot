@@ -1,5 +1,6 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const { ensureGuildSchema, seedKnownGuilds } = require('./guildRegistry');
 
 const dbPath = process.env.GUILD_DB_PATH || path.join(__dirname, '../../AFKDataMining/guild.db');
 
@@ -27,7 +28,11 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS guilds (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
     name              TEXT NOT NULL UNIQUE,
-    override_role_ids TEXT NOT NULL DEFAULT '[]'
+    override_role_ids TEXT NOT NULL DEFAULT '[]',
+    guild_role_id     TEXT,
+    leader_role_id    TEXT,
+    category_id       TEXT,
+    main_channel_id   TEXT
   );
 
   CREATE TABLE IF NOT EXISTS warbands (
@@ -40,6 +45,8 @@ db.exec(`
     member_role_id TEXT
   );
 `);
+
+ensureGuildSchema(db);
 
 // warbands may already exist (created by the miner pre-migration) without the
 // guild_id/leader_role_id/member_role_id columns · SQLite has no ADD COLUMN IF
@@ -60,6 +67,7 @@ const SEED_GUILDS = ['RKF RiffRaff', 'RKF Frop'];
 for (const name of SEED_GUILDS) {
     db.prepare('INSERT OR IGNORE INTO guilds (name) VALUES (?)').run(name);
 }
+seedKnownGuilds(db);
 const riffRaffGuildId = db.prepare('SELECT id FROM guilds WHERE name = ?').get('RKF RiffRaff')?.id;
 const SEED_WARBANDS = ['RKF RiffRaff', 'RKF Kings', 'Sobaquitos'];
 if (riffRaffGuildId) {
