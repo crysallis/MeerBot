@@ -4,15 +4,14 @@ const crypto  = require('crypto');
 const session = require('express-session');
 const SqliteStore = require('better-sqlite3-session-store')(session);
 const db = require('../utils/db');
-const { GUILDS } = require('../slash-commands/roster');
 
 const DISCORD_API = 'https://discord.com/api/v10';
 const GUILD_ID    = process.env.GUILD_ID;
 const CLIENT_ID   = process.env.DISCORD_CLIENT_ID || process.env.APPLICATION_ID;
 
 const MEMBER_ROLES = new Set([
-    GUILDS.riffraff.id, // RKF RiffRaff (Guild)
-    GUILDS.frop.id,     // RKF Frop (Guild)
+    '1523580372208717964', // RKF RiffRaff (Guild)
+    '1533951415633051688', // RKF Frop (Guild)
 ]);
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);

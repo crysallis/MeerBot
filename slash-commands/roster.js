@@ -4,47 +4,30 @@ const { pickColor } = require('../utils/colors');
 const botConfig = require('../utils/botConfig');
 const db = require('../utils/db');
 const { resolveApprover, resolveEligibleApprovers, newTransferId, buildApprovalEmbed } = require('../utils/transferApproval');
-
-const GUILDS = {
-    riffraff: { id: '1523580372208717964', label: 'RKF RiffRaff', welcomeKey: 'ROSTER_WELCOME_RIFFRAFF_CHANNEL_ID' },
-    frop:     { id: '1533951415633051688', label: 'RKF Frop',     welcomeKey: 'ROSTER_WELCOME_FROP_CHANNEL_ID' },
-};
+const { entryFromRow } = require('../utils/guildEntries');
+const { getGuildById } = require('../utils/guildRegistry');
 
 const WHO_DIS_ROLE_ID = '1330742760306638889';
 
-// Maps a warbands.guild_id (DB row) to this file's GUILDS entry, so a
-// cross-guild transfer also swaps the top-level RiffRaff/Frop Discord role.
-// Keyed by DB guild name since guild_id is a bot-assigned autoincrement id
-// with no fixed relationship to the hardcoded GUILDS keys above.
 function guildEntryForDbGuild(dbGuildId) {
     if (!dbGuildId) return null;
-    const dbGuild = db.getGuilds().find(g => g.id === dbGuildId);
-    if (!dbGuild) return null;
-    if (dbGuild.name === 'RKF RiffRaff') return GUILDS.riffraff;
-    if (dbGuild.name === 'RKF Frop') return GUILDS.frop;
-    return null;
+    return entryFromRow(getGuildById(db, dbGuildId), key => botConfig.get(key));
 }
 
-const GUILD_CHOICES = [
-    { name: 'RKF RiffRaff', value: 'riffraff' },
-    { name: 'RKF Frop',     value: 'frop' },
-];
-
 module.exports = {
-    GUILDS,
     data: new SlashCommandBuilder()
         .setName('roster')
         .setDescription('Manage guild membership roles')
         .addSubcommand(s => s
             .setName('add')
             .setDescription('Add a member to a guild')
-            .addStringOption(o => o.setName('guild').setDescription('Guild').setRequired(true).addChoices(...GUILD_CHOICES))
+            .addStringOption(o => o.setName('guild').setDescription('Guild').setRequired(true).setAutocomplete(true))
             .addUserOption(o => o.setName('user').setDescription('Discord member').setRequired(true))
         )
         .addSubcommand(s => s
             .setName('remove')
             .setDescription('Remove a member from a guild')
-            .addStringOption(o => o.setName('guild').setDescription('Guild').setRequired(true).addChoices(...GUILD_CHOICES))
+            .addStringOption(o => o.setName('guild').setDescription('Guild').setRequired(true).setAutocomplete(true))
             .addUserOption(o => o.setName('user').setDescription('Discord member').setRequired(true))
         )
         .addSubcommand(s => s
@@ -55,7 +38,16 @@ module.exports = {
         ),
 
     async autocomplete(interaction) {
-        const focused = interaction.options.getFocused().toLowerCase();
+        const focusedOption = interaction.options.getFocused(true);
+        const focused = String(focusedOption.value).toLowerCase();
+
+        if (focusedOption.name === 'guild') {
+            const guilds = db.getGuilds()
+                .filter(g => g.guild_role_id && g.name.toLowerCase().includes(focused))
+                .slice(0, 25);
+            return interaction.respond(guilds.map(g => ({ name: g.name, value: String(g.id) })));
+        }
+
         const filtered = db.getWarbands()
             .filter(w => w.name.toLowerCase().includes(focused))
             .slice(0, 25);
@@ -72,10 +64,17 @@ module.exports = {
             return interaction.reply({ content: 'That member was not found in this server.', flags: MessageFlags.Ephemeral });
         }
 
+        let guild = null;
+        if (sub === 'add' || sub === 'remove') {
+            guild = guildEntryForDbGuild(Number(interaction.options.getString('guild')));
+            if (!guild) {
+                return interaction.reply({ content: 'That guild is not set up for roster roles.', flags: MessageFlags.Ephemeral });
+            }
+        }
+
         await interaction.deferReply();
 
         if (sub === 'add') {
-            const guild = GUILDS[interaction.options.getString('guild')];
             const added   = [];
             const removed = [];
 
@@ -102,9 +101,8 @@ module.exports = {
                     .setFooter({ text: `By ${interaction.user.username}` })],
             });
 
-            const welcomeChannelId = botConfig.get(guild.welcomeKey);
-            if (welcomeChannelId) {
-                const ch = interaction.guild.channels.cache.get(welcomeChannelId);
+            if (guild.welcomeChannelId) {
+                const ch = interaction.guild.channels.cache.get(guild.welcomeChannelId);
                 if (ch) {
                     await ch.send(`Welcome to **${guild.label}**, ${target}! :tada:`);
                 }
@@ -114,8 +112,6 @@ module.exports = {
         }
 
         if (sub === 'remove') {
-            const guild = GUILDS[interaction.options.getString('guild')];
-
             const roleName = interaction.guild.roles.cache.get(guild.id)?.name ?? guild.label;
 
             if (!target.roles.cache.has(guild.id)) {
