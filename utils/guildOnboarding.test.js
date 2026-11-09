@@ -191,3 +191,11 @@ test('an existing guild whose recorded role was deleted refuses', async () => {
     assert.equal(r.ok, false);
     assert.deepEqual(writeCalls(), []);
 });
+
+test('a pre-existing guild is never resumed or extended by name', async () => {
+    const r = await run({ name: 'Frop', leaderRoleName: 'Some Leader' });
+    assert.equal(r.ok, false);
+    assert.match(r.lines.join('\n'), /not created by onboarding/i);
+    assert.deepEqual(writeCalls(), []);
+    assert.equal(discord.calls.length, 0);
+});

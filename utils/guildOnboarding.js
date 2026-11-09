@@ -28,6 +28,9 @@ async function runOnboarding({ input, discord, h, apply, log = () => {} }) {
     const guildName = `RKF ${String(input.name).trim()}`;
     const allGuilds = h.prepare('SELECT * FROM guilds').all();
     const existing = allGuilds.find(g => g.name.toLowerCase() === guildName.toLowerCase());
+    if (existing && reg.KNOWN_GUILD_NAMES.includes(existing.name)) {
+        return refuse(`${existing.name} already exists and was not created by onboarding, so it will not be touched.`);
+    }
     if (existing && isComplete(h, existing)) return refuse(`${existing.name} is already onboarded.`);
 
     const others = allGuilds.filter(g => g.id !== existing?.id && g.guild_role_id);

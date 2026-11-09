@@ -94,7 +94,10 @@ function seedKnownGuilds(h) {
     }
 }
 
+const KNOWN_GUILD_NAMES = Object.keys(KNOWN_GUILDS);
+
 module.exports = {
+    KNOWN_GUILD_NAMES,
     ensureGuildSchema,
     createGuild,
     getGuildById,
