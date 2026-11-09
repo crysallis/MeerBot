@@ -73,6 +73,12 @@ function makeDiscordAdapter(guild) {
             return picked.length ? picked[0].id : null;
         },
 
+        async botOutranks(roleId) {
+            const me = guild.members.me ?? await guild.members.fetchMe();
+            const role = await guild.roles.fetch(roleId);
+            return me.roles.highest.position > role.position;
+        },
+
         async findRoleByName(name) {
             const roles = await guild.roles.fetch();
             const role = roles.find(r => r.name === name);

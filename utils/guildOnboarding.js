@@ -50,6 +50,11 @@ async function runOnboarding({ input, discord, h, apply, log = () => {} }) {
         }
     }
 
+    const belowRoleId = await discord.lowestRoleAmong(others.map(g => g.guild_role_id));
+    if (belowRoleId && !(await discord.botOutranks(belowRoleId))) {
+        return refuse("The bot's role is not above the existing guild roles, so it cannot place the new roles. In Server Settings > Roles, drag the bot's role above them, then run this again.");
+    }
+
     const recordedRoleIds = new Set(others.flatMap(g => [g.guild_role_id, g.leader_role_id].filter(Boolean)));
     const leaderMatch = await discord.findRoleByName(input.leaderRoleName);
     if (leaderMatch && recordedRoleIds.has(leaderMatch.id)) {
@@ -58,8 +63,6 @@ async function runOnboarding({ input, discord, h, apply, log = () => {} }) {
 
     try {
         const guild = apply ? (existing || reg.createGuild(h, guildName)) : existing;
-        const belowRoleId = await discord.lowestRoleAmong(others.map(g => g.guild_role_id));
-
         const ensureRole = async (recordedId, name, label) => {
             if (recordedId && await discord.roleExists(recordedId)) {
                 say(`${label} "${name}" already recorded.`);

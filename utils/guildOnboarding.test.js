@@ -28,6 +28,7 @@ function makeDiscord({ canManage = true, failChannelOn = 0 } = {}) {
         async roleExists(id) { calls.push('roleExists'); return roles.has(id); },
         async categoryExists(id) { calls.push('categoryExists'); return categories.has(id); },
         async lowestRoleAmong(ids) { calls.push('lowestRoleAmong'); return ids.length ? ids[ids.length - 1] : null; },
+        async botOutranks() { calls.push('botOutranks'); return api.outranks !== false; },
         async findRoleByName(name) {
             calls.push('findRoleByName');
             for (const [id, n] of roles) if (n === name) return { id };
@@ -217,4 +218,19 @@ test('a failure while granting access is resumable and the finished guild is the
     const third = await run();
     assert.equal(third.ok, false);
     assert.match(third.lines.join('\n'), /already onboarded/i);
+});
+
+test('a bot role below the existing guild roles refuses with a clear message before creating anything', async () => {
+    discord.outranks = false;
+    const r = await run();
+    assert.equal(r.ok, false);
+    assert.match(r.lines.join('\n'), /drag the bot's role above/i);
+    assert.deepEqual(writeCalls(), []);
+    assert.equal(reg.getGuildByName(h, 'RKF Bulls'), undefined);
+});
+
+test('a dry run also reports a bot role that is too low', async () => {
+    discord.outranks = false;
+    const r = await run({}, false);
+    assert.equal(r.ok, false);
 });
