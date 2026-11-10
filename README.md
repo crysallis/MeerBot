@@ -115,6 +115,7 @@ Channel IDs and thresholds are stored in the `bot_config` DB table and editable 
 | `/anniversary upcoming days:` | All anniversaries in the next N days (default 30, ephemeral) |
 | `/anniversary set member: date:` | Override a member's join date (first_seen) in the DB |
 | `/titles titlename:` | Find the easter-eggs forum post(s) explaining how to earn a title (autocomplete) |
+| `/afkstage stage:` | Find the AFK stages channel post(s) for a stage: `127`, `P127`, `A127` or `PA127` (autocomplete) |
 
 ### Leader / admin commands
 
@@ -188,6 +189,7 @@ Also event-triggered. Two lightweight handlers watch specific channels and index
 
 - **Promo codes:** any message in the promo codes channel is scanned for a redemption code (a standalone line of 7-20 alphanumeric characters, bold/backtick-wrapped or plain, or one sharing a line with a `code:` label) and saved for later lookup. Reacts 💾 on a newly saved code, 🔁 if it was already known.
 - **Title posts:** any reply inside a thread under the easter-eggs forum channel that starts with `[TitleName]` is indexed for `/titles` to look up later. Editing the message updates or removes the indexed entry to match.
+- **AFK stage posts:** any post in the AFK stages channel containing a bracketed stage label (`[127]`, `[P127]`, `[A127]`, `[PA127]`, anywhere in the text) is indexed for `/afkstage`, one entry per label. Editing re-reads the labels and deleting the post removes its entries. `node scripts/backfill-afk-stage-posts.js` indexes posts made before the bot was watching.
 
 ---
 

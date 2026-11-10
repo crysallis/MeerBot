@@ -149,6 +149,12 @@ const COMMANDS = {
             { name: '/titles titlename:', desc: 'Look up a title and get jump links to every post that explains how to earn it. Only you see the reply.' },
         ],
     },
+    afkstage: {
+        description: 'Find the AFK stages post(s) for a stage.',
+        subcommands: [
+            { name: '/afkstage stage:', desc: 'Look up a stage (127, P127, A127 or PA127) and get jump links to every post about it. Only you see the reply.' },
+        ],
+    },
     review: {
         description: 'Review members the scanner flagged as new or unrecognized (pending).',
         perm: 'scanUser',
@@ -309,6 +315,7 @@ module.exports = {
             note: 'Add · view · delete notes on members',
             pearlbazaar: 'Pearl Bazaar price scan',
             titles: 'Look up a title, get links to the posts explaining it',
+            afkstage: 'Look up an AFK stage, get links to the posts about it',
             review: 'list · approve · merge · remove · return',
             afk: 'Set · clear · list AFK status',
             season: 'add · activate · inactivate · allyadd · allyremove · allylist',

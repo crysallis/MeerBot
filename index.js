@@ -10,6 +10,7 @@ const { handleTranslationRole } = require('./utils/handlers/translationRoleHandl
 const { handleMemberLeave } = require('./utils/handlers/memberLeaveHandler');
 const { handlePromoCode } = require('./utils/handlers/promoCodeHandler');
 const { handleTitlePost, handleTitlePostEdit } = require('./utils/handlers/titlePostHandler');
+const { handleAfkStagePost, handleAfkStageEdit, handleAfkStageDelete } = require('./utils/handlers/afkStagePostHandler');
 const { handleTranslationRelay, handleTranslationReactionSync, handleTranslationEditSync, handleTranslationDeleteSync } = require('./utils/handlers/translationRelayHandler');
 const { handleTransferButton } = require('./utils/handlers/transferButtonHandler');
 const { handleGloryctaReactionGuard } = require('./utils/handlers/gloryctaReactionGuard');
@@ -82,6 +83,7 @@ client.on('messageCreate', message => {
   handleMessage(message, client);
   handlePromoCode(message);
   handleTitlePost(message);
+  handleAfkStagePost(message);
   handleTranslationRelay(message, client).catch(err => console.error('[TranslationRelay] Unhandled error:', err));
   handleAsk(message, client).catch(err => console.error('[AskHandler] Unhandled error:', err));
   if (resolvedCheckin) {
@@ -122,6 +124,7 @@ client.on('messageUpdate', async (oldMessage, newMessage) => {
   // be missing/stale) -- treat that case as "skip" too, rather than falling through to a
   // real re-translation for what's likely just another no-op embed-load update.
   handleTitlePostEdit(newMessage);
+  handleAfkStageEdit(newMessage);
   if (oldMessage?.partial || oldMessage?.content === newMessage.content) return;
   handleTranslationEditSync(newMessage, client).catch(err => console.error('[TranslationRelay] Edit sync unhandled error:', err));
 });
@@ -129,6 +132,7 @@ client.on('messageDelete', message => {
   // message.id is always present even when the message arrives partial (uncached) -- and
   // a deleted message can't be fetched from the API anyway, so there's nothing to fetch
   // here unlike the messageUpdate case above.
+  handleAfkStageDelete(message);
   handleTranslationDeleteSync(message, client).catch(err => console.error('[TranslationRelay] Delete sync unhandled error:', err));
 });
 client.on('guildMemberUpdate', (oldMember, newMember) => handleTranslationRole(oldMember, newMember, client));

@@ -112,6 +112,15 @@ Find the easter-eggs forum post(s) that explain how to earn a title. The bot wat
 
 ---
 
+### /afkstage
+Find the AFK stages post(s) for a stage. The bot watches the AFK stages channel and automatically indexes any post containing a bracketed stage label.
+
+| Usage | Description |
+|---|---|
+| `/afkstage stage:` | Look up a stage (autocompletes) and get a jump link to every post about it. Labels are a number with an optional `P`, `A` or `PA` in front: `127`, `P127`, `A127`, `PA127`. Each label is its own stage. |
+
+---
+
 ### /ping
 Health check. Replies with Pong and the measured latency in ms, with a tiered comment.
 

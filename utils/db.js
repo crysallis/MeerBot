@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const { ensureGuildSchema, seedKnownGuilds } = require('./guildRegistry');
+const { ensureAfkStageSchema } = require('./afkStages');
 
 const dbPath = process.env.GUILD_DB_PATH || path.join(__dirname, '../../AFKDataMining/guild.db');
 
@@ -518,6 +519,8 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_title_posts_title ON title_posts(title);
 `);
+
+ensureAfkStageSchema(db);
 
 // translation_relay_messages may already exist (shipped pre-batching) without the
 // batch_message_ids/last_line_text columns · SQLite has no ADD COLUMN IF NOT
