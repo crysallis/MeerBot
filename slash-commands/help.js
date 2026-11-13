@@ -242,13 +242,19 @@ function permTag(permName) {
     return `\n*Requires: ${getPerm(permName).label}*`;
 }
 
+function helpChoices(visible, typed) {
+    const focused = typed.toLowerCase();
+    return visible
+        .filter(k => k.includes(focused))
+        .slice(0, 25)
+        .map(k => ({ name: k, value: k }));
+}
+
 module.exports = {
     COMMANDS,
+    helpChoices,
     async autocomplete(interaction) {
-        const focused = interaction.options.getFocused().toLowerCase();
-        const visible = visibleCommands(interaction);
-        const filtered = visible.filter(k => k.includes(focused));
-        await interaction.respond(filtered.map(k => ({ name: k, value: k })));
+        await interaction.respond(helpChoices(visibleCommands(interaction), interaction.options.getFocused()));
     },
 
     data: new SlashCommandBuilder()
