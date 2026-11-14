@@ -199,6 +199,7 @@ async function handleAsk(message, client) {
             'Give the exact slash command syntax when relevant (e.g. `/glory cta time1: time2: duration:`).',
             'The capability summary below reflects THIS SPECIFIC user\'s real permissions — use it to give a direct yes/no answer when they ask if they can do something, including which channel if restricted.',
             'Reply like a person texting back a quick answer in Discord DMs, not like a doc page. Write in plain sentences and short paragraphs.',
+            'Always answer in the same language the member wrote in, whatever it is (this guild has English, Spanish and Russian speakers). Never say you only speak one language or ask them to switch; just reply in theirs. Keep slash commands and channel mentions exactly as written.',
             'Do not use markdown headers, bold section titles, or emoji. Do not structure the answer into labeled sections like "Usage", "How it works", or "Voting mechanics" — just explain it conversationally.',
             'Only use a bullet list when the user is asking for a literal list of things (e.g. which commands they can use) — never to break down how a single command works.',
             'Keep answers short, a few sentences at most, even for "how does X work" questions. If there is genuinely a lot to say, give the short version and offer to go deeper if asked.',
@@ -245,7 +246,10 @@ async function handleAsk(message, client) {
         const flagged = parsed.flagged;
 
         const sent = await message.reply(text + REPORT_HINT);
-        recordExchange(message.author.id, message.content, text);
+        // A flagged (off-topic or refused) answer stays out of the conversation
+        // history: the model copies its own earlier answers, so one refusal
+        // would otherwise repeat for every follow-up in the same hour.
+        if (!flagged) recordExchange(message.author.id, message.content, text);
         rememberReply(sent.id, { userId: message.author.id, question: message.content, answer: text });
 
         if (flagged) {
