@@ -85,6 +85,38 @@ function buildPayload(rule) {
     return payload;
 }
 
+// Whether a rule's channel filter, mention requirement and pattern all accept
+// this message. Cooldown is deliberately not part of it: a rule that is cooling
+// down still "owns" the message (see matchesReactionRule).
+function ruleApplies(rule, message, client) {
+    if (rule.channel_filter) {
+        const allowed = JSON.parse(rule.channel_filter);
+        if (!allowed.includes(message.channelId)) return false;
+    }
+
+    const mentioned = message.mentions.has(client.user);
+    if (rule.require_mention && !mentioned) return false;
+
+    // Mention type skips the pattern, it just needs the @mention
+    if (rule.pattern_type === 'mention') return mentioned;
+    return matchesPattern(rule, message.content);
+}
+
+function anyRuleApplies(rules, message, client) {
+    return rules.some(rule => ruleApplies(rule, message, client));
+}
+
+// True when an enabled reaction rule claims this message. The Ask handler stays
+// out of it, so a rule always wins over an @mention question. Ignores cooldown
+// on purpose: a second "Hello @MeerBot" inside the cooldown is still the
+// greeting rule's, not a question for Claude.
+function matchesReactionRule(message, client) {
+    if (message.author.bot) return false;
+    if (!message.guild)     return false;
+    if (Date.now() - cacheLoadedAt > CACHE_TTL_MS) loadCache();
+    return anyRuleApplies(cache, message, client);
+}
+
 async function handleMessage(message, client) {
     if (message.author.bot) return;
     if (!message.guild)     return;
@@ -93,22 +125,7 @@ async function handleMessage(message, client) {
     if (Date.now() - cacheLoadedAt > CACHE_TTL_MS) loadCache();
 
     for (const rule of cache) {
-        // Channel filter
-        if (rule.channel_filter) {
-            const allowed = JSON.parse(rule.channel_filter);
-            if (!allowed.includes(message.channelId)) continue;
-        }
-
-        // Mention check
-        const mentioned = message.mentions.has(client.user);
-        if (rule.require_mention && !mentioned) continue;
-
-        // Pattern match (mention type skips pattern, just needs the @mention)
-        if (rule.pattern_type !== 'mention') {
-            if (!matchesPattern(rule, message.content)) continue;
-        } else {
-            if (!mentioned) continue;
-        }
+        if (!ruleApplies(rule, message, client)) continue;
 
         // Cooldown
         if (isOnCooldown(message.author.id, rule.id, rule.cooldown_seconds)) {
@@ -156,4 +173,4 @@ async function handleMessage(message, client) {
 // Load on startup
 loadCache();
 
-module.exports = { handleMessage, reloadCache };
+module.exports = { handleMessage, reloadCache, ruleApplies, anyRuleApplies, matchesReactionRule };
