@@ -6,7 +6,7 @@ const { guildDuelPeriodKey } = require("../utils/guildDuel");
 const botConfig = require("../utils/botConfig");
 const { evaluate, loadRows, thresholdsFromConfig } = require("../utils/guildDuelLow");
 const { damageLine, zeroSection, damageFooter } = require("../utils/guildDuelLowFormat");
-const { missingForPeriod, upsertCrests } = require("../utils/guildDuelRows");
+const { missingForPeriod, noDamageForWeek, weekHasDamageData, upsertCrests } = require("../utils/guildDuelRows");
 const {
 	weekStartOf, afkMemberIdsForWeek, evaluateRecap, classifyWeek, listRecapWeeks, buildRecapEmbed, recapMessage,
 } = require("../utils/guildDuelRecap");
@@ -38,7 +38,9 @@ module.exports = {
 		.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
 		.addSubcommand(s => s
 			.setName("missing")
-			.setDescription("Active members the last Guild Duel scan didn't capture"))
+			.setDescription("Active members the Guild Duel scan didn't capture, or who haven't hit this week")
+			.addStringOption(o => o.setName("type").setDescription("What to check (default: crests)")
+				.addChoices({ name: "Crests (last Battle Report)", value: "crests" }, { name: "Damage (this week, no hits yet)", value: "damage" })))
 		.addSubcommand(s => s
 			.setName("low")
 			.setDescription("Members falling short on guild activity, measured against the guild median"))
@@ -73,6 +75,29 @@ module.exports = {
 		const sub = interaction.options.getSubcommand();
 		if (!(await enforcePermissions(interaction, "guildduel", sub))) return;
 		const period = guildDuelPeriodKey();
+
+		if (sub === "missing" && interaction.options.getString("type") === "damage") {
+			const week = weekStartOf(new Date().toISOString().slice(0, 10));
+			if (!weekHasDamageData(db, week)) {
+				return interaction.reply({
+					content: `No damage has been scanned for the duel week starting ${week} yet. The weekend damage scan has to run first.`,
+					flags: MessageFlags.Ephemeral,
+				});
+			}
+			const { rows, lastScan } = noDamageForWeek(db, week);
+			const scanned = lastScan ? `last damage scan <t:${Math.floor(new Date(lastScan.endsWith("Z") ? lastScan : `${lastScan}Z`).getTime() / 1000)}:R>` : "";
+			if (rows.length === 0) {
+				return interaction.reply({ content: `✅ Every active member has damage for the week of ${week} (${scanned}).`, flags: MessageFlags.Ephemeral });
+			}
+			return interaction.reply({
+				embeds: [new EmbedBuilder()
+					.setTitle(`No damage yet (${rows.length})`)
+					.setDescription(`${scanned}\n\n${rows.map(r => `· ${r.ingame_name}${r.afk ? " · AFK" : ""}`).join("\n")}`.slice(0, 4000))
+					.setFooter({ text: `Duel week ${week} · a missed scan read can show a false zero` })
+					.setColor(pickColor())],
+				flags: MessageFlags.Ephemeral,
+			});
+		}
 
 		if (sub === "missing") {
 			const rows = missingForPeriod(db, period);

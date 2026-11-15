@@ -10,6 +10,23 @@ function missingForPeriod(db, period) {
 	`).all(period);
 }
 
+// Active members with no damage on the given duel week's row. The weekend scan only stores members it
+// read on the damage list, so "no hit yet" is simply no row with damage > 0. AFK members are tagged, not hidden.
+function noDamageForWeek(db, weekStart) {
+	const rows = db.prepare(`
+		SELECT m.id, m.ingame_name FROM members m
+		WHERE m.active = 1 AND m.pending = 0
+		  AND NOT EXISTS (SELECT 1 FROM guild_duel_rankings g
+		                  WHERE g.member_id = m.id AND g.period_start = ? AND g.damage > 0)
+		ORDER BY m.ingame_name COLLATE NOCASE
+	`).all(weekStart);
+	const afk = afkMemberIdsForWeek(db, weekStart);
+	const lastScan = db.prepare(
+		'SELECT MAX(damage_scanned_at) AS at FROM guild_duel_rankings WHERE period_start = ? AND damage > 0'
+	).get(weekStart).at;
+	return { rows: rows.map(r => ({ ingame_name: r.ingame_name, afk: afk.has(r.id) })), lastScan };
+}
+
 function latestCrestsRow(db, memberId) {
 	return db.prepare(`
 		SELECT rank, crests FROM guild_duel_rankings
@@ -118,6 +135,6 @@ function damageReport(db, minRows = 10) {
 }
 
 module.exports = {
-	missingForPeriod, latestCrestsRow, upsertCrests, crestReport, damageReport,
+	missingForPeriod, noDamageForWeek, latestCrestsRow, upsertCrests, crestReport, damageReport,
 	latestDuelWeek, weekHasDamageData, duelDamageText, duelCrestsText,
 };

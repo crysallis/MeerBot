@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Database = require('better-sqlite3');
-const { missingForPeriod, latestCrestsRow, upsertCrests, crestReport } = require('./guildDuelRows');
+const { missingForPeriod, noDamageForWeek, latestCrestsRow, upsertCrests, crestReport } = require('./guildDuelRows');
 const { loadRows } = require('./guildDuelLow');
 
 function makeDb() {
@@ -27,6 +27,45 @@ test('missingForPeriod lists a member whose only row is damage-only and omits on
 	addRow(db, 1, '2026-10-19', { damage: 5e11 });
 	addRow(db, 2, '2026-10-19', { rank: 4, crests: 4000 });
 	assert.deepEqual(missingForPeriod(db, '2026-10-19').map(r => r.ingame_name), ['Aaa', 'Ccc']);
+});
+
+function makeAfkDb() {
+	const db = makeDb();
+	db.exec(`
+		CREATE TABLE member_afk (member_id INTEGER, set_at TEXT, return_date TEXT);
+		CREATE TABLE member_afk_history (member_id INTEGER, started_at TEXT, ended_at TEXT);
+	`);
+	return db;
+}
+
+test('noDamageForWeek lists active members with no damage this week and omits those who hit', () => {
+	const db = makeAfkDb();
+	addRow(db, 1, '2026-11-09', { damage: 3e11 });
+	addRow(db, 3, '2026-11-02', { damage: 4e11 });
+	db.prepare("UPDATE guild_duel_rankings SET damage_scanned_at = '2026-11-15T23:29:24Z' WHERE member_id = 1").run();
+	const res = noDamageForWeek(db, '2026-11-09');
+	assert.deepEqual(res.rows.map(r => r.ingame_name), ['Bbb', 'Ccc']);
+	assert.equal(res.lastScan, '2026-11-15T23:29:24Z');
+});
+
+test('noDamageForWeek ignores inactive and pending members and tags AFK ones', () => {
+	const db = makeAfkDb();
+	db.exec(`
+		INSERT INTO members (id, ingame_name, active) VALUES (4, 'Gone', 0);
+		INSERT INTO members (id, ingame_name, pending) VALUES (5, 'Pend', 1);
+		INSERT INTO member_afk VALUES (2, '2026-11-10T00:00:00.000Z', NULL);
+	`);
+	addRow(db, 1, '2026-11-09', { damage: 3e11 });
+	const res = noDamageForWeek(db, '2026-11-09');
+	assert.deepEqual(res.rows, [{ ingame_name: 'Bbb', afk: true }, { ingame_name: 'Ccc', afk: false }]);
+});
+
+test('noDamageForWeek counts a crests-only row as no damage and reports no scan time when nobody has damage', () => {
+	const db = makeAfkDb();
+	addRow(db, 1, '2026-11-09', { rank: 2, crests: 4000 });
+	const res = noDamageForWeek(db, '2026-11-09');
+	assert.equal(res.rows.length, 3);
+	assert.equal(res.lastScan, null);
 });
 
 test('upsertCrests on a row that already has damage keeps the damage', () => {
